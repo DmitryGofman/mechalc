@@ -355,7 +355,7 @@ src/
     SafetyFactorBadge.tsx
     UnitSelector.tsx
     SectionPropertyPicker.tsx  // rect/round/tube -> A, I, Z, J
-    BoltPicker.tsx             // M-size -> At, torque, grade  (v2)
+    BoltPicker.tsx             // metric M-size + ANSI/UNC-UNF -> At, torque, grade  (v2)
     MaterialPicker.tsx         // material -> Sy, Su, E, rho
   formulas/
     gLoad.ts
@@ -421,8 +421,36 @@ src/
 10.9 → 830 MPa, 12.9 → 970 MPa. Recommended preload `F ≈ 0.75 · proof · At`;
 torque `T = K · F · d` with `K ≈ 0.2` (dry steel, default — make K editable).
 
+### Bolts & screws — ANSI/imperial, Unified thread (ASME B1.1 / B18)
+
+Inch-series fasteners (UNC coarse + UNF fine). Same picker, same math (`σ = F/At`,
+`T = K·F·d`) — only the table and units differ, which the units layer already handles.
+
+| Size      | UNC tpi | UNF tpi | Major Ø (in) | `At` UNC (in²) | `At` UNF (in²) |
+|-----------|---------|---------|--------------|----------------|----------------|
+| #4        | 40      | 48      | 0.112        | 0.00604        | 0.00661        |
+| #6        | 32      | 40      | 0.138        | 0.00909        | 0.01015        |
+| #8        | 32      | 36      | 0.164        | 0.0140         | 0.01474        |
+| #10       | 24      | 32      | 0.190        | 0.0175         | 0.0200         |
+| 1/4"      | 20      | 28      | 0.250        | 0.0318         | 0.0364         |
+| 5/16"     | 18      | 24      | 0.3125       | 0.0524         | 0.0580         |
+| 3/8"      | 16      | 24      | 0.375        | 0.0775         | 0.0878         |
+| 1/2"      | 13      | 20      | 0.500        | 0.1419         | 0.1599         |
+
+**Proof strength by SAE grade** (J429, for `σ = F/At` / preload): Grade 2 → 55 ksi
+(≈ 33 ksi for >¾"), Grade 5 → 85 ksi, Grade 8 → 120 ksi. Same preload rule
+`F ≈ 0.75 · proof · At`; default torque coefficient `K ≈ 0.2` (editable).
+
+> The bolt picker stores a `threadStandard: "metric" | "unified"` flag so a calc
+> records which fastener system it used; results round-trip in either unit system.
+
 ### Tap-drill (coarse)
-M3→2.5 · M4→3.3 · M5→4.2 · M6→5.0 · M8→6.8 · M10→8.5 · M12→10.2 mm
+
+**Metric (coarse):** M3→2.5 · M4→3.3 · M5→4.2 · M6→5.0 · M8→6.8 · M10→8.5 · M12→10.2 mm
+
+**Imperial (UNC, ~75% thread):** #4-40→#43 (0.089") · #6-32→#36 (0.1065") ·
+#8-32→#29 (0.136") · #10-24→#25 (0.1495") · 1/4-20→#7 (0.201") · 5/16-18→F (0.257") ·
+3/8-16→5/16" (0.3125") · 1/2-13→27/64" (0.4219")
 
 ### Materials (typical values)
 
