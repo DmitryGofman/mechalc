@@ -401,15 +401,40 @@ src/
 
 ## 9. Built-in tables (the moat)
 
-### Bolts (metric coarse) — M3, M4, M5, M6, M8, M10, M12
-Per size: nominal Ø, **tensile stress area `At`**, wrench size, approx. tightening
-torque, proof/yield by grade **8.8 / 10.9 / 12.9**.
+> Values below are typical/nominal engineering references for the picker UIs. Treat
+> them as a starting dataset to be reviewed against a trusted source before release;
+> the *structure* is what matters here. All stored as `Quantity` so units stay safe.
+
+### Bolts — metric coarse, ISO 261 / 898-1
+
+| Size | Pitch (mm) | Nominal Ø (mm) | Tensile area `At` (mm²) | Wrench (mm) |
+|------|-----------|----------------|--------------------------|-------------|
+| M3   | 0.50      | 3.0            | 5.03                     | 5.5         |
+| M4   | 0.70      | 4.0            | 8.78                     | 7           |
+| M5   | 0.80      | 5.0            | 14.2                     | 8           |
+| M6   | 1.00      | 6.0            | 20.1                     | 10          |
+| M8   | 1.25      | 8.0            | 36.6                     | 13          |
+| M10  | 1.50      | 10.0           | 58.0                     | 17          |
+| M12  | 1.75      | 12.0           | 84.3                     | 19          |
+
+**Proof strength by grade** (use for preload / `σ = F/At`): 8.8 → 580 MPa,
+10.9 → 830 MPa, 12.9 → 970 MPa. Recommended preload `F ≈ 0.75 · proof · At`;
+torque `T = K · F · d` with `K ≈ 0.2` (dry steel, default — make K editable).
 
 ### Tap-drill (coarse)
 M3→2.5 · M4→3.3 · M5→4.2 · M6→5.0 · M8→6.8 · M10→8.5 · M12→10.2 mm
 
-### Materials (Sy, Su, E, ρ)
-Al 6061-T6 · Al 7075-T6 · Steel 1018 · SS 304 · SS 316 · Nylon · PC-ABS
+### Materials (typical values)
+
+| Material      | Sy (MPa) | Su (MPa) | E (GPa) | ρ (kg/m³) |
+|---------------|----------|----------|---------|-----------|
+| Al 6061-T6    | 276      | 310      | 68.9    | 2700      |
+| Al 7075-T6    | 503      | 572      | 71.7    | 2810      |
+| Steel 1018    | 370      | 440      | 205     | 7870      |
+| SS 304        | 215      | 505      | 193     | 8000      |
+| SS 316        | 290      | 580      | 193     | 8000      |
+| Nylon (PA6)   | 45       | 70       | 2.0     | 1140      |
+| PC-ABS        | 55       | 60       | 2.3     | 1130      |
 
 ```ts
 type Material = {
@@ -473,4 +498,93 @@ Ship exactly this, in order:
 
 That's a genuinely useful, units-safe tool covering the everyday hand-calcs — built
 around the things engineers repeat most and lose the most time on.
+
+---
+
+## Appendix A — A formula defined end-to-end (G-load)
+
+A complete `Formula` definition plus its `Calculator`, showing how metadata, units,
+diagram, validation, and math all connect for one entry in `formulas/index.ts`.
+
+```ts
+// formulas/gLoad.ts
+export const gLoadFormula: Formula = {
+  id: "g-load",
+  category: "G-Loads",
+  name: "G-Load → Force",
+  synonyms: ["acceleration force", "shock", "inertial load", "F = m n g"],
+  equationTeX: "F = m \\cdot n \\cdot g",
+  diagramId: "g-load-mass",
+  explanation:
+    "Equivalent inertial force on a mass under an acceleration of n times gravity. " +
+    "Used as the load input for bracket and fastener checks under shock/vibration.",
+  inputs: [
+    { symbol: "m", name: "Mass", dimension: "mass",
+      defaultUnit: "kg", description: "Mass being accelerated", min: 0 },
+    { symbol: "n", name: "G count", dimension: "dimensionless",
+      defaultUnit: "", description: "Acceleration as a multiple of g", min: 0 },
+    { symbol: "g", name: "Gravity", dimension: "acceleration",
+      defaultUnit: "m_s2", description: "Standard gravity", defaultValue: 9.81 },
+  ],
+  outputs: [
+    { symbol: "F", name: "Resultant force", dimension: "force",
+      preferredUnit: "N", description: "Equivalent inertial force m·n·g" },
+  ],
+  references: ["Shigley's Mechanical Engineering Design"],
+}
+
+// engine side — pure, SI only
+export const gLoadCalculator: Calculator = {
+  formulaId: "g-load",
+  calculate: ({ m, n, g }) => ({ F: m * n * g }),
+  validate: ({ m, n }) => {
+    const errs: ValidationError[] = []
+    if (m < 0) errs.push({ field: "m", level: "error", message: "Mass cannot be negative" })
+    if (n < 0) errs.push({ field: "n", level: "error", message: "G count cannot be negative" })
+    return errs
+  },
+}
 ```
+
+## Appendix B — The same flow with real numbers
+
+Bracket holding a 2 kg unit, surviving 10g, on a 50 mm aluminium arm
+(rectangular section 20 × 5 mm, Al 6061-T6):
+
+| Step | Inputs (as typed) | SI conversion | Result |
+|------|-------------------|---------------|--------|
+| 1. G-load | m = 2 kg, n = 10, g = 9.81 | — | **F = 196.2 N** |
+| 2. Section (rect) | b = 20 mm, h = 5 mm | 0.020 × 0.005 m | I = 2.08×10⁻¹⁰ m⁴, Z = 8.33×10⁻⁸ m³ |
+| 3. Material | Al 6061-T6 | — | Sy = 276 MPa |
+| 4. Bending | F = 196.2 N, L = 50 mm | M = F·L = 9.81 N·m | **σb = M/Z = 117.7 MPa** |
+| 5. Safety factor | — | — | **SF = Sy/σb = 2.34** ✅ (green) |
+
+This is exactly the chain the app automates: the engineer types five numbers in
+whatever units they like and reads `F`, `σb`, and `SF` — no formula recall, no section
+lookup, no unit juggling. Reproducing this by hand is ~5 minutes of fiddly work; here
+it's seconds, and the saved record makes it auditable in a design review.
+
+## Appendix C — Testing approach (units can't ship broken)
+
+```ts
+// gLoad.test.ts
+test("g-load matches hand calc", () => {
+  expect(gLoadCalculator.calculate({ m: 2, n: 10, g: 9.81 }).F).toBeCloseTo(196.2, 1)
+})
+
+// units.test.ts — guard against bad conversion factors
+test("imperial input converts to the same SI force", () => {
+  const lbf = { value: 44.1, unit: "lbf" as UnitId }   // ~196 N
+  expect(toSI(lbf)).toBeCloseTo(196.2, 0)
+})
+
+// dimensional guard — every formula's outputs must be the declared dimension
+test.each(allFormulas)("%s outputs are dimensionally declared", (f) => {
+  for (const out of f.outputs)
+    expect(UNITS[out.preferredUnit].dimension).toBe(out.dimension)
+})
+```
+
+Two non-negotiable test layers: (1) each `Calculator` vs a hand-worked example, and
+(2) unit/dimensional guards so a wrong conversion factor or a mismatched output unit
+fails CI instead of reaching an engineer who trusts the number.
