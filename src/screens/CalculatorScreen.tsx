@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import type { FormulaDef, Quantity, SavedCalculation } from "../engine/types";
 import { FORMULA_BY_ID } from "../formulas";
 import { PREFERRED } from "../units/registry";
-import { toSI, fromSI } from "../units/convert";
+import { toSI, fromSI, convert } from "../units/convert";
 import { formatNumber } from "../units/format";
 import { UNITS } from "../units/registry";
 import { MATERIALS } from "../data/materials";
@@ -77,6 +77,32 @@ export function CalculatorScreen({
     setFields(initFields(formula, system));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formulaId, loadId]);
+
+  // When the user flips the global Metric⇄Imperial toggle, re-express the values
+  // already on screen in the new system's preferred units (physical value preserved).
+  const prevSystem = useRef(system);
+  useEffect(() => {
+    if (prevSystem.current === system) return;
+    prevSystem.current = system;
+    setFields((f) => {
+      const next = { ...f };
+      for (const inp of formula.inputs) {
+        const fs = next[inp.symbol];
+        if (!fs) continue;
+        const target = displayUnit(inp.dimension, system, inp.defaultUnit);
+        if (target === fs.unit) continue;
+        const raw = fs.value.trim();
+        if (raw !== "" && !isNaN(Number(raw))) {
+          const c = convert({ value: Number(raw), unit: fs.unit }, target);
+          next[inp.symbol] = { value: formatNumber(c.value), unit: target };
+        } else {
+          next[inp.symbol] = { ...fs, unit: target };
+        }
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [system]);
 
   const setField = (symbol: string, next: FieldState) =>
     setFields((f) => ({ ...f, [symbol]: next }));
