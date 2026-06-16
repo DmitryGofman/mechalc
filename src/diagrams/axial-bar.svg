@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 200" font-family="sans-serif">
+  <title>Axial Stress in a Bar</title>
+  <defs>
+    <marker id="arrowR" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c0392b"/>
+    </marker>
+    <marker id="arrowL" markerWidth="10" markerHeight="10" refX="2" refY="3" orient="auto">
+      <path d="M8,0 L0,3 L8,6 Z" fill="#c0392b"/>
+    </marker>
+    <pattern id="hatch" width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="8" stroke="#34495e" stroke-width="1.5"/>
+    </pattern>
+  </defs>
+  <!-- wall -->
+  <rect x="30" y="60" width="14" height="80" fill="url(#hatch)" stroke="#34495e"/>
+  <line x1="44" y1="60" x2="44" y2="140" stroke="#34495e" stroke-width="2"/>
+  <!-- bar -->
+  <rect x="44" y="85" width="220" height="30" fill="#dfe7f0" stroke="#34495e" stroke-width="2"/>
+  <text x="150" y="105" text-anchor="middle" font-size="15" fill="#2c3e50">A (cross-section)</text>
+  <!-- axial load F -->
+  <line x1="264" y1="100" x2="330" y2="100" stroke="#c0392b" stroke-width="3" marker-end="url(#arrowR)"/>
+  <text x="300" y="90" text-anchor="middle" font-size="18" fill="#c0392b">F</text>
+  <!-- stress label -->
+  <text x="150" y="150" text-anchor="middle" font-size="16" fill="#2c3e50">σ = F / A</text>
+  <text x="150" y="40" text-anchor="middle" font-size="15" fill="#7f8c8d">Tension / compression</text>
+</svg>

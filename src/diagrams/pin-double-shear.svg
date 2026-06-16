@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 210" font-family="sans-serif">
+  <title>Pin in Double Shear</title>
+  <defs>
+    <marker id="dR" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c0392b"/>
+    </marker>
+    <marker id="dL" markerWidth="10" markerHeight="10" refX="2" refY="3" orient="auto">
+      <path d="M8,0 L0,3 L8,6 Z" fill="#c0392b"/>
+    </marker>
+  </defs>
+  <!-- outer clevis (two prongs, pulled left) -->
+  <rect x="40" y="50" width="120" height="26" fill="#dfe7f0" stroke="#34495e" stroke-width="2"/>
+  <rect x="40" y="134" width="120" height="26" fill="#dfe7f0" stroke="#34495e" stroke-width="2"/>
+  <line x1="40" y1="105" x2="12" y2="105" stroke="#c0392b" stroke-width="3" marker-end="url(#dL)"/>
+  <text x="16" y="100" font-size="16" fill="#c0392b">F/2 + F/2</text>
+  <!-- inner tongue (pulled right) -->
+  <rect x="170" y="92" width="160" height="26" fill="#c9d6e5" stroke="#34495e" stroke-width="2"/>
+  <line x1="330" y1="105" x2="352" y2="105" stroke="#c0392b" stroke-width="3" marker-end="url(#dR)"/>
+  <text x="345" y="88" font-size="16" fill="#c0392b">F</text>
+  <!-- pin -->
+  <rect x="150" y="44" width="20" height="122" rx="4" fill="#95a5a6" stroke="#2c3e50" stroke-width="2"/>
+  <!-- two shear planes -->
+  <line x1="140" y1="76" x2="180" y2="76" stroke="#c0392b" stroke-width="2" stroke-dasharray="4 3"/>
+  <line x1="140" y1="134" x2="180" y2="134" stroke="#c0392b" stroke-width="2" stroke-dasharray="4 3"/>
+  <text x="205" y="50" font-size="13" fill="#c0392b">two shear planes (2×A)</text>
+  <text x="180" y="195" text-anchor="middle" font-size="16" fill="#2c3e50">τ = F / (2A)</text>
+</svg>

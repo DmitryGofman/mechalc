@@ -373,13 +373,18 @@ src/
   engine/
     calculator.ts             // Calculator interface + runner (SI-only)
     validate.ts
-  diagrams/
+  diagrams/                    // hand-built SVGs, labels match InputVariable.symbol
+    g-load-mass.svg
+    axial-bar.svg
     cantilever-end-load.svg
     simply-supported-center-load.svg
     torsion-shaft.svg
-    axial-bar.svg
     pin-single-shear.svg
     pin-double-shear.svg
+    von-mises-element.svg
+    section-rectangle.svg
+    section-round.svg
+    section-tube.svg
     rivet-shear.svg            // v2
     fillet-weld.svg            // v2
     bolt-preload.svg           // v2
@@ -421,6 +426,17 @@ src/
 10.9 → 830 MPa, 12.9 → 970 MPa. Recommended preload `F ≈ 0.75 · proof · At`;
 torque `T = K · F · d` with `K ≈ 0.2` (dry steel, default — make K editable).
 
+**Metric fine (MF)** — same grades/strengths, smaller pitch → larger `At`:
+
+| Size       | Pitch (mm) | Tensile area `At` (mm²) |
+|------------|-----------|--------------------------|
+| M6×0.75    | 0.75      | 22.0                     |
+| M8×1.0     | 1.00      | 39.2                     |
+| M10×1.25   | 1.25      | 61.2                     |
+| M10×1.0    | 1.00      | 64.5                     |
+| M12×1.5    | 1.50      | 88.1                     |
+| M12×1.25   | 1.25      | 92.1                     |
+
 ### Bolts & screws — ANSI/imperial, Unified thread (ASME B1.1 / B18)
 
 Inch-series fasteners (UNC coarse + UNF fine). Same picker, same math (`σ = F/At`,
@@ -436,6 +452,9 @@ Inch-series fasteners (UNC coarse + UNF fine). Same picker, same math (`σ = F/A
 | 5/16"     | 18      | 24      | 0.3125       | 0.0524         | 0.0580         |
 | 3/8"      | 16      | 24      | 0.375        | 0.0775         | 0.0878         |
 | 1/2"      | 13      | 20      | 0.500        | 0.1419         | 0.1599         |
+| 5/8"      | 11      | 18      | 0.625        | 0.226          | 0.256          |
+| 3/4"      | 10      | 16      | 0.750        | 0.334          | 0.373          |
+| 1"        | 8       | 12      | 1.000        | 0.606          | 0.663          |
 
 **Proof strength by SAE grade** (J429, for `σ = F/At` / preload): Grade 2 → 55 ksi
 (≈ 33 ksi for >¾"), Grade 5 → 85 ksi, Grade 8 → 120 ksi. Same preload rule
@@ -450,7 +469,8 @@ Inch-series fasteners (UNC coarse + UNF fine). Same picker, same math (`σ = F/A
 
 **Imperial (UNC, ~75% thread):** #4-40→#43 (0.089") · #6-32→#36 (0.1065") ·
 #8-32→#29 (0.136") · #10-24→#25 (0.1495") · 1/4-20→#7 (0.201") · 5/16-18→F (0.257") ·
-3/8-16→5/16" (0.3125") · 1/2-13→27/64" (0.4219")
+3/8-16→5/16" (0.3125") · 1/2-13→27/64" (0.4219") · 5/8-11→17/32" (0.5312") ·
+3/4-10→21/32" (0.6562") · 1-8→7/8" (0.875")
 
 ### Materials (typical values)
 
