@@ -69,6 +69,29 @@ describe("formula calculators (hand-calcs, all SI)", () => {
   });
 });
 
+describe("new calculators (engineer review fixes)", () => {
+  it("bolt preload: T = K·F·d and σ = F/At", () => {
+    // M8 At=36.6mm², preload 0.75·580MPa·36.6mm² ≈ 15.92 kN, K=0.2, d=8mm
+    const At = 36.6e-6;
+    const F = 0.75 * 580e6 * At;
+    const r = FORMULA_BY_ID["bolt-preload"].calculate({ F, d: 0.008, K: 0.2, At, Sp: 580e6 });
+    expect(r.T).toBeCloseTo(0.2 * F * 0.008, 6); // N·m
+    expect(r.sigma).toBeCloseTo(F / At, 0);
+    expect(r.SF).toBeCloseTo(580e6 / (F / At), 3); // = 1/0.75 ≈ 1.333
+    expect(r.SF).toBeCloseTo(1.3333, 3);
+  });
+
+  it("bearing stress: σ = F/(d·t)", () => {
+    const r = FORMULA_BY_ID["bearing-stress"].calculate({ F: 5000, d: 0.00635, t: 0.003, Sy: 370e6 });
+    expect(r.sigma_bearing).toBeCloseTo(5000 / (0.00635 * 0.003), 0);
+  });
+
+  it("axial flags compression with a buckling warning", () => {
+    const issues = FORMULA_BY_ID["axial-stress"].validate!({ F: -1000, A: 1e-4, Sy: 276e6 });
+    expect(issues.some((i) => i.field === "F" && i.level === "warning")).toBe(true);
+  });
+});
+
 describe("validation", () => {
   it("axial flags zero area", () => {
     const issues = FORMULA_BY_ID["axial-stress"].validate!({ F: 100, A: 0, Sy: 276e6 });

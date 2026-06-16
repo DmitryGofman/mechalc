@@ -44,7 +44,8 @@ export interface OutputVariable {
   symbol: string;
   name: string;
   dimension: Dimension;
-  preferredUnit: string;
+  preferredUnit: string; // metric display unit
+  preferredUnitImperial?: string; // overrides the default imperial unit when set
   description: string;
   isSafetyFactor?: boolean;
 }

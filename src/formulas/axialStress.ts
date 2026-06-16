@@ -23,10 +23,16 @@ export const axialStress: FormulaDef = {
     const sigma = F / A;
     return { sigma, SF: Sy / Math.abs(sigma) };
   },
-  validate: ({ A, Sy }) => {
+  validate: ({ F, A, Sy }) => {
     const e: ValidationIssue[] = [];
     if (A <= 0) e.push({ field: "A", level: "error", message: "Area must be greater than zero" });
     if (Sy <= 0) e.push({ field: "Sy", level: "error", message: "Yield strength must be greater than zero" });
+    if (F < 0)
+      e.push({
+        field: "F",
+        level: "warning",
+        message: "Compressive load: this is a yield check only — column buckling is NOT checked. Verify slenderness/Euler separately.",
+      });
     return e;
   },
 };

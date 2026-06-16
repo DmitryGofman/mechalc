@@ -17,6 +17,18 @@ function displayUnit(dimension: string, system: UnitSystem, fallback: string): s
   return p ? p[system] : fallback;
 }
 
+// Output display unit honours a per-output imperial override (e.g. bending moment
+// in lbf·in rather than the generic lbf·ft), falling back to the system preferred.
+function outputUnit(
+  out: { dimension: string; preferredUnit: string; preferredUnitImperial?: string },
+  system: UnitSystem,
+): string {
+  if (system === "imperial") {
+    return out.preferredUnitImperial ?? displayUnit(out.dimension, system, out.preferredUnit);
+  }
+  return out.preferredUnit;
+}
+
 function initFields(formula: FormulaDef, system: UnitSystem): Record<string, FieldState> {
   const out: Record<string, FieldState> = {};
   for (const inp of formula.inputs) {
@@ -90,6 +102,7 @@ export function CalculatorScreen({
   const errorByField: Record<string, string> = {};
   for (const it of issues) if (it.level === "error") errorByField[it.field] = it.message;
   const hasError = Object.keys(errorByField).length > 0;
+  const warnings = issues.filter((it) => it.level === "warning");
 
   const results = useMemo(() => {
     if (!complete || hasError) return null;
@@ -126,8 +139,7 @@ export function CalculatorScreen({
     const outputs: Record<string, Quantity> = {};
     if (results) {
       for (const out of formula.outputs) {
-        const unit = displayUnit(out.dimension, system, out.preferredUnit);
-        outputs[out.symbol] = fromSI(results[out.symbol], unit);
+        outputs[out.symbol] = fromSI(results[out.symbol], outputUnit(out, system));
       }
     }
     return {
@@ -220,10 +232,19 @@ export function CalculatorScreen({
               onChange={(next) => setField(inp.symbol, next)}
               error={errorByField[inp.symbol]}
               pending={usable}
+              system={system}
             />
           );
         })}
       </div>
+
+      {warnings.length > 0 && (
+        <div className="warnings">
+          {warnings.map((w, i) => (
+            <div key={i} className="warn-row">⚠ {w.message}</div>
+          ))}
+        </div>
+      )}
 
       <div className="results">
         <h3>Results</h3>
@@ -231,7 +252,7 @@ export function CalculatorScreen({
         {complete && hasError && <p className="muted">Fix the highlighted inputs above.</p>}
         {results &&
           formula.outputs.map((out) => {
-            const unit = displayUnit(out.dimension, system, out.preferredUnit);
+            const unit = outputUnit(out, system);
             const q = fromSI(results[out.symbol], unit);
             if (out.isSafetyFactor) {
               return (

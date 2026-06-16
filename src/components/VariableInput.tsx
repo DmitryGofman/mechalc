@@ -1,4 +1,5 @@
 import type { InputVariable } from "../engine/types";
+import type { UnitSystem } from "../App";
 import { UnitSelector } from "./UnitSelector";
 import { BOLTS } from "../data/bolts";
 import { fromSI } from "../units/convert";
@@ -15,14 +16,20 @@ export function VariableInput({
   onChange,
   error,
   pending,
+  system,
 }: {
   variable: InputVariable;
   state: FieldState;
   onChange: (next: FieldState) => void;
   error?: string;
   pending?: { siValue: number; label: string; onUse: () => void } | null;
+  system: UnitSystem;
 }) {
   const isArea = variable.dimension === "area";
+  // Show the fastener list that matches the active unit system.
+  const bolts = BOLTS.filter((b) =>
+    system === "imperial" ? b.system === "unified" : b.system === "metric",
+  );
   return (
     <div className={`field ${error ? "field-error" : ""}`}>
       <div className="field-head">
@@ -54,7 +61,7 @@ export function VariableInput({
             value=""
             title="Fill from a bolt tensile area"
             onChange={(e) => {
-              const bolt = BOLTS.find((b) => b.id === e.target.value);
+              const bolt = bolts.find((b) => b.id === e.target.value);
               if (bolt) {
                 const q = fromSI(bolt.At, state.unit);
                 onChange({ ...state, value: formatNumber(q.value) });
@@ -62,7 +69,7 @@ export function VariableInput({
             }}
           >
             <option value="">bolt Aₜ…</option>
-            {BOLTS.map((b) => (
+            {bolts.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.label}
               </option>

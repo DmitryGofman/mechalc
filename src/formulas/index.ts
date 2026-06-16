@@ -7,6 +7,8 @@ import { torsionStress } from "./torsionStress";
 import { vonMises } from "./vonMises";
 import { beamDeflection } from "./beamDeflection";
 import { sectionRectangle, sectionRound, sectionTube } from "./sectionProperties";
+import { boltTorque } from "./boltTorque";
+import { bearingStress } from "./bearingStress";
 
 export const FORMULAS: FormulaDef[] = [
   gLoad,
@@ -18,6 +20,8 @@ export const FORMULAS: FormulaDef[] = [
   torsionStress,
   vonMises,
   beamDeflection,
+  bearingStress,
+  boltTorque,
   sectionRectangle,
   sectionRound,
   sectionTube,

@@ -24,7 +24,7 @@ export const bendingCantilever: FormulaDef = {
     { symbol: "Sy", name: "Yield strength", dimension: "stress", defaultUnit: "MPa", description: "Material yield strength", min: 0, fillFrom: "material", materialKey: "Sy" },
   ],
   outputs: [
-    { symbol: "M", name: "Bending moment M", dimension: "moment", preferredUnit: "Nm", description: "P · L" },
+    { symbol: "M", name: "Bending moment M", dimension: "moment", preferredUnit: "Nm", preferredUnitImperial: "lbf-in", description: "P · L" },
     { symbol: "sigma_b", name: "Bending stress σb", dimension: "stress", preferredUnit: "MPa", description: "M / Z" },
     { symbol: "SF", name: "Safety factor", dimension: "dimensionless", preferredUnit: "", description: "Sy / σb", isSafetyFactor: true },
   ],
@@ -53,7 +53,7 @@ export const bendingSimplySupported: FormulaDef = {
     { symbol: "Sy", name: "Yield strength", dimension: "stress", defaultUnit: "MPa", description: "Material yield strength", min: 0, fillFrom: "material", materialKey: "Sy" },
   ],
   outputs: [
-    { symbol: "M", name: "Bending moment M", dimension: "moment", preferredUnit: "Nm", description: "P · L / 4" },
+    { symbol: "M", name: "Bending moment M", dimension: "moment", preferredUnit: "Nm", preferredUnitImperial: "lbf-in", description: "P · L / 4" },
     { symbol: "sigma_b", name: "Bending stress σb", dimension: "stress", preferredUnit: "MPa", description: "M / Z" },
     { symbol: "SF", name: "Safety factor", dimension: "dimensionless", preferredUnit: "", description: "Sy / σb", isSafetyFactor: true },
   ],
