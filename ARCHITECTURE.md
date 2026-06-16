@@ -239,6 +239,16 @@ Example — cantilever, end load (`cantilever-end-load.svg`): `P` arrow down at 
 free end, `L` dimension along the beam, `M = P·L` at the fixed end, `δ` at the tip,
 section `I` callout. As the user types, labels can show the live magnitudes.
 
+**Two diagram sets.** `diagrams/*.svg` are the project's own clean, label-mappable
+schematics (recommended default — yours to license freely). `diagrams/reference/`
+holds higher-detail diagrams pulled from Wikimedia Commons (shear/moment diagrams,
+Mohr's circle, ISO thread nomenclature) for the Formula Library / explanation views.
+**Licensing matters:** the reference set is mostly **CC BY-SA 3.0** (requires visible
+attribution + ShareAlike); only the ISO thread diagram is Public Domain. See
+`diagrams/reference/CREDITS.md`. Prefer the custom SVGs in the interactive Calculator
+screen (so labels can bind to live values) and use the reference images as static
+explanatory figures where the extra detail helps.
+
 ---
 
 ## 5. Calculation engine
@@ -388,6 +398,13 @@ src/
     rivet-shear.svg            // v2
     fillet-weld.svg            // v2
     bolt-preload.svg           // v2
+    reference/                 // higher-detail diagrams sourced from Wikimedia
+      CREDITS.md               //   licenses + attribution (mostly CC BY-SA 3.0)
+      ISO_and_UTS_Thread_Dimensions.svg   // Public Domain
+      Shear_Moment_Diagram.svg            // CC BY-SA 3.0
+      SimpSuppBeamPointLoad.svg           // CC BY-SA 3.0
+      Cantilever_point_load_M_Q.png       // CC BY-SA 3.0
+      Mohr_Circle_plane_stress_angle.svg  // CC BY-SA 3.0
   data/
     boltTables.ts
     tapDrillTables.ts
