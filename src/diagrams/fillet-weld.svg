@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 230" font-family="sans-serif">
+  <title>Fillet Weld</title>
+  <defs>
+    <marker id="wd" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+      <path d="M0,4 L8,0 L8,8 Z" fill="#7f8c8d"/>
+    </marker>
+    <marker id="wf" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c0392b"/>
+    </marker>
+  </defs>
+  <!-- vertical plate -->
+  <rect x="70" y="40" width="26" height="150" fill="#dfe7f0" stroke="#34495e" stroke-width="2"/>
+  <!-- horizontal plate -->
+  <rect x="96" y="150" width="150" height="26" fill="#dfe7f0" stroke="#34495e" stroke-width="2"/>
+  <!-- fillet weld triangle -->
+  <path d="M96,110 L96,150 L136,150 Z" fill="#e67e22" stroke="#a04000" stroke-width="2"/>
+  <!-- throat line (0.707a) -->
+  <line x1="96" y1="150" x2="116" y2="130" stroke="#c0392b" stroke-width="2" stroke-dasharray="3 3"/>
+  <text x="138" y="128" font-size="13" fill="#c0392b">throat = 0.707·a</text>
+  <!-- leg a (vertical) -->
+  <line x1="60" y1="110" x2="60" y2="150" stroke="#7f8c8d" marker-start="url(#wd)" marker-end="url(#wd)"/>
+  <text x="50" y="134" font-size="15" fill="#7f8c8d">a</text>
+  <!-- load -->
+  <line x1="170" y1="120" x2="240" y2="120" stroke="#c0392b" stroke-width="3" marker-end="url(#wf)"/>
+  <text x="205" y="112" text-anchor="middle" font-size="15" fill="#c0392b">F</text>
+  <text x="180" y="205" text-anchor="middle" font-size="14" fill="#2c3e50">A = 0.707·a·l   τ = F / A</text>
+  <text x="180" y="225" text-anchor="middle" font-size="12" fill="#7f8c8d">l = weld length</text>
+</svg>
