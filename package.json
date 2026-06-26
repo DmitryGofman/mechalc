@@ -1,15 +1,14 @@
 {
-  "name": "mechalc",
-  "version": "0.1.0",
+  "name": "screw-shear-calc",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Mechanical Quick Calc — fast design checks for mechanical engineers",
+  "description": "Shear stress on a screw connecting two plates — a focused, fully-validated calculator",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
@@ -21,7 +20,6 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "jsdom": "^25.0.1",
-    "playwright": "^1.56.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.11",
     "vitest": "^2.1.8"

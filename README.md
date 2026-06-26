@@ -1,37 +1,43 @@
-# Mechanical Quick Calc
+# Screw Shear Calculator
 
-Fast design-check calculator for mechanical engineers — G-loads, stress, bending,
-shear, torsion, von Mises, deflection, and section properties. Every value is
-unit-aware (metric ⇄ imperial), each formula shows a diagram, and calculations
-auto-save to history. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
+A focused, fully-validated calculator for one common check: the **shear stress on a
+screw connecting two plates** (a lap joint → single shear), with a safety factor
+against the screw's shear yield.
 
-## Stack
-React + TypeScript + Vite (web-first PWA-ready). Pure SI calculation engine with a
-units layer at the boundary, so formulas are unit-bug-free.
+- **Units handled for you** — per-field unit selectors and a global Metric ⇄ Imperial
+  toggle that converts the values on screen. Calculations run in SI internally.
+- **Validates everything** — every field is checked for presence, numeric format,
+  positivity (and whole-number screw count); results only appear when all inputs are valid.
+- **Diagram + explanations** — shows the joint and explains each variable.
+- **Pickers** — fill the screw diameter and material yield strength from built-in tables.
+
+## Engineering
+
+```
+A        = π·d² / 4          shear area of one screw
+τ        = F / (n · A)       average shear stress (n screws share the load)
+τ_allow  = 0.577 · Sy        distortion-energy shear yield
+SF       = τ_allow / τ       safety factor
+```
 
 ## Develop
+
 ```bash
 npm install
 npm run dev        # local dev server
-npm test           # run the test suite (calculators + unit/dimensional guards)
+npm test           # unit + calculation + validation tests
 npm run build      # type-check + production build
 ```
 
-## Project layout
+## Layout
+
 ```
 src/
-  engine/      domain types (FormulaDef, Quantity, …)
-  units/       unit registry, convert (toSI/fromSI), formatting
-  formulas/    one file per calculator + registry/search
-  data/        materials, bolts (metric + ANSI), tap drills
-  storage/     localStorage history
-  components/  VariableInput, UnitSelector, DiagramViewer, SafetyFactorBadge
-  screens/     Home, Calculator, Recent, Library, Converter
-  diagrams/    SVG diagrams (+ reference/ from Wikimedia, see CREDITS.md)
+  units/     unit registry + convert/format (+ tests)
+  calc/      shearScrew.ts — model, computation, validation (+ tests)
+  data/      screws, materials (for the pickers)
+  components/ NumberField, SafetyFactorBadge, ScrewJointDiagram
+  App.tsx    single-screen calculator
 ```
 
-## MVP scope
-G-load, axial stress, single/double shear, cantilever & simply-supported bending,
-torsion, von Mises, cantilever deflection, section properties (rect/round/tube),
-material & bolt pickers, unit converter, safety-factor badge, recent calculations,
-result export. Reference values in `data/` should be verified before production use.
+Reference material/screw values should be verified before relying on them for production design.
