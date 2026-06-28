@@ -1,37 +1,41 @@
-# Mechanical Quick Calc
+# Compliant Mechanism Toolkit
 
-Fast design-check calculator for mechanical engineers — G-loads, stress, bending,
-shear, torsion, von Mises, deflection, and section properties. Every value is
-unit-aware (metric ⇄ imperial), each formula shows a diagram, and calculations
-auto-save to history. See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the full design.
+Design-check calculators for flexures and compliant mechanisms. The first tool is
+a **cantilever flexure** calculator: pick a material, enter the beam geometry and a
+target deflection, and get stiffness, required force, peak bending stress, and a
+yield safety factor — alongside a live 3D view of the deflected beam drawn to true
+L : t : w proportions.
+
+More calculators will be added to the toolkit over time.
 
 ## Stack
-React + TypeScript + Vite (web-first PWA-ready). Pure SI calculation engine with a
-units layer at the boundary, so formulas are unit-bug-free.
+React + TypeScript + Vite, with [three.js](https://threejs.org/) for the 3D beam viewer.
 
 ## Develop
 ```bash
 npm install
 npm run dev        # local dev server
-npm test           # run the test suite (calculators + unit/dimensional guards)
 npm run build      # type-check + production build
+npm run preview    # preview the production build
 ```
 
 ## Project layout
 ```
 src/
-  engine/      domain types (FormulaDef, Quantity, …)
-  units/       unit registry, convert (toSI/fromSI), formatting
-  formulas/    one file per calculator + registry/search
-  data/        materials, bolts (metric + ANSI), tap drills
-  storage/     localStorage history
-  components/  VariableInput, UnitSelector, DiagramViewer, SafetyFactorBadge
-  screens/     Home, Calculator, Recent, Library, Converter
-  diagrams/    SVG diagrams (+ reference/ from Wikimedia, see CREDITS.md)
+  main.tsx                  app entry
+  App.tsx                   root component
+  styles.css                global reset + fonts
+  calculators/
+    FlexureCalc.tsx         cantilever flexure calculator + 3D viewer
 ```
 
-## MVP scope
-G-load, axial stress, single/double shear, cantilever & simply-supported bending,
-torsion, von Mises, cantilever deflection, section properties (rect/round/tube),
-material & bolt pickers, unit converter, safety-factor badge, recent calculations,
-result export. Reference values in `data/` should be verified before production use.
+## Model notes
+Linear small-deflection (Euler-Bernoulli) theory for an end-loaded rectangular
+cantilever:
+
+- `k = 3EI / L³` (stiffness)
+- `σ = 3Etδ / 2L²` (peak surface stress)
+
+Aim for a safety factor ≥ 2 for cyclic / living-hinge duty. Material values
+(especially the 3D-printed ones) are typical reference figures — verify before
+production use.
