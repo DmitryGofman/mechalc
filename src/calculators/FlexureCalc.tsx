@@ -445,10 +445,8 @@ export default function FlexureCalc() {
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* Header */}
         <div
+          className="flexure-header"
           style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "flex-end",
             borderBottom: "1px solid #1f2a33",
             paddingBottom: 14,
             marginBottom: 22,
@@ -483,7 +481,7 @@ export default function FlexureCalc() {
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 22, alignItems: "start" }}>
+        <div className="flexure-grid">
           {/* INPUTS */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
