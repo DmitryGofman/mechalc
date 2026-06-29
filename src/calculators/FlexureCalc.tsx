@@ -1266,6 +1266,27 @@ export default function FlexureCalc() {
             imply. 3D-printed values are typical in-plane figures and are anisotropic across layers —
             verify against your own coupons before relying on them.
           </p>
+
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#b9c3cc",
+              marginTop: 16,
+              paddingTop: 12,
+              borderTop: "1px dashed #1f2a33",
+              lineHeight: 1.7,
+            }}
+          >
+            <span style={{ textDecoration: "underline", textUnderlineOffset: 3, color: "#e8edf1" }}>
+              In short:
+            </span>{" "}
+            the harder you bend the beam, the more its tip pulls inward, shrinking the leverage of your
+            force — so each extra millimetre of deflection costs a little more force than the last (the γ
+            factor). For everyday flexures, where deflections are small and the safety factor stays ≥ 2,
+            γ ≈ 1 and you can ignore it; it only shows up when you bend the beam far past its working
+            range.
+          </p>
         </div>
       </div>
     </div>
