@@ -31,10 +31,11 @@ input[type="number"] {
 }
 
 /* Inputs (left) and results (right) stay side-by-side at every width;
-   the 3D beam lives below, full-width. */
+   the 3D beam lives below, full-width. minmax(0,…) lets the tracks shrink
+   below their content so the right column never spills off-screen. */
 .flexure-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 22px;
   align-items: start;
 }
@@ -47,14 +48,41 @@ input[type="number"] {
   gap: 12px;
 }
 
-/* On phones: tighten spacing and scale the big numbers down a touch so the
-   two columns still fit comfortably. */
+/* 3D beam canvas — sized via CSS so the renderer can follow it responsively. */
+.flexure-beam {
+  width: 100%;
+  height: 320px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+/* On phones: tighten spacing, give the inputs a bit more room than the
+   results column, shrink the header, and shorten the beam canvas so the
+   whole simulator fits on one screen. */
 @media (max-width: 640px) {
   .flexure-shell {
-    padding: 16px 10px;
+    padding: 14px 10px;
   }
   .flexure-grid {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
     gap: 12px;
+  }
+  .flexure-title {
+    font-size: 17px !important;
+  }
+  .flexure-header {
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+  }
+  .flexure-inputs {
+    gap: 10px !important;
+  }
+  .flexure-viz {
+    margin-top: 12px !important;
+    padding: 10px !important;
+  }
+  .flexure-beam {
+    height: 240px;
   }
   .flexure-sf {
     font-size: 30px !important;

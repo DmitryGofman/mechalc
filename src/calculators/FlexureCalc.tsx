@@ -28,7 +28,7 @@ function Beam3D({
     const mount = mountRef.current;
     if (!mount) return;
     const width = mount.clientWidth;
-    const height = 320;
+    const height = mount.clientHeight || 320;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#0b1015");
@@ -50,6 +50,7 @@ function Beam3D({
     scene.add(rim);
 
     const pivot = new THREE.Group();
+    pivot.position.y = 0.25; // lift the assembly so the deflected beam sits higher in frame
     scene.add(pivot);
     pivotRef.current = pivot;
 
@@ -69,9 +70,10 @@ function Beam3D({
 
     const onResize = () => {
       const wd = mount.clientWidth;
-      camera.aspect = wd / height;
+      const ht = mount.clientHeight || 320;
+      camera.aspect = wd / ht;
       camera.updateProjectionMatrix();
-      renderer.setSize(wd, height);
+      renderer.setSize(wd, ht);
     };
     window.addEventListener("resize", onResize);
 
@@ -200,10 +202,7 @@ function Beam3D({
 
   return (
     <div>
-      <div
-        ref={mountRef}
-        style={{ width: "100%", height: 320, borderRadius: 3, overflow: "hidden" }}
-      />
+      <div ref={mountRef} className="flexure-beam" />
       <div
         style={{
           fontFamily: "var(--mono)",
@@ -467,7 +466,7 @@ export default function FlexureCalc() {
             >
               COMPLIANT MECHANISM TOOLKIT
             </div>
-            <h1 style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
+            <h1 className="flexure-title" style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
               Cantilever Flexure
             </h1>
           </div>
@@ -487,7 +486,7 @@ export default function FlexureCalc() {
 
         <div className="flexure-grid">
           {/* INPUTS */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label
                 style={{
@@ -620,6 +619,7 @@ export default function FlexureCalc() {
 
         {/* BEAM VISUALIZATION — 3D */}
         <div
+          className="flexure-viz"
           style={{
             marginTop: 24,
             background: "#0b1015",
