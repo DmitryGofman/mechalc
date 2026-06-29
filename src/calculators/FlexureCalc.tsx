@@ -581,7 +581,9 @@ const MATERIALS: Record<string, Material> = {
   // — Metals —
   "Spring Steel (1095)": { E: 205, sigmaY: 1200, color: "#9aa7b4", grp: "Metal" },
   "Ti-6Al-4V": { E: 114, sigmaY: 880, color: "#c4b59a", grp: "Metal" },
+  "Aluminum 6061": { E: 68.9, sigmaY: 55, color: "#b8bcc0", grp: "Metal" }, // O temper (annealed)
   "Aluminum 6061-T6": { E: 68.9, sigmaY: 276, color: "#b8bcc0", grp: "Metal" },
+  "Aluminum 7075": { E: 71.7, sigmaY: 103, color: "#b8bcc0", grp: "Metal" }, // O temper (annealed)
   "Aluminum 7075-T6": { E: 71.7, sigmaY: 503, color: "#b8bcc0", grp: "Metal" },
   // — Bulk plastics —
   "Delrin (POM)": { E: 3.1, sigmaY: 70, color: "#e6e2d8", grp: "Plastic" },
@@ -631,6 +633,28 @@ const MATERIALS: Record<string, Material> = {
 };
 
 const GROUP_ORDER = ["Metal", "Plastic", "FDM", "Powder-bed", "Elastomer"];
+
+// Pinned to the top of the material picker for quick access.
+const FAVORITES = [
+  "PA12 (MJF)", // Nylon 12 (MJF)
+  "PC-ABS (FDM)",
+  "PLA (FDM)",
+  "ABS (FDM)",
+  "Aluminum 6061",
+  "Aluminum 6061-T6",
+  "Aluminum 7075",
+  "Aluminum 7075-T6",
+];
+
+// Equations behind the calculator, shown in the theory section.
+const EQUATIONS: Array<{ expr: string; note: string }> = [
+  { expr: "I = w·t³ / 12", note: "Second moment of area, rectangular section" },
+  { expr: "k = 3EI / L³", note: "Tip stiffness of an end-loaded cantilever" },
+  { expr: "F = k·δ", note: "Force needed to reach deflection δ" },
+  { expr: "σ = 3Etδ / 2L²", note: "Peak bending stress, at the fixed root surface" },
+  { expr: "n = σy / σ", note: "Safety factor against yielding" },
+  { expr: "y(x) = (δ/2)·[3(x/L)² − (x/L)³]", note: "Euler–Bernoulli deflected shape" },
+];
 
 const num = (v: string, fallback = 0) => {
   const n = parseFloat(v);
@@ -741,7 +765,7 @@ function Readout({
 }
 
 export default function FlexureCalc() {
-  const [matKey, setMatKey] = useState("Spring Steel (1095)");
+  const [matKey, setMatKey] = useState(FAVORITES[0]);
   const [L, setL] = useState("40"); // mm
   const [t, setT] = useState("0.8"); // mm (bending direction)
   const [w, setW] = useState("10"); // mm
@@ -868,6 +892,13 @@ export default function FlexureCalc() {
                   outline: "none",
                 }}
               >
+                <optgroup label="★ Favorites">
+                  {FAVORITES.map((k) => (
+                    <option key={`fav-${k}`} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </optgroup>
                 {GROUP_ORDER.map((g) => (
                   <optgroup key={g} label={g}>
                     {Object.keys(MATERIALS)
@@ -1053,19 +1084,119 @@ export default function FlexureCalc() {
           />
         </div>
 
-        <p
-          style={{
-            fontFamily: "var(--mono)",
-            fontSize: 10,
-            color: "#46515c",
-            marginTop: 16,
-            lineHeight: 1.7,
-          }}
-        >
-          Linear small-deflection model (Euler-Bernoulli), end-loaded rectangular cantilever. Aim for SF
-          ≥ 2 for cyclic/living-hinge duty. Thinner t buys range of motion at the cost of stiffness and
-          margin.
-        </p>
+        {/* THEORY & EQUATIONS */}
+        <div style={{ marginTop: 24, borderTop: "1px solid #1f2a33", paddingTop: 18 }}>
+          <div
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "#3a78c2",
+              marginBottom: 12,
+            }}
+          >
+            Theory &amp; Equations
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {EQUATIONS.map((eq) => (
+              <div
+                key={eq.expr}
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "baseline",
+                  gap: 12,
+                  padding: "8px 0",
+                  borderBottom: "1px solid #141c22",
+                  flexWrap: "wrap",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 13,
+                    color: "#e8edf1",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {eq.expr}
+                </span>
+                <span
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 10,
+                    color: "#6b7884",
+                    textAlign: "right",
+                  }}
+                >
+                  {eq.note}
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <div
+            style={{
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              color: "#46515c",
+              marginTop: 10,
+              lineHeight: 1.6,
+            }}
+          >
+            E Young&apos;s modulus · I second moment of area · L length · t thickness (bending direction) ·
+            w width · δ tip deflection · σ peak stress · σy yield strength · n safety factor
+          </div>
+
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 16,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Model.</strong> A prismatic rectangular cantilever,
+            rigidly built in at one end (the wall) and loaded by a transverse force at the free tip —
+            Euler–Bernoulli (engineer&apos;s) beam theory. The bending moment grows linearly from zero at
+            the tip to a maximum at the root, so the surface stress is highest where the beam meets the
+            wall. That is where a flexure yields first, and why the 3D beam is reddest there.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 10,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Designing a flexure.</strong> You usually fix the
+            deflection δ you need and size the geometry for it. Thinning t buys range of motion — stress
+            scales with t while stiffness scales with t³, so a thinner blade is far more compliant and
+            less stressed for the same δ, at the cost of load capacity and buckling resistance. Aim for a
+            safety factor n ≥ 2 for repeated or living-hinge duty, and more where fatigue matters.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 10,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> The readouts use linear small-deflection
+            theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape diverge from
+            these closed forms. The 3D viewer draws a length-preserving large-deflection curve for
+            intuition, so at big deflections it intentionally curls further than the linear numbers imply.
+            3D-printed values are typical in-plane figures and are anisotropic across layers — verify
+            against your own coupons before relying on them.
+          </p>
+        </div>
       </div>
     </div>
   );
