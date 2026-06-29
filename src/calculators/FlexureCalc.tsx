@@ -1,27 +1,110 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 
+// Peak surface bending stress (MPa) for an end-loaded cantilever, as a
+// fraction of yield — used to drive the beam's color and the haptic/audio feel.
+function stressRatio(EGpa: number, tMm: number, LMm: number, deltaMm: number, sigmaYMpa: number) {
+  if (LMm <= 0 || sigmaYMpa <= 0) return 0;
+  const sigmaPa =
+    (3 * (EGpa * 1e9) * (tMm / 1000) * (Math.abs(deltaMm) / 1000)) /
+    (2 * Math.pow(LMm / 1000, 2));
+  return sigmaPa / 1e6 / sigmaYMpa;
+}
+
+// Color ramp green → amber → red as local stress approaches (and exceeds) yield.
+const STRESS_STOPS: Array<[number, [number, number, number]]> = [
+  [0.0, [0.31, 0.706, 0.467]], // #4fb477 safe green
+  [0.55, [0.851, 0.643, 0.255]], // #d9a441 amber
+  [1.0, [0.839, 0.361, 0.361]], // #d65c5c yield red
+  [1.3, [1.0, 0.3, 0.3]], // overstressed
+];
+function stressColor(ratio: number) {
+  const x = Math.max(0, Math.min(1.3, ratio));
+  for (let i = 1; i < STRESS_STOPS.length; i++) {
+    const [p1, c1] = STRESS_STOPS[i];
+    if (x <= p1) {
+      const [p0, c0] = STRESS_STOPS[i - 1];
+      const f = (x - p0) / (p1 - p0 || 1);
+      return {
+        r: c0[0] + (c1[0] - c0[0]) * f,
+        g: c0[1] + (c1[1] - c0[1]) * f,
+        b: c0[2] + (c1[2] - c0[2]) * f,
+      };
+    }
+  }
+  const last = STRESS_STOPS[STRESS_STOPS.length - 1][1];
+  return { r: last[0], g: last[1], b: last[2] };
+}
+
 // ── 3D beam viewer ──────────────────────────────────────────────
 // Renders a rectangular cantilever to true L:t:w proportions, bent
-// along the cubic cantilever deflection shape. Drag to orbit.
+// along the cubic cantilever deflection shape. Drag to orbit; in
+// interactive mode, grab the beam to bend it and feel the stress.
 function Beam3D({
   L,
   t,
   w,
   delta,
-  color,
+  interactive,
+  E,
+  sigmaY,
+  onLiveDelta,
 }: {
   L: number;
   t: number;
   w: number;
   delta: number;
-  color: string;
+  interactive: boolean;
+  E: number;
+  sigmaY: number;
+  onLiveDelta: (mm: number | null) => void;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ yaw: -0.6, pitch: -0.35, dragging: false, lx: 0, ly: 0 });
   const meshRef = useRef<THREE.Mesh | null>(null);
   const wallRef = useRef<THREE.Mesh | null>(null);
   const pivotRef = useRef<THREE.Group | null>(null);
+
+  // Geometry caches so deflection can be applied per-frame without rebuilding.
+  const geoRef = useRef<THREE.BufferGeometry | null>(null);
+  const baseYRef = useRef<Float32Array | null>(null);
+  const xnRef = useRef<Float32Array | null>(null);
+  const colorAttrRef = useRef<THREE.BufferAttribute | null>(null);
+  const dimsRef = useRef({ Lv: 1, Ls: 1 });
+  const applyRef = useRef<((d: number) => void) | null>(null);
+
+  // Invisible, fattened proxy around the beam — a forgiving grab target so a
+  // thin wafer is still easy to catch with a fingertip. Deflects with the beam.
+  const proxyRef = useRef<THREE.Mesh | null>(null);
+  const proxyBaseYRef = useRef<Float32Array | null>(null);
+  const proxyXnRef = useRef<Float32Array | null>(null);
+
+  // Live interaction state (driven outside React for smoothness).
+  const liveDeltaRef = useRef(delta);
+  const designDeltaRef = useRef(delta);
+  const grabbingRef = useRef(false);
+  const springRef = useRef(false);
+  const springVelRef = useRef(0);
+  const yieldRef = useRef(false);
+  const forceRef = useRef(true);
+  const lastVibeRef = useRef(0);
+  const audioRef = useRef<{ ctx: AudioContext; gain: GainNode; osc: OscillatorNode } | null>(null);
+
+  // Latest props, readable from the long-lived animation/pointer closures.
+  const propsRef = useRef({ interactive, E, sigmaY, L, t, w, onLiveDelta });
+  useEffect(() => {
+    propsRef.current = { interactive, E, sigmaY, L, t, w, onLiveDelta };
+    forceRef.current = true; // recolor on material change
+  }, [interactive, E, sigmaY, L, t, w, onLiveDelta]);
+
+  // Keep the resting deflection in sync with the design input.
+  useEffect(() => {
+    designDeltaRef.current = delta;
+    if (!grabbingRef.current && !springRef.current) {
+      liveDeltaRef.current = delta;
+      forceRef.current = true;
+    }
+  }, [delta]);
 
   // One-time scene setup
   useEffect(() => {
@@ -58,11 +141,148 @@ function Beam3D({
     grid.position.y = -1.2;
     pivot.add(grid);
 
+    // Cantilever deflection shape: 0 at root → 1 at tip.
+    const shape = (x: number) => (3 * x * x - x * x * x) / 2;
+
+    // Apply a deflection (mm) to the cached geometry and recolor by stress.
+    const applyDeflection = (deltaMm: number) => {
+      const geo = geoRef.current;
+      const baseY = baseYRef.current;
+      const xn = xnRef.current;
+      if (!geo || !baseY || !xn) return;
+      const { Lv, Ls } = dimsRef.current;
+      const lim = Ls * 0.9;
+      let dWorld = (deltaMm / Math.max(Lv, 1e-3)) * Ls;
+      dWorld = Math.max(-lim, Math.min(lim, dWorld));
+      const pos = geo.attributes.position as THREE.BufferAttribute;
+      for (let i = 0; i < pos.count; i++) pos.setY(i, baseY[i] - shape(xn[i]) * dWorld);
+      pos.needsUpdate = true;
+      geo.computeVertexNormals();
+      // Keep the invisible grab proxy bent the same way.
+      const proxy = proxyRef.current;
+      const pBaseY = proxyBaseYRef.current;
+      const pXn = proxyXnRef.current;
+      if (proxy && pBaseY && pXn) {
+        const ppos = proxy.geometry.attributes.position as THREE.BufferAttribute;
+        for (let i = 0; i < ppos.count; i++) ppos.setY(i, pBaseY[i] - shape(pXn[i]) * dWorld);
+        ppos.needsUpdate = true;
+      }
+      const col = colorAttrRef.current;
+      if (col) {
+        const P = propsRef.current;
+        const ratioMax = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY);
+        for (let i = 0; i < col.count; i++) {
+          const c = stressColor(ratioMax * (1 - xn[i])); // stress peaks at the root
+          col.setXYZ(i, c.r, c.g, c.b);
+        }
+        col.needsUpdate = true;
+      }
+    };
+    applyRef.current = applyDeflection;
+
+    // ── Haptic / audio "feel" ──────────────────────────────────────
+    const ensureAudio = () => {
+      if (audioRef.current) {
+        audioRef.current.ctx.resume?.();
+        return;
+      }
+      try {
+        const AC: typeof AudioContext =
+          window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!AC) return;
+        const ctx = new AC();
+        const gain = ctx.createGain();
+        gain.gain.value = 0;
+        const osc = ctx.createOscillator();
+        osc.type = "sawtooth";
+        osc.frequency.value = 80;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        audioRef.current = { ctx, gain, osc };
+      } catch {
+        /* audio unavailable — silent fallback */
+      }
+    };
+    const crack = () => {
+      const a = audioRef.current;
+      if (!a) return;
+      const { ctx } = a;
+      const dur = 0.18;
+      const buf = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const src = ctx.createBufferSource();
+      src.buffer = buf;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 1100;
+      bp.Q.value = 0.8;
+      const g = ctx.createGain();
+      g.gain.value = 0.3;
+      src.connect(bp);
+      bp.connect(g);
+      g.connect(ctx.destination);
+      src.start();
+    };
+    const canVibrate = () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
+    const updateFeel = (deltaMm: number) => {
+      const P = propsRef.current;
+      const ratio = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY);
+      const a = audioRef.current;
+      if (a) {
+        a.gain.gain.setTargetAtTime(Math.min(0.14, ratio * 0.12), a.ctx.currentTime, 0.02);
+        a.osc.frequency.setTargetAtTime(70 + Math.min(ratio, 1.5) * 230, a.ctx.currentTime, 0.02);
+      }
+      const yielding = ratio >= 1;
+      if (yielding && !yieldRef.current) {
+        crack();
+        if (canVibrate()) navigator.vibrate([0, 45, 25, 75]);
+      }
+      yieldRef.current = yielding;
+      if (canVibrate()) {
+        const now = performance.now();
+        const interval = 220 - Math.min(ratio, 1.2) * 150; // more stress → faster ticks
+        if (now - lastVibeRef.current > interval) {
+          navigator.vibrate(6);
+          lastVibeRef.current = now;
+        }
+      }
+    };
+    const stopFeel = () => {
+      const a = audioRef.current;
+      if (a) a.gain.gain.setTargetAtTime(0, a.ctx.currentTime, 0.08);
+      yieldRef.current = false;
+    };
+
     let raf = 0;
+    let lastApplied = NaN;
     const animate = () => {
       const s = stateRef.current;
       pivot.rotation.y = s.yaw;
       pivot.rotation.x = s.pitch;
+      // Damped spring-back to the resting (design) deflection after a release.
+      if (springRef.current) {
+        const target = designDeltaRef.current;
+        const cur = liveDeltaRef.current;
+        const norm = Math.min(1, Math.max(0, (Math.log10(Math.max(propsRef.current.E, 1e-3)) + 2) / 4.3));
+        const ks = 0.12 + 0.3 * norm; // stiffer materials snap back faster
+        springVelRef.current = (springVelRef.current + (target - cur) * ks) * 0.8;
+        let ncur = cur + springVelRef.current;
+        if (Math.abs(target - ncur) < 1e-3 && Math.abs(springVelRef.current) < 1e-3) {
+          ncur = target;
+          springRef.current = false;
+          propsRef.current.onLiveDelta(null);
+        } else {
+          propsRef.current.onLiveDelta(ncur);
+        }
+        liveDeltaRef.current = ncur;
+      }
+      if (forceRef.current || liveDeltaRef.current !== lastApplied) {
+        applyDeflection(liveDeltaRef.current);
+        lastApplied = liveDeltaRef.current;
+        forceRef.current = false;
+      }
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
     };
@@ -80,8 +300,36 @@ function Beam3D({
     const el = renderer.domElement;
     el.style.touchAction = "none";
     el.style.cursor = "grab";
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    let dragStartY = 0;
+    let dragStartDelta = 0;
+
+    const hitsBeam = (e: PointerEvent) => {
+      const target = proxyRef.current || meshRef.current;
+      if (!target) return false;
+      const rect = el.getBoundingClientRect();
+      ndc.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      ndc.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(ndc, camera);
+      return raycaster.intersectObject(target).length > 0;
+    };
+
     const down = (e: PointerEvent) => {
       const s = stateRef.current;
+      // Interactive: grab the beam to bend it; miss the beam → orbit.
+      if (propsRef.current.interactive && hitsBeam(e)) {
+        grabbingRef.current = true;
+        springRef.current = false;
+        springVelRef.current = 0;
+        dragStartY = e.clientY;
+        dragStartDelta = liveDeltaRef.current;
+        ensureAudio();
+        el.style.cursor = "ns-resize";
+        el.setPointerCapture?.(e.pointerId);
+        e.preventDefault();
+        return;
+      }
       s.dragging = true;
       s.lx = e.clientX;
       s.ly = e.clientY;
@@ -89,6 +337,20 @@ function Beam3D({
       el.setPointerCapture?.(e.pointerId);
     };
     const move = (e: PointerEvent) => {
+      if (grabbingRef.current) {
+        e.preventDefault();
+        const rect = el.getBoundingClientRect();
+        const h = rect.height || 320;
+        const Lv = Math.max(propsRef.current.L, 1e-3);
+        const mmPerPx = (Lv * 1.4) / h; // a full vertical swipe ≈ 1.4·L of travel
+        const lim = Lv * 0.9;
+        let nd = dragStartDelta + (e.clientY - dragStartY) * mmPerPx;
+        nd = Math.max(-lim, Math.min(lim, nd));
+        liveDeltaRef.current = nd;
+        propsRef.current.onLiveDelta(nd);
+        updateFeel(nd);
+        return;
+      }
       const s = stateRef.current;
       if (!s.dragging) return;
       e.preventDefault(); // stop the page from scrolling while orbiting
@@ -99,6 +361,14 @@ function Beam3D({
       s.ly = e.clientY;
     };
     const up = (e: PointerEvent) => {
+      if (grabbingRef.current) {
+        grabbingRef.current = false;
+        springRef.current = true; // release → spring back to rest
+        stopFeel();
+        el.style.cursor = "grab";
+        el.releasePointerCapture?.(e.pointerId);
+        return;
+      }
       stateRef.current.dragging = false;
       el.style.cursor = "grab";
       el.releasePointerCapture?.(e.pointerId);
@@ -111,7 +381,7 @@ function Beam3D({
     el.addEventListener("pointercancel", up);
     // belt-and-suspenders: block native touch scrolling on the canvas
     const blockTouch = (e: TouchEvent) => {
-      if (stateRef.current.dragging) e.preventDefault();
+      if (stateRef.current.dragging || grabbingRef.current) e.preventDefault();
     };
     el.addEventListener("touchmove", blockTouch, { passive: false });
 
@@ -124,12 +394,19 @@ function Beam3D({
       el.removeEventListener("pointerleave", up);
       el.removeEventListener("pointercancel", up);
       el.removeEventListener("touchmove", blockTouch);
+      try {
+        audioRef.current?.ctx.close();
+      } catch {
+        /* ignore */
+      }
+      audioRef.current = null;
       renderer.dispose();
       if (el.parentNode) el.parentNode.removeChild(el);
     };
   }, []);
 
-  // Rebuild beam geometry whenever dimensions / deflection / color change
+  // Rebuild beam geometry whenever the cross-section / length changes.
+  // Deflection + color are applied per-frame by the animation loop.
   useEffect(() => {
     const pivot = pivotRef.current;
     if (!pivot) return;
@@ -145,6 +422,11 @@ function Beam3D({
       wallRef.current.geometry.dispose();
       (wallRef.current.material as THREE.Material).dispose();
     }
+    if (proxyRef.current) {
+      pivot.remove(proxyRef.current);
+      proxyRef.current.geometry.dispose();
+      (proxyRef.current.material as THREE.Material).dispose();
+    }
 
     // Normalize so the longest dim maps to a fixed view length,
     // preserving true relative proportions of L:t:w.
@@ -157,28 +439,56 @@ function Beam3D({
       ts = tv * scale,
       ws = wv * scale;
 
-    const dWorld = Math.min((delta / Lv) * Ls, Ls * 0.9);
-
-    // Beam: built so its ROOT is at local x=0 and it extends to +Ls.
+    // Beam: built flat, ROOT at local x=0, extending to +Ls.
     const SEG = 60;
     const geo = new THREE.BoxGeometry(Ls, ts, ws, SEG, 1, 1);
     geo.translate(Ls / 2, 0, 0); // shift so left face (root) is at x=0
-    const pos = geo.attributes.position;
+    const pos = geo.attributes.position as THREE.BufferAttribute;
+    const baseY = new Float32Array(pos.count);
+    const xn = new Float32Array(pos.count);
     for (let i = 0; i < pos.count; i++) {
-      const xn = pos.getX(i) / Ls; // 0 at root → 1 at tip
-      const yShape = (3 * xn * xn - xn * xn * xn) / 2; // cantilever curve
-      pos.setY(i, pos.getY(i) - yShape * dWorld);
+      baseY[i] = pos.getY(i);
+      xn[i] = pos.getX(i) / Ls; // 0 at root → 1 at tip
     }
-    geo.computeVertexNormals();
+    const colorAttr = new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
+    colorAttr.setUsage(THREE.DynamicDrawUsage);
+    geo.setAttribute("color", colorAttr);
+
+    geoRef.current = geo;
+    baseYRef.current = baseY;
+    xnRef.current = xn;
+    colorAttrRef.current = colorAttr;
+    dimsRef.current = { Lv, Ls };
 
     const mat = new THREE.MeshStandardMaterial({
-      color: new THREE.Color(color || "#4fb477"),
+      vertexColors: true,
       metalness: 0.25,
       roughness: 0.55,
     });
     const mesh = new THREE.Mesh(geo, mat);
     pivot.add(mesh);
     meshRef.current = mesh;
+
+    // Fat invisible grab proxy (raycast target only).
+    const fat = Math.max(ts, ws, Ls * 0.18);
+    const proxyGeo = new THREE.BoxGeometry(Ls, fat, fat, SEG, 1, 1);
+    proxyGeo.translate(Ls / 2, 0, 0);
+    const ppos = proxyGeo.attributes.position as THREE.BufferAttribute;
+    const pBaseY = new Float32Array(ppos.count);
+    const pXn = new Float32Array(ppos.count);
+    for (let i = 0; i < ppos.count; i++) {
+      pBaseY[i] = ppos.getY(i);
+      pXn[i] = ppos.getX(i) / Ls;
+    }
+    const proxy = new THREE.Mesh(
+      proxyGeo,
+      new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
+    );
+    proxy.position.x = -Ls / 2;
+    pivot.add(proxy);
+    proxyRef.current = proxy;
+    proxyBaseYRef.current = pBaseY;
+    proxyXnRef.current = pXn;
 
     // Anchor wall: a slab flush against the root face (just left of x=0),
     // sized a bit larger than the beam cross-section so the beam clearly
@@ -198,7 +508,11 @@ function Beam3D({
     // so nudge children left by half the beam length via group offset.
     mesh.position.x = -Ls / 2;
     wall.position.x = -Ls / 2 - wallThick / 2;
-  }, [L, t, w, delta, color]);
+
+    // Apply the current deflection/color to the fresh geometry right away.
+    forceRef.current = true;
+    applyRef.current?.(liveDeltaRef.current);
+  }, [L, t, w]);
 
   return (
     <div>
@@ -207,12 +521,14 @@ function Beam3D({
         style={{
           fontFamily: "var(--mono)",
           fontSize: 9.5,
-          color: "#46515c",
+          color: interactive ? "#6b7884" : "#46515c",
           marginTop: 6,
           textAlign: "center",
         }}
       >
-        drag to rotate · proportions are true to L : t : w
+        {interactive
+          ? "grab the beam to bend it · drag empty space to rotate"
+          : "drag to rotate · proportions are true to L : t : w"}
       </div>
     </div>
   );
@@ -398,8 +714,15 @@ export default function FlexureCalc() {
   const [t, setT] = useState("0.8"); // mm (bending direction)
   const [w, setW] = useState("10"); // mm
   const [delta, setDelta] = useState("4"); // mm target deflection
+  const [interactive, setInteractive] = useState(false);
+  const [liveDelta, setLiveDelta] = useState<number | null>(null); // mm, while bending the beam
 
   const mat = MATERIALS[matKey];
+
+  // While interactively bending, the readouts follow the live deflection;
+  // otherwise they reflect the design input.
+  const effDelta = liveDelta != null ? liveDelta : num(delta);
+  const isLive = liveDelta != null;
 
   const r = useMemo(() => {
     const E = mat.E * 1e9; // Pa
@@ -407,7 +730,7 @@ export default function FlexureCalc() {
     const Lm = num(L) / 1000; // m
     const tm = num(t) / 1000;
     const wm = num(w) / 1000;
-    const dm = num(delta) / 1000;
+    const dm = Math.abs(effDelta) / 1000; // bending either way produces stress
 
     const I = (wm * Math.pow(tm, 3)) / 12; // m^4
     const k = (3 * E * I) / Math.pow(Lm, 3); // N/m
@@ -424,7 +747,7 @@ export default function FlexureCalc() {
       tm,
       dm,
     };
-  }, [mat, L, t, w, delta]);
+  }, [mat, L, t, w, effDelta]);
 
   const status =
     r.SF >= 2
@@ -633,25 +956,69 @@ export default function FlexureCalc() {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
+              gap: 8,
               marginBottom: 8,
+              flexWrap: "wrap",
             }}
           >
-            <div
+            <div>
+              <div
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  textTransform: "uppercase",
+                  color: "#6b7884",
+                }}
+              >
+                Deflected shape · 3D
+              </div>
+              <div
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 10,
+                  color: isLive ? status.c : "#46515c",
+                  marginTop: 2,
+                }}
+              >
+                {isLive
+                  ? `● bending · δ ${effDelta.toFixed(1)} mm`
+                  : `L ${num(L)} · t ${num(t)} · w ${num(w)} mm`}
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                const nv = !interactive;
+                setInteractive(nv);
+                if (!nv) setLiveDelta(null); // leaving interactive → drop the live override
+              }}
               style={{
                 fontFamily: "var(--mono)",
                 fontSize: 10,
-                letterSpacing: "0.12em",
+                letterSpacing: "0.1em",
                 textTransform: "uppercase",
-                color: "#6b7884",
+                cursor: "pointer",
+                borderRadius: 2,
+                padding: "6px 10px",
+                background: interactive ? `${status.c}1f` : "#0e1419",
+                border: `1px solid ${interactive ? status.c : "#1f2a33"}`,
+                color: interactive ? status.c : "#8b97a3",
+                whiteSpace: "nowrap",
               }}
             >
-              Deflected shape · 3D
-            </div>
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c" }}>
-              L {num(L)} · t {num(t)} · w {num(w)} mm
-            </div>
+              {interactive ? "● Interactive" : "Interactive"}
+            </button>
           </div>
-          <Beam3D L={num(L)} t={num(t)} w={num(w)} delta={num(delta)} color={status.c} />
+          <Beam3D
+            L={num(L)}
+            t={num(t)}
+            w={num(w)}
+            delta={num(delta)}
+            interactive={interactive}
+            E={mat.E}
+            sigmaY={mat.sigmaY}
+            onLiveDelta={setLiveDelta}
+          />
         </div>
 
         <p
