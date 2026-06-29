@@ -71,8 +71,6 @@ function Beam3D({
   E,
   sigmaY,
   onLiveDelta,
-  capRotate,
-  capBend,
 }: {
   L: number;
   t: number;
@@ -82,8 +80,6 @@ function Beam3D({
   E: number;
   sigmaY: number;
   onLiveDelta: (mm: number | null) => void;
-  capRotate: string;
-  capBend: string;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ yaw: -0.6, pitch: -0.35, dragging: false, lx: 0, ly: 0 });
@@ -612,7 +608,9 @@ function Beam3D({
           textAlign: "center",
         }}
       >
-        {interactive ? capBend : capRotate}
+        {interactive
+          ? "grab the beam to bend it · drag empty space to rotate"
+          : "drag to rotate · proportions are true to L : t : w"}
       </div>
     </div>
   );
@@ -698,174 +696,16 @@ const FAVORITES = [
   "Aluminum 7075-T6",
 ];
 
-// Equations behind the calculator, shown in the theory section (notes are localized).
-const EQUATIONS = [
-  "I = w·t³ / 12",
-  "k = 3EI / L³",
-  "F = k·δ",
-  "σ = 3Etδ / 2L²",
-  "n = σy / σ",
-  "y(x) = (δ/2)·[3(x/L)² − (x/L)³]",
-  "γ = 1 / ∫₀¹cos θ(p) dp",
+// Equations behind the calculator, shown in the theory section.
+const EQUATIONS: Array<{ expr: string; note: string }> = [
+  { expr: "I = w·t³ / 12", note: "Second moment of area, rectangular section" },
+  { expr: "k = 3EI / L³", note: "Tip stiffness of an end-loaded cantilever" },
+  { expr: "F = k·δ", note: "Force needed to reach deflection δ" },
+  { expr: "σ = 3Etδ / 2L²", note: "Peak bending stress, at the fixed root surface" },
+  { expr: "n = σy / σ", note: "Safety factor against yielding" },
+  { expr: "y(x) = (δ/2)·[3(x/L)² − (x/L)³]", note: "Euler–Bernoulli deflected shape" },
+  { expr: "γ = 1 / ∫₀¹cos θ(p) dp", note: "Large-deflection stiffening; F = k·δ·γ (γ→1 when δ/L≪1)" },
 ];
-
-// ── Localization ────────────────────────────────────────────────
-type Lang = "en" | "ru";
-type Strings = {
-  toolkit: string;
-  title: string;
-  material: string;
-  favorites: string;
-  groups: Record<string, string>;
-  matInfo: (E: number, sy: number) => string;
-  aniso: string;
-  soft: string;
-  lengthL: string;
-  thicknessT: string;
-  widthW: string;
-  targetDefl: string;
-  mm: string;
-  N: string;
-  Nmm: string;
-  MPa: string;
-  safetyFactor: string;
-  status: Record<string, string>;
-  stiffnessK: string;
-  forceF: string;
-  maxStress: string;
-  deflectedShape: string;
-  interactive: string;
-  bending: (v: string) => string;
-  dims: (L: number, t: number, w: number) => string;
-  capRotate: string;
-  capBend: string;
-  theoryTitle: string;
-  eqNotes: string[];
-  symbols: string;
-  model: { lead: string; body: string };
-  design: { lead: string; body: string };
-  scope: { lead: string; body: string };
-  short: { lead: string; body: string };
-};
-
-const STRINGS: Record<Lang, Strings> = {
-  en: {
-    toolkit: "COMPLIANT MECHANISM TOOLKIT",
-    title: "Cantilever Flexure",
-    material: "Material",
-    favorites: "★ Favorites",
-    groups: { Metal: "Metal", Plastic: "Plastic", FDM: "FDM", "Powder-bed": "Powder-bed", Elastomer: "Elastomer" },
-    matInfo: (E, sy) => `E = ${E} GPa · σ_y = ${sy} MPa`,
-    aniso:
-      "⚠ Anisotropic — XY in-plane values. Strength across layer lines is far lower; orient flexures so bending stays in-plane.",
-    soft: "⚠ Rubber-like — linear theory only holds for small δ/L. Treat results as a rough first cut.",
-    lengthL: "Length L",
-    thicknessT: "Thickness t",
-    widthW: "Width w",
-    targetDefl: "Target deflection δ",
-    mm: "mm",
-    N: "N",
-    Nmm: "N/mm",
-    MPa: "MPa",
-    safetyFactor: "SAFETY FACTOR",
-    status: { SAFE: "SAFE", MARGINAL: "MARGINAL", YIELDING: "YIELDING" },
-    stiffnessK: "Stiffness k",
-    forceF: "Force required F",
-    maxStress: "Max stress σ",
-    deflectedShape: "Deflected shape · 3D",
-    interactive: "Interactive",
-    bending: (v) => `● bending · δ ${v} mm`,
-    dims: (L, t, w) => `L ${L} · t ${t} · w ${w} mm`,
-    capRotate: "drag to rotate · proportions are true to L : t : w",
-    capBend: "grab the beam to bend it · drag empty space to rotate",
-    theoryTitle: "Theory & Equations",
-    eqNotes: [
-      "Second moment of area, rectangular section",
-      "Tip stiffness of an end-loaded cantilever",
-      "Force needed to reach deflection δ",
-      "Peak bending stress, at the fixed root surface",
-      "Safety factor against yielding",
-      "Euler–Bernoulli deflected shape",
-      "Large-deflection stiffening; F = k·δ·γ (γ→1 when δ/L≪1)",
-    ],
-    symbols:
-      "E Young's modulus · I second moment of area · L length · t thickness (bending direction) · w width · δ tip deflection · σ peak stress · σy yield strength · n safety factor",
-    model: {
-      lead: "Model.",
-      body: " A prismatic rectangular cantilever, rigidly built in at one end (the wall) and loaded by a transverse force at the free tip — Euler–Bernoulli (engineer's) beam theory. The bending moment grows linearly from zero at the tip to a maximum at the root, so the surface stress is highest where the beam meets the wall. That is where a flexure yields first. The 3D beam colors this directly: the stretched face warms toward red (tension), the opposite face cools toward blue (compression), and the neutral axis in between stays green — all most intense at the root.",
-    },
-    design: {
-      lead: "Designing a flexure.",
-      body: " You usually fix the deflection δ you need and size the geometry for it. Thinning t buys range of motion — stress scales with t while stiffness scales with t³, so a thinner blade is far more compliant and less stressed for the same δ, at the cost of load capacity and buckling resistance. Aim for a safety factor n ≥ 2 for repeated or living-hinge duty, and more where fatigue matters.",
-    },
-    scope: {
-      lead: "Scope.",
-      body: " Stiffness and stress use linear small-deflection theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape diverge from these closed forms. The force readout adds a geometric-stiffening factor γ (shown when it matters) so it tracks the real load-up better at large bends, and the 3D viewer draws a length-preserving large-deflection curve that curls further than the linear numbers imply. 3D-printed values are typical in-plane figures and are anisotropic across layers — verify against your own coupons before relying on them.",
-    },
-    short: {
-      lead: "In short:",
-      body: " the harder you bend the beam, the more its tip pulls inward, shrinking the leverage of your force — so each extra millimetre of deflection costs a little more force than the last (the γ factor). For everyday flexures, where deflections are small and the safety factor stays ≥ 2, γ ≈ 1 and you can ignore it; it only shows up when you bend the beam far past its working range.",
-    },
-  },
-  ru: {
-    toolkit: "ИНСТРУМЕНТЫ ДЛЯ ПОДАТЛИВЫХ МЕХАНИЗМОВ",
-    title: "Консольный упругий элемент",
-    material: "Материал",
-    favorites: "★ Избранное",
-    groups: { Metal: "Металл", Plastic: "Пластик", FDM: "FDM", "Powder-bed": "Порошковая печать", Elastomer: "Эластомер" },
-    matInfo: (E, sy) => `E = ${E} ГПа · σ_y = ${sy} МПа`,
-    aniso:
-      "⚠ Анизотропно — значения в плоскости XY. Прочность поперёк слоёв намного ниже; ориентируйте упругий элемент так, чтобы изгиб оставался в плоскости.",
-    soft: "⚠ Резиноподобный — линейная теория верна лишь при малых δ/L. Считайте результаты грубой первой оценкой.",
-    lengthL: "Длина L",
-    thicknessT: "Толщина t",
-    widthW: "Ширина w",
-    targetDefl: "Целевой прогиб δ",
-    mm: "мм",
-    N: "Н",
-    Nmm: "Н/мм",
-    MPa: "МПа",
-    safetyFactor: "ЗАПАС ПРОЧНОСТИ",
-    status: { SAFE: "БЕЗОПАСНО", MARGINAL: "НА ПРЕДЕЛЕ", YIELDING: "ТЕКУЧЕСТЬ" },
-    stiffnessK: "Жёсткость k",
-    forceF: "Требуемая сила F",
-    maxStress: "Макс. напряжение σ",
-    deflectedShape: "Форма прогиба · 3D",
-    interactive: "Интерактив",
-    bending: (v) => `● изгиб · δ ${v} мм`,
-    dims: (L, t, w) => `L ${L} · t ${t} · w ${w} мм`,
-    capRotate: "тяните, чтобы вращать · пропорции точны по L : t : w",
-    capBend: "схватите балку, чтобы согнуть · тяните пустое место, чтобы вращать",
-    theoryTitle: "Теория и формулы",
-    eqNotes: [
-      "Момент инерции сечения (прямоугольник)",
-      "Жёсткость на конце консоли при нагрузке на конце",
-      "Сила для достижения прогиба δ",
-      "Макс. изгибное напряжение у заделки (на поверхности)",
-      "Запас прочности по текучести",
-      "Форма прогиба по Эйлеру–Бернулли",
-      "Ужесточение при больших прогибах; F = k·δ·γ (γ→1 при δ/L≪1)",
-    ],
-    symbols:
-      "E — модуль Юнга · I — момент инерции сечения · L — длина · t — толщина (направление изгиба) · w — ширина · δ — прогиб конца · σ — макс. напряжение · σy — предел текучести · n — запас прочности",
-    model: {
-      lead: "Модель.",
-      body: " Призматическая прямоугольная консоль, жёстко защемлённая с одного конца (стенка) и нагруженная поперечной силой на свободном конце — теория балок Эйлера–Бернулли. Изгибающий момент линейно растёт от нуля на конце до максимума у заделки, поэтому напряжение на поверхности максимально там, где балка входит в стенку. Именно там упругий элемент течёт первым. 3D-балка показывает это напрямую: растянутая грань теплеет к красному (растяжение), противоположная холодеет к синему (сжатие), а нейтральная ось между ними остаётся зелёной — и всё это сильнее всего у заделки.",
-    },
-    design: {
-      lead: "Проектирование упругого элемента.",
-      body: " Обычно задают нужный прогиб δ и подбирают под него геометрию. Уменьшение толщины t увеличивает ход: напряжение растёт пропорционально t, а жёсткость — как t³, поэтому более тонкая пластина гораздо податливее и менее напряжена при том же δ — ценой несущей способности и устойчивости. Стремитесь к запасу прочности n ≥ 2 для циклической работы или живых шарниров, и больше там, где важна усталость.",
-    },
-    scope: {
-      lead: "Область применения.",
-      body: " Жёсткость и напряжение рассчитаны по линейной теории малых прогибов, точной примерно при δ/L ≲ 0,1; за этим пределом реальные напряжение и форма расходятся с этими формулами. В значение силы добавлен геометрический коэффициент ужесточения γ (показывается, когда он значим), чтобы лучше отражать реальную нагрузку при больших изгибах, а 3D-вид рисует кривую больших прогибов с сохранением длины, которая загибается сильнее, чем предсказывают линейные числа. Значения для 3D-печати — типичные в плоскости и анизотропны поперёк слоёв; проверяйте по своим образцам перед использованием.",
-    },
-    short: {
-      lead: "Кратко:",
-      body: " чем сильнее вы гнёте балку, тем больше её конец уходит внутрь, уменьшая плечо вашей силы — поэтому каждый следующий миллиметр прогиба требует чуть больше силы, чем предыдущий (коэффициент γ). Для обычных упругих элементов, где прогибы малы и запас прочности ≥ 2, γ ≈ 1 и им можно пренебречь; он проявляется лишь когда вы гнёте балку далеко за рабочий диапазон.",
-    },
-  },
-};
 
 const num = (v: string, fallback = 0) => {
   const n = parseFloat(v);
@@ -986,9 +826,7 @@ export default function FlexureCalc() {
   const [delta, setDelta] = useState("4"); // mm target deflection
   const [interactive, setInteractive] = useState(false);
   const [liveDelta, setLiveDelta] = useState<number | null>(null); // mm, while bending the beam
-  const [lang, setLang] = useState<Lang>("en");
 
-  const T = STRINGS[lang];
   const mat = MATERIALS[matKey];
 
   // While interactively bending, the readouts follow the live deflection;
@@ -1067,45 +905,23 @@ export default function FlexureCalc() {
                 color: "#3a78c2",
               }}
             >
-              {T.toolkit}
+              COMPLIANT MECHANISM TOOLKIT
             </div>
             <h1 className="flexure-title" style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
-              {T.title}
+              Cantilever Flexure
             </h1>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
-            <div style={{ display: "inline-flex", border: "1px solid #1f2a33", borderRadius: 3, overflow: "hidden" }}>
-              {(["en", "ru"] as const).map((l) => (
-                <button
-                  key={l}
-                  onClick={() => setLang(l)}
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: 10,
-                    letterSpacing: "0.1em",
-                    padding: "4px 9px",
-                    cursor: "pointer",
-                    border: "none",
-                    background: lang === l ? "#3a78c2" : "#0e1419",
-                    color: lang === l ? "#fff" : "#8b97a3",
-                  }}
-                >
-                  {l.toUpperCase()}
-                </button>
-              ))}
-            </div>
-            <div
-              style={{
-                textAlign: "right",
-                fontFamily: "var(--mono)",
-                fontSize: 10,
-                color: "#46515c",
-                lineHeight: 1.6,
-              }}
-            >
-              <div>k = 3EI / L³</div>
-              <div>σ = 3Etδ / 2L²</div>
-            </div>
+          <div
+            style={{
+              textAlign: "right",
+              fontFamily: "var(--mono)",
+              fontSize: 10,
+              color: "#46515c",
+              lineHeight: 1.6,
+            }}
+          >
+            <div>k = 3EI / L³</div>
+            <div>σ = 3Etδ / 2L²</div>
           </div>
         </div>
 
@@ -1122,7 +938,7 @@ export default function FlexureCalc() {
                   fontFamily: "var(--mono)",
                 }}
               >
-                {T.material}
+                Material
               </label>
               <select
                 value={matKey}
@@ -1138,7 +954,7 @@ export default function FlexureCalc() {
                   outline: "none",
                 }}
               >
-                <optgroup label={T.favorites}>
+                <optgroup label="★ Favorites">
                   {FAVORITES.map((k) => (
                     <option key={`fav-${k}`} value={k}>
                       {k}
@@ -1146,7 +962,7 @@ export default function FlexureCalc() {
                   ))}
                 </optgroup>
                 {GROUP_ORDER.map((g) => (
-                  <optgroup key={g} label={T.groups[g]}>
+                  <optgroup key={g} label={g}>
                     {Object.keys(MATERIALS)
                       .filter((k) => MATERIALS[k].grp === g)
                       .map((k) => (
@@ -1158,7 +974,7 @@ export default function FlexureCalc() {
                 ))}
               </select>
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: 2 }}>
-                {T.matInfo(mat.E, mat.sigmaY)}
+                E = {mat.E} GPa · σ_y = {mat.sigmaY} MPa
               </div>
               {mat.fdm && (
                 <div
@@ -1170,7 +986,8 @@ export default function FlexureCalc() {
                     lineHeight: 1.5,
                   }}
                 >
-                  {T.aniso}
+                  ⚠ Anisotropic — XY in-plane values. Strength across layer lines is far lower; orient
+                  flexures so bending stays in-plane.
                 </div>
               )}
               {mat.soft && (
@@ -1183,14 +1000,15 @@ export default function FlexureCalc() {
                     lineHeight: 1.5,
                   }}
                 >
-                  {T.soft}
+                  ⚠ Rubber-like — linear theory only holds for small δ/L. Treat results as a rough first
+                  cut.
                 </div>
               )}
             </div>
-            <Field label={T.lengthL} unit={T.mm} value={L} onChange={setL} min="0" />
-            <Field label={T.thicknessT} unit={T.mm} value={t} onChange={setT} min="0" step="0.1" />
-            <Field label={T.widthW} unit={T.mm} value={w} onChange={setW} min="0" />
-            <Field label={T.targetDefl} unit={T.mm} value={delta} onChange={setDelta} min="0" step="0.1" />
+            <Field label="Length L" unit="mm" value={L} onChange={setL} min="0" />
+            <Field label="Thickness t" unit="mm" value={t} onChange={setT} min="0" step="0.1" />
+            <Field label="Width w" unit="mm" value={w} onChange={setW} min="0" />
+            <Field label="Target deflection δ" unit="mm" value={delta} onChange={setDelta} min="0" step="0.1" />
           </div>
 
           {/* OUTPUTS */}
@@ -1209,7 +1027,7 @@ export default function FlexureCalc() {
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
               >
                 <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
-                  {T.safetyFactor}
+                  SAFETY FACTOR
                 </span>
                 <span
                   style={{
@@ -1223,7 +1041,7 @@ export default function FlexureCalc() {
                     padding: "2px 7px",
                   }}
                 >
-                  {T.status[status.t]}
+                  {status.t}
                 </span>
               </div>
               <div
@@ -1241,14 +1059,14 @@ export default function FlexureCalc() {
               </div>
             </div>
 
-            <Readout label={T.stiffnessK} value={r.k.toFixed(3)} unit={T.Nmm} />
+            <Readout label="Stiffness k" value={r.k.toFixed(3)} unit="N/mm" />
             <Readout
-              label={T.forceF}
+              label="Force required F"
               value={r.F.toFixed(2)}
-              unit={T.N}
+              unit="N"
               hint={r.gamma >= 1.02 ? `γ ${r.gamma.toFixed(2)}` : undefined}
             />
-            <Readout label={T.maxStress} value={r.sigma.toFixed(1)} unit={T.MPa} accent={status.c} />
+            <Readout label="Max stress σ" value={r.sigma.toFixed(1)} unit="MPa" accent={status.c} />
           </div>
         </div>
 
@@ -1283,7 +1101,7 @@ export default function FlexureCalc() {
                   color: "#6b7884",
                 }}
               >
-                {T.deflectedShape}
+                Deflected shape · 3D
               </div>
               <div
                 style={{
@@ -1293,7 +1111,9 @@ export default function FlexureCalc() {
                   marginTop: 2,
                 }}
               >
-                {isLive ? T.bending(effDelta.toFixed(1)) : T.dims(num(L), num(t), num(w))}
+                {isLive
+                  ? `● bending · δ ${effDelta.toFixed(1)} mm`
+                  : `L ${num(L)} · t ${num(t)} · w ${num(w)} mm`}
               </div>
             </div>
             <button
@@ -1316,7 +1136,7 @@ export default function FlexureCalc() {
                 whiteSpace: "nowrap",
               }}
             >
-              {interactive ? `● ${T.interactive}` : T.interactive}
+              {interactive ? "● Interactive" : "Interactive"}
             </button>
           </div>
           <Beam3D
@@ -1328,8 +1148,6 @@ export default function FlexureCalc() {
             E={mat.E}
             sigmaY={mat.sigmaY}
             onLiveDelta={setLiveDelta}
-            capRotate={T.capRotate}
-            capBend={T.capBend}
           />
         </div>
 
@@ -1345,13 +1163,13 @@ export default function FlexureCalc() {
               marginBottom: 12,
             }}
           >
-            {T.theoryTitle}
+            Theory &amp; Equations
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {EQUATIONS.map((expr, i) => (
+            {EQUATIONS.map((eq) => (
               <div
-                key={expr}
+                key={eq.expr}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
@@ -1370,7 +1188,7 @@ export default function FlexureCalc() {
                     whiteSpace: "nowrap",
                   }}
                 >
-                  {expr}
+                  {eq.expr}
                 </span>
                 <span
                   style={{
@@ -1380,7 +1198,7 @@ export default function FlexureCalc() {
                     textAlign: "right",
                   }}
                 >
-                  {T.eqNotes[i]}
+                  {eq.note}
                 </span>
               </div>
             ))}
@@ -1395,24 +1213,59 @@ export default function FlexureCalc() {
               lineHeight: 1.6,
             }}
           >
-            {T.symbols}
+            E Young&apos;s modulus · I second moment of area · L length · t thickness (bending direction) ·
+            w width · δ tip deflection · σ peak stress · σy yield strength · n safety factor
           </div>
 
-          {[T.model, T.design, T.scope].map((para, i) => (
-            <p
-              key={para.lead}
-              style={{
-                fontFamily: "var(--sans)",
-                fontSize: 12.5,
-                color: "#8b97a3",
-                marginTop: i === 0 ? 16 : 10,
-                lineHeight: 1.7,
-              }}
-            >
-              <strong style={{ color: "#c2ccd4" }}>{para.lead}</strong>
-              {para.body}
-            </p>
-          ))}
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 16,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Model.</strong> A prismatic rectangular cantilever,
+            rigidly built in at one end (the wall) and loaded by a transverse force at the free tip —
+            Euler–Bernoulli (engineer&apos;s) beam theory. The bending moment grows linearly from zero at
+            the tip to a maximum at the root, so the surface stress is highest where the beam meets the
+            wall. That is where a flexure yields first. The 3D beam colors this directly: the stretched
+            face warms toward red (tension), the opposite face cools toward blue (compression), and the
+            neutral axis in between stays dim — all most intense at the root.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 10,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Designing a flexure.</strong> You usually fix the
+            deflection δ you need and size the geometry for it. Thinning t buys range of motion — stress
+            scales with t while stiffness scales with t³, so a thinner blade is far more compliant and
+            less stressed for the same δ, at the cost of load capacity and buckling resistance. Aim for a
+            safety factor n ≥ 2 for repeated or living-hinge duty, and more where fatigue matters.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 10,
+              lineHeight: 1.7,
+            }}
+          >
+            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Stiffness and stress use linear
+            small-deflection theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape
+            diverge from these closed forms. The force readout adds a geometric-stiffening factor γ
+            (shown when it matters) so it tracks the real load-up better at large bends, and the 3D viewer
+            draws a length-preserving large-deflection curve that curls further than the linear numbers
+            imply. 3D-printed values are typical in-plane figures and are anisotropic across layers —
+            verify against your own coupons before relying on them.
+          </p>
 
           <p
             style={{
@@ -1426,9 +1279,13 @@ export default function FlexureCalc() {
             }}
           >
             <span style={{ textDecoration: "underline", textUnderlineOffset: 3, color: "#e8edf1" }}>
-              {T.short.lead}
-            </span>
-            {T.short.body}
+              In short:
+            </span>{" "}
+            the harder you bend the beam, the more its tip pulls inward, shrinking the leverage of your
+            force — so each extra millimetre of deflection costs a little more force than the last (the γ
+            factor). For everyday flexures, where deflections are small and the safety factor stays ≥ 2,
+            γ ≈ 1 and you can ignore it; it only shows up when you bend the beam far past its working
+            range.
           </p>
         </div>
       </div>
