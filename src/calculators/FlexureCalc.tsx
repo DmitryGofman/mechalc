@@ -141,31 +141,63 @@ function Beam3D({
     grid.position.y = -1.2;
     pivot.add(grid);
 
-    // Cantilever deflection shape: 0 at root → 1 at tip.
-    const shape = (x: number) => (3 * x * x - x * x * x) / 2;
+    // Slope angle of the cantilever along its length, as a fraction p (0=root,
+    // 1=tip) of the material. Tuned so the small-angle tip drop ≈ the deflection
+    // ratio c; integrating cos/sin of this keeps the centerline length constant.
+    const slope = (p: number, c: number) => c * (3 * p - 1.5 * p * p);
 
-    // Apply a deflection (mm) to the cached geometry and recolor by stress.
+    // Bend the beam by deflection (mm), preserving its true length: walk the
+    // centerline at constant arc-length spacing (so the tip foreshortens and
+    // pulls inward as it droops) and rotate each cross-section with the slope.
+    const M = 128;
+    const cx = new Float32Array(M + 1);
+    const cy = new Float32Array(M + 1);
     const applyDeflection = (deltaMm: number) => {
       const geo = geoRef.current;
       const baseY = baseYRef.current;
       const xn = xnRef.current;
       if (!geo || !baseY || !xn) return;
       const { Lv, Ls } = dimsRef.current;
-      const lim = Ls * 0.9;
-      let dWorld = (deltaMm / Math.max(Lv, 1e-3)) * Ls;
-      dWorld = Math.max(-lim, Math.min(lim, dWorld));
+      // c = tip-deflection ratio (= dWorld/Ls); clamp so it can't curl past ~85°.
+      let c = deltaMm / Math.max(Lv, 1e-3);
+      c = Math.max(-0.95, Math.min(0.95, c));
+
+      // Numerically integrate the centerline (X right, Y down-negative).
+      const dp = 1 / M;
+      cx[0] = 0;
+      cy[0] = 0;
+      for (let i = 1; i <= M; i++) {
+        const pm = (i - 0.5) * dp;
+        const phi = slope(pm, c);
+        cx[i] = cx[i - 1] + Ls * Math.cos(phi) * dp;
+        cy[i] = cy[i - 1] - Ls * Math.sin(phi) * dp;
+      }
+
+      const bend = (out: THREE.BufferAttribute, off: Float32Array, frac: Float32Array) => {
+        for (let i = 0; i < out.count; i++) {
+          const p = frac[i];
+          const a = off[i]; // cross-section offset from the neutral axis (thickness)
+          const phi = slope(p, c);
+          const fi = p * M;
+          const i0 = Math.min(M - 1, Math.max(0, Math.floor(fi)));
+          const f = fi - i0;
+          const X = cx[i0] + (cx[i0 + 1] - cx[i0]) * f;
+          const Y = cy[i0] + (cy[i0 + 1] - cy[i0]) * f;
+          out.setX(i, X + a * Math.sin(phi));
+          out.setY(i, Y + a * Math.cos(phi));
+        }
+        out.needsUpdate = true;
+      };
+
       const pos = geo.attributes.position as THREE.BufferAttribute;
-      for (let i = 0; i < pos.count; i++) pos.setY(i, baseY[i] - shape(xn[i]) * dWorld);
-      pos.needsUpdate = true;
+      bend(pos, baseY, xn);
       geo.computeVertexNormals();
       // Keep the invisible grab proxy bent the same way.
       const proxy = proxyRef.current;
       const pBaseY = proxyBaseYRef.current;
       const pXn = proxyXnRef.current;
       if (proxy && pBaseY && pXn) {
-        const ppos = proxy.geometry.attributes.position as THREE.BufferAttribute;
-        for (let i = 0; i < ppos.count; i++) ppos.setY(i, pBaseY[i] - shape(pXn[i]) * dWorld);
-        ppos.needsUpdate = true;
+        bend(proxy.geometry.attributes.position as THREE.BufferAttribute, pBaseY, pXn);
       }
       const col = colorAttrRef.current;
       if (col) {
