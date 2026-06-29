@@ -11,29 +11,51 @@ function stressRatio(EGpa: number, tMm: number, LMm: number, deltaMm: number, si
   return sigmaPa / 1e6 / sigmaYMpa;
 }
 
-// Color ramp green → amber → red as local stress approaches (and exceeds) yield.
-const STRESS_STOPS: Array<[number, [number, number, number]]> = [
-  [0.0, [0.31, 0.706, 0.467]], // #4fb477 safe green
-  [0.55, [0.851, 0.643, 0.255]], // #d9a441 amber
-  [1.0, [0.839, 0.361, 0.361]], // #d65c5c yield red
-  [1.3, [1.0, 0.3, 0.3]], // overstressed
-];
-function stressColor(ratio: number) {
-  const x = Math.max(0, Math.min(1.3, ratio));
-  for (let i = 1; i < STRESS_STOPS.length; i++) {
-    const [p1, c1] = STRESS_STOPS[i];
-    if (x <= p1) {
-      const [p0, c0] = STRESS_STOPS[i - 1];
-      const f = (x - p0) / (p1 - p0 || 1);
-      return {
-        r: c0[0] + (c1[0] - c0[0]) * f,
-        g: c0[1] + (c1[1] - c0[1]) * f,
-        b: c0[2] + (c1[2] - c0[2]) * f,
-      };
+type Stops = Array<[number, [number, number, number]]>;
+function rampColor(stops: Stops, x: number) {
+  const xc = Math.max(0, Math.min(stops[stops.length - 1][0], x));
+  for (let i = 1; i < stops.length; i++) {
+    const [p1, c1] = stops[i];
+    if (xc <= p1) {
+      const [p0, c0] = stops[i - 1];
+      const f = (xc - p0) / (p1 - p0 || 1);
+      return { r: c0[0] + (c1[0] - c0[0]) * f, g: c0[1] + (c1[1] - c0[1]) * f, b: c0[2] + (c1[2] - c0[2]) * f };
     }
   }
-  const last = STRESS_STOPS[STRESS_STOPS.length - 1][1];
+  const last = stops[stops.length - 1][1];
   return { r: last[0], g: last[1], b: last[2] };
+}
+
+// Diverging stress map across the thickness: the neutral axis is dim, the
+// stretched (tension) face warms to red, the compressed face cools to blue.
+const NEUTRAL_RGB: [number, number, number] = [0.31, 0.706, 0.467]; // calm safe-green
+const TENSION_STOPS: Stops = [
+  [0.0, NEUTRAL_RGB],
+  [0.5, [0.85, 0.55, 0.22]], // amber
+  [1.0, [0.84, 0.27, 0.27]], // yield red
+  [1.3, [1.0, 0.3, 0.3]],
+];
+const COMPRESSION_STOPS: Stops = [
+  [0.0, NEUTRAL_RGB],
+  [0.5, [0.2, 0.58, 0.68]], // teal
+  [1.0, [0.27, 0.46, 0.9]], // blue
+  [1.3, [0.3, 0.4, 1.0]],
+];
+// signed: + = tension (warm), − = compression (cool).
+function signedStressColor(signed: number) {
+  return signed >= 0 ? rampColor(TENSION_STOPS, signed) : rampColor(COMPRESSION_STOPS, -signed);
+}
+
+// Horizontal foreshortening integral ∫₀¹cos θ(p) dp for the bent centerline,
+// used both to draw the beam and to derive large-deflection stiffening.
+function cosIntegral(c: number, steps = 64) {
+  let s = 0;
+  const dp = 1 / steps;
+  for (let i = 0; i < steps; i++) {
+    const p = (i + 0.5) * dp;
+    s += Math.cos(c * (3 * p - 1.5 * p * p)) * dp;
+  }
+  return s;
 }
 
 // ── 3D beam viewer ──────────────────────────────────────────────
@@ -70,8 +92,14 @@ function Beam3D({
   const baseYRef = useRef<Float32Array | null>(null);
   const xnRef = useRef<Float32Array | null>(null);
   const colorAttrRef = useRef<THREE.BufferAttribute | null>(null);
-  const dimsRef = useRef({ Lv: 1, Ls: 1 });
+  const dimsRef = useRef({ Lv: 1, Ls: 1, halfT: 0.01 });
   const applyRef = useRef<((d: number) => void) | null>(null);
+
+  // Auto-fit framing: track the beam's bounding sphere so the camera can keep
+  // the whole (possibly curled) beam in view.
+  const beamCenterRef = useRef(new THREE.Vector3());
+  const beamRadiusRef = useRef(2);
+  const camDistRef = useRef(6);
 
   // Invisible, fattened proxy around the beam — a forgiving grab target so a
   // thin wafer is still easy to catch with a fingertip. Deflects with the beam.
@@ -133,7 +161,6 @@ function Beam3D({
     scene.add(rim);
 
     const pivot = new THREE.Group();
-    pivot.position.y = 0.25; // lift the assembly so the deflected beam sits higher in frame
     scene.add(pivot);
     pivotRef.current = pivot;
 
@@ -192,6 +219,13 @@ function Beam3D({
       const pos = geo.attributes.position as THREE.BufferAttribute;
       bend(pos, baseY, xn);
       geo.computeVertexNormals();
+      // Track the deflected bounding sphere for auto-fit framing.
+      geo.computeBoundingSphere();
+      if (geo.boundingSphere) {
+        beamCenterRef.current.copy(geo.boundingSphere.center);
+        beamCenterRef.current.x += -dimsRef.current.Ls / 2; // mesh.position.x offset
+        beamRadiusRef.current = geo.boundingSphere.radius;
+      }
       // Keep the invisible grab proxy bent the same way.
       const proxy = proxyRef.current;
       const pBaseY = proxyBaseYRef.current;
@@ -203,8 +237,13 @@ function Beam3D({
       if (col) {
         const P = propsRef.current;
         const ratioMax = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY);
+        const halfT = dimsRef.current.halfT || 1e-6;
+        const dir = Math.sign(deltaMm); // bend direction: +δ → top in tension
         for (let i = 0; i < col.count; i++) {
-          const c = stressColor(ratioMax * (1 - xn[i])); // stress peaks at the root
+          // Local fiber stress: peaks at the root (1−p), linear through the
+          // thickness (a/halfT), signed by which face is stretched.
+          const signed = ratioMax * (1 - xn[i]) * dir * (baseY[i] / halfT);
+          const c = signedStressColor(signed);
           col.setXYZ(i, c.r, c.g, c.b);
         }
         col.needsUpdate = true;
@@ -289,6 +328,7 @@ function Beam3D({
 
     let raf = 0;
     let lastApplied = NaN;
+    const tmpV = new THREE.Vector3();
     const animate = () => {
       const s = stateRef.current;
       pivot.rotation.y = s.yaw;
@@ -315,6 +355,16 @@ function Beam3D({
         lastApplied = liveDeltaRef.current;
         forceRef.current = false;
       }
+      // Auto-fit: keep the beam centered, easing the zoom so even a fully
+      // curled tip stays in frame.
+      tmpV.copy(beamCenterRef.current).applyEuler(pivot.rotation);
+      pivot.position.set(-tmpV.x, -tmpV.y, -tmpV.z);
+      const aspect = camera.aspect || 1;
+      const vHalf = (camera.fov * Math.PI) / 360;
+      const halfFov = Math.min(vHalf, Math.atan(Math.tan(vHalf) * aspect));
+      const want = Math.max(4, (beamRadiusRef.current * 1.35) / Math.sin(halfFov));
+      camDistRef.current += (want - camDistRef.current) * 0.1;
+      camera.position.set(0, 0, camDistRef.current);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
     };
@@ -490,7 +540,7 @@ function Beam3D({
     baseYRef.current = baseY;
     xnRef.current = xn;
     colorAttrRef.current = colorAttr;
-    dimsRef.current = { Lv, Ls };
+    dimsRef.current = { Lv, Ls, halfT: ts / 2 };
 
     const mat = new THREE.MeshStandardMaterial({
       vertexColors: true,
@@ -654,6 +704,7 @@ const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "σ = 3Etδ / 2L²", note: "Peak bending stress, at the fixed root surface" },
   { expr: "n = σy / σ", note: "Safety factor against yielding" },
   { expr: "y(x) = (δ/2)·[3(x/L)² − (x/L)³]", note: "Euler–Bernoulli deflected shape" },
+  { expr: "γ = 1 / ∫₀¹cos θ(p) dp", note: "Large-deflection stiffening; F = k·δ·γ (γ→1 when δ/L≪1)" },
 ];
 
 const num = (v: string, fallback = 0) => {
@@ -719,11 +770,13 @@ function Readout({
   value,
   unit,
   accent,
+  hint,
 }: {
   label: string;
   value: string;
   unit: string;
   accent?: string;
+  hint?: string;
 }) {
   return (
     <div
@@ -759,6 +812,7 @@ function Readout({
         }}
       >
         {value} <span style={{ fontSize: 11, color: "#46515c" }}>{unit}</span>
+        {hint && <span style={{ fontSize: 10, color: "#6b7884", marginLeft: 6 }}>{hint}</span>}
       </span>
     </div>
   );
@@ -790,13 +844,21 @@ export default function FlexureCalc() {
 
     const I = (wm * Math.pow(tm, 3)) / 12; // m^4
     const k = (3 * E * I) / Math.pow(Lm, 3); // N/m
-    const F = k * dm; // N
+
+    // Large-deflection geometric stiffening: as the tip curls inward its
+    // moment arm shrinks by the horizontal foreshortening ∫cos θ, so the force
+    // to hold a given deflection rises. γ ≈ 1 in the linear (δ/L ≲ 0.1) regime.
+    const c = Math.max(-0.95, Math.min(0.95, effDelta / Math.max(num(L), 1e-6)));
+    const gamma = 1 / Math.max(0.2, cosIntegral(c));
+
+    const F = k * dm * gamma; // N
     const sigma = (3 * E * tm * dm) / (2 * Math.pow(Lm, 2)); // Pa
     const SF = sigma > 0 ? sigmaY / sigma : Infinity;
 
     return {
       k: k / 1000, // N/mm
-      F, // N
+      F, // N (incl. geometric stiffening)
+      gamma,
       sigma: sigma / 1e6, // MPa
       SF,
       Lm,
@@ -998,7 +1060,12 @@ export default function FlexureCalc() {
             </div>
 
             <Readout label="Stiffness k" value={r.k.toFixed(3)} unit="N/mm" />
-            <Readout label="Force required F" value={r.F.toFixed(2)} unit="N" />
+            <Readout
+              label="Force required F"
+              value={r.F.toFixed(2)}
+              unit="N"
+              hint={r.gamma >= 1.02 ? `γ ${r.gamma.toFixed(2)}` : undefined}
+            />
             <Readout label="Max stress σ" value={r.sigma.toFixed(1)} unit="MPa" accent={status.c} />
           </div>
         </div>
@@ -1163,7 +1230,9 @@ export default function FlexureCalc() {
             rigidly built in at one end (the wall) and loaded by a transverse force at the free tip —
             Euler–Bernoulli (engineer&apos;s) beam theory. The bending moment grows linearly from zero at
             the tip to a maximum at the root, so the surface stress is highest where the beam meets the
-            wall. That is where a flexure yields first, and why the 3D beam is reddest there.
+            wall. That is where a flexure yields first. The 3D beam colors this directly: the stretched
+            face warms toward red (tension), the opposite face cools toward blue (compression), and the
+            neutral axis in between stays dim — all most intense at the root.
           </p>
           <p
             style={{
@@ -1189,12 +1258,13 @@ export default function FlexureCalc() {
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> The readouts use linear small-deflection
-            theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape diverge from
-            these closed forms. The 3D viewer draws a length-preserving large-deflection curve for
-            intuition, so at big deflections it intentionally curls further than the linear numbers imply.
-            3D-printed values are typical in-plane figures and are anisotropic across layers — verify
-            against your own coupons before relying on them.
+            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Stiffness and stress use linear
+            small-deflection theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape
+            diverge from these closed forms. The force readout adds a geometric-stiffening factor γ
+            (shown when it matters) so it tracks the real load-up better at large bends, and the 3D viewer
+            draws a length-preserving large-deflection curve that curls further than the linear numbers
+            imply. 3D-printed values are typical in-plane figures and are anisotropic across layers —
+            verify against your own coupons before relying on them.
           </p>
         </div>
       </div>
