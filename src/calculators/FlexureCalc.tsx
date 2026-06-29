@@ -824,7 +824,7 @@ export default function FlexureCalc() {
   const [t, setT] = useState("0.8"); // mm (bending direction)
   const [w, setW] = useState("10"); // mm
   const [delta, setDelta] = useState("4"); // mm target deflection
-  const [interactive, setInteractive] = useState(false);
+  const [interactive, setInteractive] = useState(true);
   const [liveDelta, setLiveDelta] = useState<number | null>(null); // mm, while bending the beam
 
   const mat = MATERIALS[matKey];
