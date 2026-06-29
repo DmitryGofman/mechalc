@@ -356,6 +356,7 @@ function Readout({
 }) {
   return (
     <div
+      className="flexure-readout"
       style={{
         display: "flex",
         justifyContent: "space-between",
@@ -365,6 +366,7 @@ function Readout({
       }}
     >
       <span
+        className="flexure-readout-label"
         style={{
           fontSize: 11,
           letterSpacing: "0.1em",
@@ -376,11 +378,13 @@ function Readout({
         {label}
       </span>
       <span
+        className="flexure-readout-value"
         style={{
           fontFamily: "var(--mono)",
           fontSize: 17,
           color: accent || "#e8edf1",
           fontVariantNumeric: "tabular-nums",
+          whiteSpace: "nowrap",
         }}
       >
         {value} <span style={{ fontSize: 11, color: "#46515c" }}>{unit}</span>
@@ -432,6 +436,7 @@ export default function FlexureCalc() {
 
   return (
     <div
+      className="flexure-shell"
       style={{
         ["--mono" as string]: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
         ["--sans" as string]: "'Inter', system-ui, sans-serif",
@@ -439,7 +444,6 @@ export default function FlexureCalc() {
         minHeight: "100vh",
         color: "#e8edf1",
         fontFamily: "var(--sans)",
-        padding: "24px 16px",
       }}
     >
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -571,7 +575,10 @@ export default function FlexureCalc() {
                 marginBottom: 16,
               }}
             >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div
+                className="flexure-sf-head"
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+              >
                 <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
                   SAFETY FACTOR
                 </span>
@@ -591,6 +598,7 @@ export default function FlexureCalc() {
                 </span>
               </div>
               <div
+                className="flexure-sf"
                 style={{
                   fontFamily: "var(--mono)",
                   fontSize: 38,

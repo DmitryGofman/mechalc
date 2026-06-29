@@ -26,6 +26,12 @@ input[type="number"] {
 }
 
 /* Responsive layout for the calculator */
+.flexure-shell {
+  padding: 24px 16px;
+}
+
+/* Inputs (left) and results (right) stay side-by-side at every width;
+   the 3D beam lives below, full-width. */
 .flexure-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -41,8 +47,36 @@ input[type="number"] {
   gap: 12px;
 }
 
+/* On phones: tighten spacing and scale the big numbers down a touch so the
+   two columns still fit comfortably. */
 @media (max-width: 640px) {
+  .flexure-shell {
+    padding: 16px 10px;
+  }
   .flexure-grid {
-    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .flexure-sf {
+    font-size: 30px !important;
+  }
+  /* Stack each readout (label over value) so long labels + units never
+     overflow the narrow results column. */
+  .flexure-readout {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 2px;
+  }
+  .flexure-readout-label {
+    font-size: 9.5px !important;
+    letter-spacing: 0.06em !important;
+  }
+  .flexure-readout-value {
+    font-size: 15px !important;
+  }
+  /* Stack the safety-factor header so the badge doesn't crowd the label. */
+  .flexure-sf-head {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px;
   }
 }
