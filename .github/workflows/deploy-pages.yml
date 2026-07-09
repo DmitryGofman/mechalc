@@ -24,7 +24,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npm test
       - run: npm run build
+      # SPA fallback: Pages serves 404.html for unknown paths, so deep links
+      # like /mechalc/bolt-calculator load the app and the router takes over.
+      - run: cp dist/index.html dist/404.html
       - uses: actions/configure-pages@v5
         with:
           enablement: true

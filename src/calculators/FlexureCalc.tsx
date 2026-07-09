@@ -1,5 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
+import { Field, Readout, num } from "../ui";
+import { signedStressColor } from "./stressColor";
 
 // Peak surface bending stress (MPa) for an end-loaded cantilever, as a
 // fraction of yield — used to drive the beam's color and the haptic/audio feel.
@@ -9,41 +11,6 @@ function stressRatio(EGpa: number, tMm: number, LMm: number, deltaMm: number, si
     (3 * (EGpa * 1e9) * (tMm / 1000) * (Math.abs(deltaMm) / 1000)) /
     (2 * Math.pow(LMm / 1000, 2));
   return sigmaPa / 1e6 / sigmaYMpa;
-}
-
-type Stops = Array<[number, [number, number, number]]>;
-function rampColor(stops: Stops, x: number) {
-  const xc = Math.max(0, Math.min(stops[stops.length - 1][0], x));
-  for (let i = 1; i < stops.length; i++) {
-    const [p1, c1] = stops[i];
-    if (xc <= p1) {
-      const [p0, c0] = stops[i - 1];
-      const f = (xc - p0) / (p1 - p0 || 1);
-      return { r: c0[0] + (c1[0] - c0[0]) * f, g: c0[1] + (c1[1] - c0[1]) * f, b: c0[2] + (c1[2] - c0[2]) * f };
-    }
-  }
-  const last = stops[stops.length - 1][1];
-  return { r: last[0], g: last[1], b: last[2] };
-}
-
-// Diverging stress map across the thickness: the neutral axis is dim, the
-// stretched (tension) face warms to red, the compressed face cools to blue.
-const NEUTRAL_RGB: [number, number, number] = [0.31, 0.706, 0.467]; // calm safe-green
-const TENSION_STOPS: Stops = [
-  [0.0, NEUTRAL_RGB],
-  [0.5, [0.85, 0.55, 0.22]], // amber
-  [1.0, [0.84, 0.27, 0.27]], // yield red
-  [1.3, [1.0, 0.3, 0.3]],
-];
-const COMPRESSION_STOPS: Stops = [
-  [0.0, NEUTRAL_RGB],
-  [0.5, [0.2, 0.58, 0.68]], // teal
-  [1.0, [0.27, 0.46, 0.9]], // blue
-  [1.3, [0.3, 0.4, 1.0]],
-];
-// signed: + = tension (warm), − = compression (cool).
-function signedStressColor(signed: number) {
-  return signed >= 0 ? rampColor(TENSION_STOPS, signed) : rampColor(COMPRESSION_STOPS, -signed);
 }
 
 // Horizontal foreshortening integral ∫₀¹cos θ(p) dp for the bent centerline,
@@ -707,117 +674,6 @@ const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "γ = 1 / ∫₀¹cos θ(p) dp", note: "Large-deflection stiffening; F = k·δ·γ (γ→1 when δ/L≪1)" },
 ];
 
-const num = (v: string, fallback = 0) => {
-  const n = parseFloat(v);
-  return isNaN(n) ? fallback : n;
-};
-
-function Field({
-  label,
-  unit,
-  value,
-  onChange,
-  step = "any",
-  min,
-}: {
-  label: string;
-  unit: string;
-  value: string;
-  onChange: (v: string) => void;
-  step?: string;
-  min?: string;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <label
-        style={{
-          fontSize: 10,
-          letterSpacing: "0.12em",
-          textTransform: "uppercase",
-          color: "#6b7884",
-          fontFamily: "var(--mono)",
-        }}
-      >
-        {label} <span style={{ color: "#46515c" }}>[{unit}]</span>
-      </label>
-      <input
-        type="number"
-        value={value}
-        step={step}
-        min={min}
-        onChange={(e) => onChange(e.target.value)}
-        style={{
-          background: "#0e1419",
-          border: "1px solid #1f2a33",
-          borderRadius: 2,
-          color: "#e8edf1",
-          padding: "9px 11px",
-          fontFamily: "var(--mono)",
-          fontSize: 15,
-          width: "100%",
-          boxSizing: "border-box",
-          outline: "none",
-        }}
-        onFocus={(e) => (e.target.style.borderColor = "#3a78c2")}
-        onBlur={(e) => (e.target.style.borderColor = "#1f2a33")}
-      />
-    </div>
-  );
-}
-
-function Readout({
-  label,
-  value,
-  unit,
-  accent,
-  hint,
-}: {
-  label: string;
-  value: string;
-  unit: string;
-  accent?: string;
-  hint?: string;
-}) {
-  return (
-    <div
-      className="flexure-readout"
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "baseline",
-        padding: "10px 0",
-        borderBottom: "1px solid #141c22",
-      }}
-    >
-      <span
-        className="flexure-readout-label"
-        style={{
-          fontSize: 11,
-          letterSpacing: "0.1em",
-          textTransform: "uppercase",
-          color: "#6b7884",
-          fontFamily: "var(--mono)",
-        }}
-      >
-        {label}
-      </span>
-      <span
-        className="flexure-readout-value"
-        style={{
-          fontFamily: "var(--mono)",
-          fontSize: 17,
-          color: accent || "#e8edf1",
-          fontVariantNumeric: "tabular-nums",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {value} <span style={{ fontSize: 11, color: "#46515c" }}>{unit}</span>
-        {hint && <span style={{ fontSize: 10, color: "#6b7884", marginLeft: 6 }}>{hint}</span>}
-      </span>
-    </div>
-  );
-}
-
 export default function FlexureCalc() {
   const [matKey, setMatKey] = useState(FAVORITES[0]);
   const [L, setL] = useState("40"); // mm
@@ -905,7 +761,7 @@ export default function FlexureCalc() {
                 color: "#3a78c2",
               }}
             >
-              COMPLIANT MECHANISM TOOLKIT
+              MECHCALC · COMPLIANT MECHANISMS
             </div>
             <h1 className="flexure-title" style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
               Cantilever Flexure

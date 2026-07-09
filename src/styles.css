@@ -25,9 +25,44 @@ input[type="number"] {
   -moz-appearance: textfield;
 }
 
-/* Responsive layout for the calculator */
+/* Responsive layout shared by all calculators (class names are historical —
+   the flexure calculator came first). */
 .flexure-shell {
   padding: 24px 16px;
+}
+
+/* ── Home page calculator cards ─────────────────────────────── */
+.home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
+}
+
+.home-card {
+  display: flex;
+  flex-direction: column;
+  background: #0b1015;
+  border: 1px solid #1f2a33;
+  border-radius: 3px;
+  padding: 16px;
+  text-decoration: none;
+  min-height: 150px;
+}
+
+.home-card-ready {
+  cursor: pointer;
+  transition:
+    border-color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.home-card-ready:hover {
+  border-color: #3a78c2;
+  transform: translateY(-2px);
+}
+
+.home-card-planned {
+  opacity: 0.55;
 }
 
 /* Inputs (left) and results (right) stay side-by-side at every width;

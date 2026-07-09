@@ -7,7 +7,10 @@ import { viteSingleFile } from "vite-plugin-singlefile";
 // runs by double-click from the filesystem (no dev server, no module fetch).
 export default defineConfig(({ mode }) => ({
   plugins: [react(), ...(mode === "single" ? [viteSingleFile()] : [])],
-  base: "./",
+  // GitHub Pages serves the app under /mechalc/, and the router derives its
+  // path prefix from this base. The single-file build stays relative (and the
+  // router falls back to hash routes) so it keeps working from file://.
+  base: mode === "single" ? "./" : "/mechalc/",
   test: {
     environment: "jsdom",
     globals: true,
