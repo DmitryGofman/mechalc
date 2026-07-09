@@ -25,8 +25,8 @@ const CALCS: CalcCard[] = [
     route: "/bolt-calculator",
     tag: "Fasteners",
     title: "Bolted Joint — Screw Strength",
-    desc: "Torque → preload, tension + tightening torsion, von Mises vs proof strength — tighten the 3D nut and watch the shank load up.",
-    eq: "F = T / K·d",
+    desc: "Torque → preload, VDI-style reduced stress, and the clamped sandwich: two plate materials, load sharing, separation & crushing checks — tighten the 3D nut and watch the pressure cones.",
+    eq: "Fb = Fi + C·P",
     ready: true,
   },
   {

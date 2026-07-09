@@ -1,8 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { boltResults, THREADS, CLASSES } from "./boltMath";
+import { boltResults, memberStiffness, jointResults, THREADS, CLASSES, PLATE_MATERIALS } from "./boltMath";
 
 const M6 = THREADS.M6;
 const C88 = CLASSES["8.8 (medium-carbon, Q&T)"];
+const STEEL = PLATE_MATERIALS["Mild steel (S235)"];
+const ALU = PLATE_MATERIALS["Aluminum 6061-T6"];
+const POM = PLATE_MATERIALS["POM / Delrin"];
 
 describe("boltResults", () => {
   it("computes preload from torque via the nut factor", () => {
@@ -44,5 +47,72 @@ describe("boltResults", () => {
     const short = boltResults(M6, C88, 0.2, 10, 10);
     const long = boltResults(M6, C88, 0.2, 10, 30);
     expect(long.dL / short.dL).toBeCloseTo(3, 5);
+  });
+});
+
+describe("memberStiffness (Shigley 30° pressure cone)", () => {
+  it("matches the hand-computed frustum value for symmetric steel plates", () => {
+    // M6, two 10 mm steel plates: two identical frusta in series.
+    // Hand calc: km ≈ 1.08e9 N/m.
+    const km = memberStiffness(6, 10, 200, 10, 200);
+    expect(km / 1e9).toBeGreaterThan(0.95);
+    expect(km / 1e9).toBeLessThan(1.2);
+  });
+
+  it("scales with plate modulus", () => {
+    const steel = memberStiffness(6, 10, 200, 10, 200);
+    const pom = memberStiffness(6, 10, 3.1, 10, 3.1);
+    expect(steel / pom).toBeCloseTo(200 / 3.1, 1);
+  });
+
+  it("is symmetric in plate order", () => {
+    const a = memberStiffness(8, 6, 68.9, 14, 200);
+    const b = memberStiffness(8, 14, 200, 6, 68.9);
+    expect(a / b).toBeCloseTo(1, 6);
+  });
+});
+
+describe("jointResults (clamped sandwich)", () => {
+  it("gives the textbook stiffness ratio for a steel/steel joint", () => {
+    // Steel bolt in steel plates: C typically 0.1–0.25 (members carry most
+    // of the external load).
+    const r = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, 0);
+    expect(r.C).toBeGreaterThan(0.1);
+    expect(r.C).toBeLessThan(0.25);
+  });
+
+  it("pushes C toward 1 for very soft plates", () => {
+    const r = jointResults(M6, C88, 0.2, 6, 10, POM, 10, POM, 0);
+    expect(r.C).toBeGreaterThan(0.8);
+  });
+
+  it("conserves the external load between bolt and members", () => {
+    const P = 1200;
+    const r = jointResults(M6, C88, 0.2, 6, 8, ALU, 12, STEEL, P);
+    const boltShare = r.Fb - r.F;
+    const memberShare = r.F - r.Fm;
+    expect(boltShare + memberShare).toBeCloseTo(P, 6);
+  });
+
+  it("loses all clamp exactly at the separation load", () => {
+    const r0 = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, 0);
+    const rSep = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, r0.Psep);
+    expect(rSep.Fm).toBeCloseTo(0, 4);
+    expect(rSep.nSep).toBeCloseTo(1, 6);
+  });
+
+  it("flags bearing overload on soft plastic plates", () => {
+    // M6 8.8 at recommended torque crushes POM under the head (needs washers).
+    const r = jointResults(M6, C88, 0.2, 9, 10, POM, 10, STEEL, 0);
+    expect(r.nBear1).toBeLessThan(1);
+    expect(r.nBear2).toBeGreaterThan(1);
+  });
+
+  it("keeps working stress below the tightening von Mises stress", () => {
+    // Torsion relaxes after the wrench is released, so the working check is
+    // milder than the tightening check (with no external load).
+    const r = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, 0);
+    expect(r.sigmaWork).toBeLessThan(r.vm);
+    expect(r.sigmaWork).toBeCloseTo(r.sigma, 6);
   });
 });
