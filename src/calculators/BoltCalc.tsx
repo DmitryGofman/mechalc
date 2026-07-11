@@ -507,7 +507,6 @@ function Bolt3D({
     const gripTopY = topY - headV;
     const gripBottomY = gripTopY - gripV;
     const nutCenterY = gripBottomY - nutV / 2;
-    const tailTopY = gripBottomY - nutV;
 
     const steel = { metalness: 0.55, roughness: 0.42 };
 
@@ -596,19 +595,22 @@ function Bolt3D({
 
     // Free tail below the nut: minor-diameter core + helical thread ridge.
     // It carries no preload (stays neutral green) and is the part that grows
-    // downward as the bolt stretches.
+    // downward as the bolt stretches. The geometry extends UP through the
+    // opaque nut to the grip, so when the tail slides down the junction stays
+    // hidden inside the nut — the thread emerges from it like a real bolt.
     const tail = new THREE.Group();
     const tailMat = new THREE.MeshStandardMaterial({ color: 0x77848f, ...steel });
-    const core = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.86, r * 0.86, tailV, 24), tailMat);
-    core.position.y = tailTopY - tailV / 2;
+    const tailFullV = tailV + nutV; // visible tail + the length buried in the nut
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.86, r * 0.86, tailFullV, 24), tailMat);
+    core.position.y = gripBottomY - tailFullV / 2;
     tail.add(core);
-    const turns = Math.max(2, tailMm / p);
+    const turns = Math.max(2, (tailMm + nutH) / p);
     const helixPts: THREE.Vector3[] = [];
     const NPTS = Math.ceil(turns * 24);
     for (let i = 0; i <= NPTS; i++) {
       const f = i / NPTS;
       const a = f * turns * Math.PI * 2;
-      helixPts.push(new THREE.Vector3(Math.cos(a) * r * 0.95, tailTopY - f * tailV, Math.sin(a) * r * 0.95));
+      helixPts.push(new THREE.Vector3(Math.cos(a) * r * 0.95, gripBottomY - f * tailFullV, Math.sin(a) * r * 0.95));
     }
     const helix = new THREE.Mesh(
       new THREE.TubeGeometry(new THREE.CatmullRomCurve3(helixPts), NPTS, Math.max(0.012, r * 0.14), 6),
