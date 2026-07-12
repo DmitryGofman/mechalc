@@ -30,6 +30,14 @@ const CALCS: CalcCard[] = [
     ready: true,
   },
   {
+    route: "/beam-calculator",
+    tag: "Structures",
+    title: "Beam on Two Supports",
+    desc: "Center-load stiffness, force and peak stress for a beam held at both ends — pinned or built-in — press the middle of the 3D beam and watch the moment diagram light up.",
+    eq: "k = 48EI / L³",
+    ready: true,
+  },
+  {
     tag: "Drivetrain",
     title: "Shaft in Torsion",
     desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",

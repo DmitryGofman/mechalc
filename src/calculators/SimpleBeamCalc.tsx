@@ -1,40 +1,30 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
-import { Field, Readout, num } from "../ui";
+import { Field, Select, Readout, num } from "../ui";
 import { signedStressColor } from "./stressColor";
 import { MATERIALS, GROUP_ORDER, FAVORITES } from "./materials";
+import { beamStiffness, beamSigma, beamShape, beamMoment } from "./simpleBeamMath";
+import type { SupportType } from "./simpleBeamMath";
 
-// Peak surface bending stress (MPa) for an end-loaded cantilever, as a
-// fraction of yield — used to drive the beam's color and the haptic/audio feel.
-function stressRatio(EGpa: number, tMm: number, LMm: number, deltaMm: number, sigmaYMpa: number) {
+// Peak bending stress as a fraction of yield, driving color + feel.
+function stressRatio(EGpa: number, tMm: number, LMm: number, deltaMm: number, sigmaYMpa: number, support: SupportType) {
   if (LMm <= 0 || sigmaYMpa <= 0) return 0;
-  const sigmaPa =
-    (3 * (EGpa * 1e9) * (tMm / 1000) * (Math.abs(deltaMm) / 1000)) /
-    (2 * Math.pow(LMm / 1000, 2));
+  const sigmaPa = beamSigma(EGpa * 1e9, tMm / 1000, LMm / 1000, Math.abs(deltaMm) / 1000, support);
   return sigmaPa / 1e6 / sigmaYMpa;
 }
 
-// Horizontal foreshortening integral ∫₀¹cos θ(p) dp for the bent centerline,
-// used both to draw the beam and to derive large-deflection stiffening.
-function cosIntegral(c: number, steps = 64) {
-  let s = 0;
-  const dp = 1 / steps;
-  for (let i = 0; i < steps; i++) {
-    const p = (i + 0.5) * dp;
-    s += Math.cos(c * (3 * p - 1.5 * p * p)) * dp;
-  }
-  return s;
-}
-
 // ── 3D beam viewer ──────────────────────────────────────────────
-// Renders a rectangular cantilever to true L:t:w proportions, bent
-// along the cubic cantilever deflection shape. Drag to orbit; in
-// interactive mode, grab the beam to bend it and feel the stress.
-function Beam3D({
+// A rectangular beam spanning two supports, drawn to true L:t:w proportions.
+// Drag to orbit; in interactive mode, press the middle of the beam down (or
+// pull it up) and feel the stress. The color field follows the bending-moment
+// diagram: simply supported beams glow hottest at mid-span, fixed-fixed beams
+// at the walls — with the tension face flipping at the inflection points.
+function Beam2S3D({
   L,
   t,
   w,
   delta,
+  support,
   interactive,
   E,
   sigmaY,
@@ -44,33 +34,27 @@ function Beam3D({
   t: number;
   w: number;
   delta: number;
+  support: SupportType;
   interactive: boolean;
   E: number;
   sigmaY: number;
   onLiveDelta: (mm: number | null) => void;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
-  const stateRef = useRef({ yaw: -0.6, pitch: -0.35, dragging: false, lx: 0, ly: 0 });
-  const meshRef = useRef<THREE.Mesh | null>(null);
-  const wallRef = useRef<THREE.Mesh | null>(null);
+  const stateRef = useRef({ yaw: -0.5, pitch: -0.3, dragging: false, lx: 0, ly: 0 });
   const pivotRef = useRef<THREE.Group | null>(null);
+  const meshRef = useRef<THREE.Mesh | null>(null);
+  const supportsRef = useRef<THREE.Object3D[]>([]);
 
   // Geometry caches so deflection can be applied per-frame without rebuilding.
   const geoRef = useRef<THREE.BufferGeometry | null>(null);
   const baseYRef = useRef<Float32Array | null>(null);
-  const xnRef = useRef<Float32Array | null>(null);
+  const xnRef = useRef<Float32Array | null>(null); // 0..1 along the span
   const colorAttrRef = useRef<THREE.BufferAttribute | null>(null);
   const dimsRef = useRef({ Lv: 1, Ls: 1, halfT: 0.01 });
   const applyRef = useRef<((d: number) => void) | null>(null);
 
-  // Auto-fit framing: track the beam's bounding sphere so the camera can keep
-  // the whole (possibly curled) beam in view.
-  const beamCenterRef = useRef(new THREE.Vector3());
-  const beamRadiusRef = useRef(2);
-  const camDistRef = useRef(6);
-
-  // Invisible, fattened proxy around the beam — a forgiving grab target so a
-  // thin wafer is still easy to catch with a fingertip. Deflects with the beam.
+  // Invisible fattened proxy over the middle of the span — the grab target.
   const proxyRef = useRef<THREE.Mesh | null>(null);
   const proxyBaseYRef = useRef<Float32Array | null>(null);
   const proxyXnRef = useRef<Float32Array | null>(null);
@@ -87,11 +71,11 @@ function Beam3D({
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode; osc: OscillatorNode } | null>(null);
 
   // Latest props, readable from the long-lived animation/pointer closures.
-  const propsRef = useRef({ interactive, E, sigmaY, L, t, w, onLiveDelta });
+  const propsRef = useRef({ interactive, E, sigmaY, L, t, w, support, onLiveDelta });
   useEffect(() => {
-    propsRef.current = { interactive, E, sigmaY, L, t, w, onLiveDelta };
-    forceRef.current = true; // recolor on material change
-  }, [interactive, E, sigmaY, L, t, w, onLiveDelta]);
+    propsRef.current = { interactive, E, sigmaY, L, t, w, support, onLiveDelta };
+    forceRef.current = true; // recolor on material / support change
+  }, [interactive, E, sigmaY, L, t, w, support, onLiveDelta]);
 
   // Keep the resting deflection in sync with the design input.
   useEffect(() => {
@@ -133,84 +117,52 @@ function Beam3D({
     pivotRef.current = pivot;
 
     const grid = new THREE.GridHelper(8, 16, 0x1f2a33, 0x141c22);
-    grid.position.y = -1.2;
+    grid.position.y = -1.35;
     pivot.add(grid);
 
-    // Slope angle of the cantilever along its length, as a fraction p (0=root,
-    // 1=tip) of the material. Tuned so the small-angle tip drop ≈ the deflection
-    // ratio c; integrating cos/sin of this keeps the centerline length constant.
-    const slope = (p: number, c: number) => c * (3 * p - 1.5 * p * p);
-
-    // Bend the beam by deflection (mm), preserving its true length: walk the
-    // centerline at constant arc-length spacing (so the tip foreshortens and
-    // pulls inward as it droops) and rotate each cross-section with the slope.
-    const M = 128;
-    const cx = new Float32Array(M + 1);
-    const cy = new Float32Array(M + 1);
+    // Deflect the beam: vertical offset per the closed-form shape, with the
+    // cross-section rotating to follow the local slope so thick beams don't
+    // shear visually. ξ = distance from the nearer support (0..0.5).
     const applyDeflection = (deltaMm: number) => {
       const geo = geoRef.current;
       const baseY = baseYRef.current;
       const xn = xnRef.current;
       if (!geo || !baseY || !xn) return;
-      const { Lv, Ls } = dimsRef.current;
-      // c = tip-deflection ratio (= dWorld/Ls); clamp so it can't curl past ~85°.
-      let c = deltaMm / Math.max(Lv, 1e-3);
-      c = Math.max(-0.95, Math.min(0.95, c));
+      const { Lv, Ls, halfT } = dimsRef.current;
+      const P = propsRef.current;
+      const dv = (Math.max(-0.3, Math.min(0.3, deltaMm / Math.max(Lv, 1e-3))) * Ls) as number; // view-units, capped
 
-      // Numerically integrate the centerline (X right, Y down-negative).
-      const dp = 1 / M;
-      cx[0] = 0;
-      cy[0] = 0;
-      for (let i = 1; i <= M; i++) {
-        const pm = (i - 0.5) * dp;
-        const phi = slope(pm, c);
-        cx[i] = cx[i - 1] + Ls * Math.cos(phi) * dp;
-        cy[i] = cy[i - 1] - Ls * Math.sin(phi) * dp;
-      }
-
+      const pos = geo.attributes.position as THREE.BufferAttribute;
       const bend = (out: THREE.BufferAttribute, off: Float32Array, frac: Float32Array) => {
         for (let i = 0; i < out.count; i++) {
-          const p = frac[i];
-          const a = off[i]; // cross-section offset from the neutral axis (thickness)
-          const phi = slope(p, c);
-          const fi = p * M;
-          const i0 = Math.min(M - 1, Math.max(0, Math.floor(fi)));
-          const f = fi - i0;
-          const X = cx[i0] + (cx[i0 + 1] - cx[i0]) * f;
-          const Y = cy[i0] + (cy[i0 + 1] - cy[i0]) * f;
-          out.setX(i, X + a * Math.sin(phi));
-          out.setY(i, Y + a * Math.cos(phi));
+          const s = frac[i]; // 0..1 along span
+          const xi = s <= 0.5 ? s : 1 - s;
+          const y = beamShape(xi, P.support);
+          out.setY(i, off[i] - dv * y);
         }
         out.needsUpdate = true;
       };
-
-      const pos = geo.attributes.position as THREE.BufferAttribute;
       bend(pos, baseY, xn);
       geo.computeVertexNormals();
-      // Track the deflected bounding sphere for auto-fit framing.
-      geo.computeBoundingSphere();
-      if (geo.boundingSphere) {
-        beamCenterRef.current.copy(geo.boundingSphere.center);
-        beamCenterRef.current.x += -dimsRef.current.Ls / 2; // mesh.position.x offset
-        beamRadiusRef.current = geo.boundingSphere.radius;
-      }
-      // Keep the invisible grab proxy bent the same way.
       const proxy = proxyRef.current;
       const pBaseY = proxyBaseYRef.current;
       const pXn = proxyXnRef.current;
       if (proxy && pBaseY && pXn) {
         bend(proxy.geometry.attributes.position as THREE.BufferAttribute, pBaseY, pXn);
       }
+
+      // Color by the bending-moment diagram: signed fiber stress
+      // = ratio · m(ξ) · (−fiber/halfT) · sign(δ), so pressing down puts the
+      // bottom of mid-span in tension — and for fixed ends, the TOP at the walls.
       const col = colorAttrRef.current;
       if (col) {
-        const P = propsRef.current;
-        const ratioMax = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY);
-        const halfT = dimsRef.current.halfT || 1e-6;
-        const dir = Math.sign(deltaMm); // bend direction: +δ → top in tension
+        const ratioMax = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY, P.support);
+        const dir = Math.sign(deltaMm) || 0; // + = pressed down
         for (let i = 0; i < col.count; i++) {
-          // Local fiber stress: peaks at the root (1−p), linear through the
-          // thickness (a/halfT), signed by which face is stretched.
-          const signed = ratioMax * (1 - xn[i]) * dir * (baseY[i] / halfT);
+          const s = xn[i];
+          const xi = s <= 0.5 ? s : 1 - s;
+          const m = beamMoment(xi, P.support);
+          const signed = ratioMax * m * (-baseY[i] / (halfT || 1e-6)) * dir;
           const c = signedStressColor(signed);
           col.setXYZ(i, c.r, c.g, c.b);
         }
@@ -267,7 +219,7 @@ function Beam3D({
     const canVibrate = () => typeof navigator !== "undefined" && typeof navigator.vibrate === "function";
     const updateFeel = (deltaMm: number) => {
       const P = propsRef.current;
-      const ratio = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY);
+      const ratio = stressRatio(P.E, P.t, P.L, deltaMm, P.sigmaY, P.support);
       const a = audioRef.current;
       if (a) {
         a.gain.gain.setTargetAtTime(Math.min(0.14, ratio * 0.12), a.ctx.currentTime, 0.02);
@@ -296,7 +248,6 @@ function Beam3D({
 
     let raf = 0;
     let lastApplied = NaN;
-    const tmpV = new THREE.Vector3();
     const animate = () => {
       const s = stateRef.current;
       pivot.rotation.y = s.yaw;
@@ -323,16 +274,6 @@ function Beam3D({
         lastApplied = liveDeltaRef.current;
         forceRef.current = false;
       }
-      // Auto-fit: keep the beam centered, easing the zoom so even a fully
-      // curled tip stays in frame.
-      tmpV.copy(beamCenterRef.current).applyEuler(pivot.rotation);
-      pivot.position.set(-tmpV.x, -tmpV.y, -tmpV.z);
-      const aspect = camera.aspect || 1;
-      const vHalf = (camera.fov * Math.PI) / 360;
-      const halfFov = Math.min(vHalf, Math.atan(Math.tan(vHalf) * aspect));
-      const want = Math.max(4, (beamRadiusRef.current * 1.35) / Math.sin(halfFov));
-      camDistRef.current += (want - camDistRef.current) * 0.1;
-      camera.position.set(0, 0, camDistRef.current);
       renderer.render(scene, camera);
       raf = requestAnimationFrame(animate);
     };
@@ -367,7 +308,7 @@ function Beam3D({
 
     const down = (e: PointerEvent) => {
       const s = stateRef.current;
-      // Interactive: grab the beam to bend it; miss the beam → orbit.
+      // Interactive: press the middle of the beam; miss it → orbit.
       if (propsRef.current.interactive && hitsBeam(e)) {
         grabbingRef.current = true;
         springRef.current = false;
@@ -392,8 +333,8 @@ function Beam3D({
         const rect = el.getBoundingClientRect();
         const h = rect.height || 320;
         const Lv = Math.max(propsRef.current.L, 1e-3);
-        const mmPerPx = (Lv * 1.4) / h; // a full vertical swipe ≈ 1.4·L of travel
-        const lim = Lv * 0.9;
+        const mmPerPx = (Lv * 0.6) / h; // a full vertical swipe ≈ 0.6·L of travel
+        const lim = Lv * 0.28; // supports don't let the middle travel like a cantilever tip
         let nd = dragStartDelta + (e.clientY - dragStartY) * mmPerPx;
         nd = Math.max(-lim, Math.min(lim, nd));
         liveDeltaRef.current = nd;
@@ -404,9 +345,9 @@ function Beam3D({
       const s = stateRef.current;
       if (!s.dragging) return;
       e.preventDefault(); // stop the page from scrolling while orbiting
-      s.yaw += (e.clientX - s.lx) * 0.01; // yaw spins freely, full 360°
+      s.yaw += (e.clientX - s.lx) * 0.01;
       s.pitch += (e.clientY - s.ly) * 0.01;
-      s.pitch = Math.max(-1.4, Math.min(1.4, s.pitch)); // clamp tilt so it can't flip over
+      s.pitch = Math.max(-1.4, Math.min(1.4, s.pitch));
       s.lx = e.clientX;
       s.ly = e.clientY;
     };
@@ -429,7 +370,6 @@ function Beam3D({
     el.addEventListener("pointerup", up);
     el.addEventListener("pointerleave", up);
     el.addEventListener("pointercancel", up);
-    // belt-and-suspenders: block native touch scrolling on the canvas
     const blockTouch = (e: TouchEvent) => {
       if (stateRef.current.dragging || grabbingRef.current) e.preventDefault();
     };
@@ -455,50 +395,50 @@ function Beam3D({
     };
   }, []);
 
-  // Rebuild beam geometry whenever the cross-section / length changes.
-  // Deflection + color are applied per-frame by the animation loop.
+  // Rebuild geometry whenever the section / span / support type changes.
   useEffect(() => {
     const pivot = pivotRef.current;
     if (!pivot) return;
 
-    // clear previous beam + wall
     if (meshRef.current) {
       pivot.remove(meshRef.current);
       meshRef.current.geometry.dispose();
       (meshRef.current.material as THREE.Material).dispose();
-    }
-    if (wallRef.current) {
-      pivot.remove(wallRef.current);
-      wallRef.current.geometry.dispose();
-      (wallRef.current.material as THREE.Material).dispose();
     }
     if (proxyRef.current) {
       pivot.remove(proxyRef.current);
       proxyRef.current.geometry.dispose();
       (proxyRef.current.material as THREE.Material).dispose();
     }
+    for (const s of supportsRef.current) {
+      pivot.remove(s);
+      s.traverse((o) => {
+        const m = o as THREE.Mesh;
+        if (m.geometry) m.geometry.dispose();
+        if (m.material) (m.material as THREE.Material).dispose();
+      });
+    }
+    supportsRef.current = [];
 
-    // Normalize so the longest dim maps to a fixed view length,
-    // preserving true relative proportions of L:t:w.
+    // Normalize so the span maps to a fixed view length, preserving L:t:w.
     const Lv = Math.max(L, 1e-3),
       tv = Math.max(t, 1e-3),
       wv = Math.max(w, 1e-3);
     const maxd = Math.max(Lv, tv, wv);
-    const scale = 3.2 / maxd;
+    const scale = 3.4 / maxd;
     const Ls = Lv * scale,
       ts = tv * scale,
       ws = wv * scale;
 
-    // Beam: built flat, ROOT at local x=0, extending to +Ls.
-    const SEG = 60;
+    // Beam centered at the origin, spanning −Ls/2 .. +Ls/2.
+    const SEG = 80;
     const geo = new THREE.BoxGeometry(Ls, ts, ws, SEG, 1, 1);
-    geo.translate(Ls / 2, 0, 0); // shift so left face (root) is at x=0
     const pos = geo.attributes.position as THREE.BufferAttribute;
     const baseY = new Float32Array(pos.count);
     const xn = new Float32Array(pos.count);
     for (let i = 0; i < pos.count; i++) {
       baseY[i] = pos.getY(i);
-      xn[i] = pos.getX(i) / Ls; // 0 at root → 1 at tip
+      xn[i] = pos.getX(i) / Ls + 0.5; // 0 at left support → 1 at right support
     }
     const colorAttr = new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
     colorAttr.setUsage(THREE.DynamicDrawUsage);
@@ -510,59 +450,57 @@ function Beam3D({
     colorAttrRef.current = colorAttr;
     dimsRef.current = { Lv, Ls, halfT: ts / 2 };
 
-    const mat = new THREE.MeshStandardMaterial({
-      vertexColors: true,
-      metalness: 0.25,
-      roughness: 0.55,
-    });
+    const mat = new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.25, roughness: 0.55 });
     const mesh = new THREE.Mesh(geo, mat);
     pivot.add(mesh);
     meshRef.current = mesh;
 
-    // Fat invisible grab proxy (raycast target only).
-    const fat = Math.max(ts, ws, Ls * 0.18);
-    const proxyGeo = new THREE.BoxGeometry(Ls, fat, fat, SEG, 1, 1);
-    proxyGeo.translate(Ls / 2, 0, 0);
+    // Grab proxy: fat invisible box over the middle half of the span.
+    const fat = Math.max(ts, ws, Ls * 0.16);
+    const proxyGeo = new THREE.BoxGeometry(Ls * 0.5, fat, fat, Math.floor(SEG / 2), 1, 1);
     const ppos = proxyGeo.attributes.position as THREE.BufferAttribute;
     const pBaseY = new Float32Array(ppos.count);
     const pXn = new Float32Array(ppos.count);
     for (let i = 0; i < ppos.count; i++) {
       pBaseY[i] = ppos.getY(i);
-      pXn[i] = ppos.getX(i) / Ls;
+      pXn[i] = ppos.getX(i) / Ls + 0.5; // same span parameterization
     }
     const proxy = new THREE.Mesh(
       proxyGeo,
       new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, colorWrite: false }),
     );
-    proxy.position.x = -Ls / 2;
     pivot.add(proxy);
     proxyRef.current = proxy;
     proxyBaseYRef.current = pBaseY;
     proxyXnRef.current = pXn;
 
-    // Anchor wall: a slab flush against the root face (just left of x=0),
-    // sized a bit larger than the beam cross-section so the beam clearly
-    // emerges FROM it rather than passing through it.
-    const wallThick = 0.22;
-    const wallGeo = new THREE.BoxGeometry(wallThick, ts * 2.2 + 0.3, ws * 1.6 + 0.3);
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x1a242c,
-      metalness: 0.1,
-      roughness: 0.95,
-    });
-    const wall = new THREE.Mesh(wallGeo, wallMat);
-    pivot.add(wall);
-    wallRef.current = wall;
+    // Supports at the ends. Fixed: wall slabs the beam disappears into.
+    // Simple: knife-edge triangular prisms under the beam — the classic pin.
+    const supMat = new THREE.MeshStandardMaterial({ color: 0x1a242c, metalness: 0.1, roughness: 0.95 });
+    if (support === "fixed") {
+      const wallThick = 0.24;
+      for (const side of [-1, 1]) {
+        const wall = new THREE.Mesh(new THREE.BoxGeometry(wallThick, ts * 2.4 + 0.34, ws * 1.6 + 0.3), supMat.clone());
+        wall.position.x = side * (Ls / 2 + wallThick / 2 - 0.02);
+        pivot.add(wall);
+        supportsRef.current.push(wall);
+      }
+    } else {
+      const height = Math.max(0.55, ts * 1.4);
+      for (const side of [-1, 1]) {
+        // Triangular prism: 3-sided "cylinder" lying along z, apex up.
+        const tri = new THREE.Mesh(new THREE.CylinderGeometry(height * 0.62, height * 0.62, ws * 1.3, 3, 1), supMat.clone());
+        tri.rotation.x = Math.PI / 2; // axis along z
+        tri.rotation.y = Math.PI; // apex pointing up at the beam
+        tri.position.set(side * (Ls / 2 - height * 0.1), -ts / 2 - height * 0.36, 0);
+        pivot.add(tri);
+        supportsRef.current.push(tri);
+      }
+    }
 
-    // Re-center the whole assembly in view: pivot holds beam(0..Ls)+wall,
-    // so nudge children left by half the beam length via group offset.
-    mesh.position.x = -Ls / 2;
-    wall.position.x = -Ls / 2 - wallThick / 2;
-
-    // Apply the current deflection/color to the fresh geometry right away.
     forceRef.current = true;
     applyRef.current?.(liveDeltaRef.current);
-  }, [L, t, w]);
+  }, [L, t, w, support]);
 
   return (
     <div>
@@ -577,7 +515,7 @@ function Beam3D({
         }}
       >
         {interactive
-          ? "grab the beam to bend it · drag empty space to rotate"
+          ? "press the middle of the beam · drag empty space to rotate"
           : "drag to rotate · proportions are true to L : t : w"}
       </div>
     </div>
@@ -587,62 +525,45 @@ function Beam3D({
 // Equations behind the calculator, shown in the theory section.
 const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "I = w·t³ / 12", note: "Second moment of area, rectangular section" },
-  { expr: "k = 3EI / L³", note: "Tip stiffness of an end-loaded cantilever" },
-  { expr: "F = k·δ", note: "Force needed to reach deflection δ" },
-  { expr: "σ = 3Etδ / 2L²", note: "Peak bending stress, at the fixed root surface" },
+  { expr: "k = 48EI / L³", note: "Center stiffness, simply supported (pins)" },
+  { expr: "k = 192EI / L³", note: "Center stiffness, fixed (built-in) ends — 4× stiffer" },
+  { expr: "F = k·δ", note: "Force to press the middle down by δ" },
+  { expr: "σ = 6Etδ / L²", note: "Peak stress, simply supported — at mid-span" },
+  { expr: "σ = 12Etδ / L²", note: "Peak stress, fixed ends — at the walls" },
   { expr: "n = σy / σ", note: "Safety factor against yielding" },
-  { expr: "y(x) = (δ/2)·[3(x/L)² − (x/L)³]", note: "Euler–Bernoulli deflected shape" },
-  { expr: "γ = 1 / ∫₀¹cos θ(p) dp", note: "Large-deflection stiffening; F = k·δ·γ (γ→1 when δ/L≪1)" },
 ];
 
-export default function FlexureCalc() {
+export default function SimpleBeamCalc() {
   const [matKey, setMatKey] = useState(FAVORITES[0]);
-  const [L, setL] = useState("40"); // mm
+  const [support, setSupport] = useState<SupportType>("simple");
+  const [L, setL] = useState("80"); // mm span between supports
   const [t, setT] = useState("2"); // mm (bending direction)
   const [w, setW] = useState("10"); // mm
-  const [delta, setDelta] = useState("4"); // mm target deflection
+  const [delta, setDelta] = useState("3"); // mm center deflection
   const [interactive, setInteractive] = useState(true);
-  const [liveDelta, setLiveDelta] = useState<number | null>(null); // mm, while bending the beam
+  const [liveDelta, setLiveDelta] = useState<number | null>(null); // mm, while pressing
 
   const mat = MATERIALS[matKey];
 
-  // While interactively bending, the readouts follow the live deflection;
-  // otherwise they reflect the design input.
   const effDelta = liveDelta != null ? liveDelta : num(delta);
   const isLive = liveDelta != null;
 
   const r = useMemo(() => {
-    const E = mat.E * 1e9; // Pa
-    const sigmaY = mat.sigmaY * 1e6; // Pa
-    const Lm = num(L) / 1000; // m
+    const E = mat.E * 1e9;
+    const sigmaY = mat.sigmaY * 1e6;
+    const Lm = num(L) / 1000;
     const tm = num(t) / 1000;
     const wm = num(w) / 1000;
-    const dm = Math.abs(effDelta) / 1000; // bending either way produces stress
+    const dm = Math.abs(effDelta) / 1000;
 
-    const I = (wm * Math.pow(tm, 3)) / 12; // m^4
-    const k = (3 * E * I) / Math.pow(Lm, 3); // N/m
-
-    // Large-deflection geometric stiffening: as the tip curls inward its
-    // moment arm shrinks by the horizontal foreshortening ∫cos θ, so the force
-    // to hold a given deflection rises. γ ≈ 1 in the linear (δ/L ≲ 0.1) regime.
-    const c = Math.max(-0.95, Math.min(0.95, effDelta / Math.max(num(L), 1e-6)));
-    const gamma = 1 / Math.max(0.2, cosIntegral(c));
-
-    const F = k * dm * gamma; // N
-    const sigma = (3 * E * tm * dm) / (2 * Math.pow(Lm, 2)); // Pa
+    const I = (wm * Math.pow(tm, 3)) / 12;
+    const k = beamStiffness(E, I, Lm, support);
+    const F = k * dm;
+    const sigma = beamSigma(E, tm, Lm, dm, support);
     const SF = sigma > 0 ? sigmaY / sigma : Infinity;
 
-    return {
-      k: k / 1000, // N/mm
-      F, // N (incl. geometric stiffening)
-      gamma,
-      sigma: sigma / 1e6, // MPa
-      SF,
-      Lm,
-      tm,
-      dm,
-    };
-  }, [mat, L, t, w, effDelta]);
+    return { k: k / 1000, F, sigma: sigma / 1e6, SF };
+  }, [mat, L, t, w, effDelta, support]);
 
   const status =
     r.SF >= 2
@@ -682,10 +603,10 @@ export default function FlexureCalc() {
                 color: "#3a78c2",
               }}
             >
-              MECHCALC · COMPLIANT MECHANISMS
+              MECHCALC · STRUCTURES
             </div>
             <h1 className="flexure-title" style={{ margin: "6px 0 0", fontSize: 22, fontWeight: 600, letterSpacing: "-0.01em" }}>
-              Cantilever Flexure
+              Beam on Two Supports
             </h1>
           </div>
           <div
@@ -697,14 +618,23 @@ export default function FlexureCalc() {
               lineHeight: 1.6,
             }}
           >
-            <div>k = 3EI / L³</div>
-            <div>σ = 3Etδ / 2L²</div>
+            <div>k = {support === "simple" ? "48" : "192"}EI / L³</div>
+            <div>σ = {support === "simple" ? "6" : "12"}Etδ / L²</div>
           </div>
         </div>
 
         <div className="flexure-grid">
           {/* INPUTS */}
           <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Select
+              label="Support type"
+              value={support}
+              onChange={(v) => setSupport(v as SupportType)}
+            >
+              <option value="simple">Simply supported (pins)</option>
+              <option value="fixed">Fixed — built-in ends</option>
+            </Select>
+
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label
                 style={{
@@ -763,8 +693,8 @@ export default function FlexureCalc() {
                     lineHeight: 1.5,
                   }}
                 >
-                  ⚠ Anisotropic — XY in-plane values. Strength across layer lines is far lower; orient
-                  flexures so bending stays in-plane.
+                  ⚠ Anisotropic — XY in-plane values. Strength across layer lines is far lower; orient the
+                  beam so bending stays in-plane.
                 </div>
               )}
               {mat.soft && (
@@ -782,10 +712,10 @@ export default function FlexureCalc() {
                 </div>
               )}
             </div>
-            <Field label="Length L" unit="mm" value={L} onChange={setL} min="0" />
+            <Field label="Span L" unit="mm" value={L} onChange={setL} min="0" />
             <Field label="Thickness t" unit="mm" value={t} onChange={setT} min="0" step="0.1" />
             <Field label="Width w" unit="mm" value={w} onChange={setW} min="0" />
-            <Field label="Target deflection δ" unit="mm" value={delta} onChange={setDelta} min="0" step="0.1" />
+            <Field label="Center deflection δ" unit="mm" value={delta} onChange={setDelta} min="0" step="0.1" />
           </div>
 
           {/* OUTPUTS */}
@@ -837,13 +767,14 @@ export default function FlexureCalc() {
             </div>
 
             <Readout label="Stiffness k" value={r.k.toFixed(3)} unit="N/mm" />
+            <Readout label="Force required F" value={r.F.toFixed(2)} unit="N" />
             <Readout
-              label="Force required F"
-              value={r.F.toFixed(2)}
-              unit="N"
-              hint={r.gamma >= 1.02 ? `γ ${r.gamma.toFixed(2)}` : undefined}
+              label="Max stress σ"
+              value={r.sigma.toFixed(1)}
+              unit="MPa"
+              accent={status.c}
+              hint={support === "simple" ? "at mid-span" : "at the walls"}
             />
-            <Readout label="Max stress σ" value={r.sigma.toFixed(1)} unit="MPa" accent={status.c} />
           </div>
         </div>
 
@@ -889,15 +820,15 @@ export default function FlexureCalc() {
                 }}
               >
                 {isLive
-                  ? `● bending · δ ${effDelta.toFixed(1)} mm`
-                  : `L ${num(L)} · t ${num(t)} · w ${num(w)} mm`}
+                  ? `● pressing · δ ${effDelta.toFixed(1)} mm · F ${r.F.toFixed(1)} N`
+                  : `L ${num(L)} · t ${num(t)} · w ${num(w)} mm · ${support === "simple" ? "pins" : "built-in"}`}
               </div>
             </div>
             <button
               onClick={() => {
                 const nv = !interactive;
                 setInteractive(nv);
-                if (!nv) setLiveDelta(null); // leaving interactive → drop the live override
+                if (!nv) setLiveDelta(null);
               }}
               style={{
                 fontFamily: "var(--mono)",
@@ -916,11 +847,12 @@ export default function FlexureCalc() {
               {interactive ? "● Interactive" : "Interactive"}
             </button>
           </div>
-          <Beam3D
+          <Beam2S3D
             L={num(L)}
             t={num(t)}
             w={num(w)}
             delta={num(delta)}
+            support={support}
             interactive={interactive}
             E={mat.E}
             sigmaY={mat.sigmaY}
@@ -946,7 +878,7 @@ export default function FlexureCalc() {
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {EQUATIONS.map((eq) => (
               <div
-                key={eq.expr}
+                key={eq.expr + eq.note}
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
@@ -990,8 +922,8 @@ export default function FlexureCalc() {
               lineHeight: 1.6,
             }}
           >
-            E Young&apos;s modulus · I second moment of area · L length · t thickness (bending direction) ·
-            w width · δ tip deflection · σ peak stress · σy yield strength · n safety factor
+            E Young&apos;s modulus · I second moment of area · L span between supports · t thickness ·
+            w width · δ center deflection · σ peak stress · σy yield strength · n safety factor
           </div>
 
           <p
@@ -1003,13 +935,14 @@ export default function FlexureCalc() {
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "#c2ccd4" }}>Model.</strong> A prismatic rectangular cantilever,
-            rigidly built in at one end (the wall) and loaded by a transverse force at the free tip —
-            Euler–Bernoulli (engineer&apos;s) beam theory. The bending moment grows linearly from zero at
-            the tip to a maximum at the root, so the surface stress is highest where the beam meets the
-            wall. That is where a flexure yields first. The 3D beam colors this directly: the stretched
-            face warms toward red (tension), the opposite face cools toward blue (compression), and the
-            neutral axis in between stays dim — all most intense at the root.
+            <strong style={{ color: "#c2ccd4" }}>Model.</strong> A prismatic rectangular beam spanning two
+            supports, loaded by a point force at mid-span — Euler–Bernoulli theory. With{" "}
+            <em>pins</em>, the ends are free to rotate: the bending moment peaks at mid-span (FL/4) and the
+            beam is hottest there — bottom face in tension when pressed down. With <em>built-in ends</em>,
+            the walls grab the end slopes: the span gets 4× stiffer, the peak moment halves and moves to the
+            walls (FL/8), and the tension face flips along the span — top fibers stretch at the walls,
+            bottom fibers at mid-span, with quiet inflection points at L/4. The 3D color field draws exactly
+            this moment diagram.
           </p>
           <p
             style={{
@@ -1020,11 +953,12 @@ export default function FlexureCalc() {
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "#c2ccd4" }}>Designing a flexure.</strong> You usually fix the
-            deflection δ you need and size the geometry for it. Thinning t buys range of motion — stress
-            scales with t while stiffness scales with t³, so a thinner blade is far more compliant and
-            less stressed for the same δ, at the cost of load capacity and buckling resistance. Aim for a
-            safety factor n ≥ 2 for repeated or living-hinge duty, and more where fatigue matters.
+            <strong style={{ color: "#c2ccd4" }}>Compared to a cantilever.</strong> Same section and length,
+            a simply supported span is 16× stiffer than a cantilever (48 vs 3 EI/L³) and a built-in span is
+            64× stiffer — support at both ends is enormously effective. That&apos;s why the same press that
+            folds a cantilever barely moves a spanning beam, and why real fixtures behave somewhere between
+            the pinned and built-in numbers: bolted or short end connections rarely achieve a perfect clamp.
+            Treat the two support types as brackets on reality.
           </p>
           <p
             style={{
@@ -1035,13 +969,11 @@ export default function FlexureCalc() {
               lineHeight: 1.7,
             }}
           >
-            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Stiffness and stress use linear
-            small-deflection theory, accurate for roughly δ/L ≲ 0.1; beyond that the true stress and shape
-            diverge from these closed forms. The force readout adds a geometric-stiffening factor γ
-            (shown when it matters) so it tracks the real load-up better at large bends, and the 3D viewer
-            draws a length-preserving large-deflection curve that curls further than the linear numbers
-            imply. 3D-printed values are typical in-plane figures and are anisotropic across layers —
-            verify against your own coupons before relying on them.
+            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Linear small-deflection theory, good for
+            roughly δ/L ≲ 0.05 here. Push further and a real beam with restrained ends starts carrying load
+            as a stretched membrane — dramatically stiffer than these formulas — while a pinned beam on
+            rollers keeps following them longer. Shear deformation matters for very short, deep spans
+            (L/t ≲ 10). 3D-printed values are typical in-plane figures; verify against your own coupons.
           </p>
 
           <p
@@ -1058,11 +990,10 @@ export default function FlexureCalc() {
             <span style={{ textDecoration: "underline", textUnderlineOffset: 3, color: "#e8edf1" }}>
               In short:
             </span>{" "}
-            the harder you bend the beam, the more its tip pulls inward, shrinking the leverage of your
-            force — so each extra millimetre of deflection costs a little more force than the last (the γ
-            factor). For everyday flexures, where deflections are small and the safety factor stays ≥ 2,
-            γ ≈ 1 and you can ignore it; it only shows up when you bend the beam far past its working
-            range.
+            holding both ends transforms the beam. The middle barely moves for the same force, and{" "}
+            <em>where</em> it can break moves with the supports: pins concentrate stress under your finger
+            at mid-span; walls concentrate it at the ends. Press the 3D beam and watch the hot spots settle
+            exactly where the moment diagram says they must.
           </p>
         </div>
       </div>
