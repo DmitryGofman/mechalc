@@ -12,7 +12,8 @@ yielding.
 | `/flexure-calculator` | **Cantilever Flexure** — stiffness, force, peak bending stress and yield safety factor for a rectangular flexure blade; bend the 3D beam interactively | ready |
 | `/bolt-calculator` | **Bolted Joint — Screw Strength** — torque → preload, VDI 2230-style reduced (von Mises) stress, plus the full clamped-sandwich model: per-plate materials, Shigley pressure-cone member stiffness, load sharing, separation and bearing-crush checks; tighten the 3D nut and watch the pressure cones | ready |
 | `/beam-calculator` | **Beam on Two Supports** — center-load stiffness, force and peak stress for a span held at both ends, pinned (48EI/L³) or built-in (192EI/L³); press the middle of the 3D beam and the stress colors trace the bending-moment diagram | ready |
-| — | Shaft in Torsion · Column Buckling · Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
+| `/buckling-calculator` | **Column Buckling** — Euler critical load for all four classical end conditions (K = 0.5 / 0.7 / 1.0 / 2.0) with the Johnson parabola for short columns; push the 3D column's load platen and watch the initial imperfection amplify by 1/(1−P/Pcr) into the mode shape | ready |
+| — | Shaft in Torsion · Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
 On GitHub Pages the app is served under `/mechalc/`, so calculator URLs look like
 `https://<user>.github.io/mechalc/bolt-calculator`. Deep links work via a
@@ -48,6 +49,8 @@ src/
     boltMath.ts             pure bolted-joint math (tested)
     SimpleBeamCalc.tsx      beam-on-two-supports calculator + 3D beam
     simpleBeamMath.ts       pure two-support beam math (tested)
+    ColumnCalc.tsx          column-buckling calculator + 3D column
+    columnMath.ts           pure buckling math: Euler/Johnson, modes (tested)
     materials.ts            shared beam/flexure material library
     stressColor.ts          shared stress → color ramps for the 3D viewers
 ```

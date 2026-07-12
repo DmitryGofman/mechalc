@@ -45,11 +45,12 @@ const CALCS: CalcCard[] = [
     ready: false,
   },
   {
+    route: "/buckling-calculator",
     tag: "Structures",
     title: "Column Buckling",
-    desc: "Critical load for slender and intermediate columns — Euler and Johnson regimes, end-condition factors.",
+    desc: "Critical load for all four classical buckling modes, Euler and Johnson regimes — push the 3D column's load platen and watch the bow run away at Pcr.",
     eq: "Pcr = π²EI / (KL)²",
-    ready: false,
+    ready: true,
   },
   {
     tag: "Springs",

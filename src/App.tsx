@@ -5,6 +5,7 @@ import Home from "./pages/Home";
 import FlexureCalc from "./calculators/FlexureCalc";
 import BoltCalc from "./calculators/BoltCalc";
 import SimpleBeamCalc from "./calculators/SimpleBeamCalc";
+import ColumnCalc from "./calculators/ColumnCalc";
 
 // Route table: every calculator lives at its own path under the site base,
 // e.g. /mechalc/flexure-calculator on GitHub Pages.
@@ -12,6 +13,7 @@ const ROUTES: Record<string, { title: string; el: ReactNode }> = {
   "/flexure-calculator": { title: "Cantilever Flexure — MechCalc", el: <FlexureCalc /> },
   "/bolt-calculator": { title: "Bolted Joint — MechCalc", el: <BoltCalc /> },
   "/beam-calculator": { title: "Beam on Two Supports — MechCalc", el: <SimpleBeamCalc /> },
+  "/buckling-calculator": { title: "Column Buckling — MechCalc", el: <ColumnCalc /> },
 };
 
 export default function App() {
