@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnapLab — Design C: Guided Worksheet</title>
+<style>
+  :root {
+    --paper: #f7f4ec; --card: #fffdf7; --ink: #2b2a26; --dim: #6d6a60; --line: #d9d3c4;
+    --accent: #8a5a2b; --pass: #2e7d4f; --fail: #b3372f; --hold: #a5741a;
+    --serif: Georgia, "Times New Roman", serif;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); }
+  .page { max-width: 880px; margin: 0 auto; padding: 28px 18px 60px; }
+  a.back { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--dim); text-decoration: none; }
+  a.back:hover { color: var(--accent); }
+  h1 { font-size: 30px; font-weight: 400; margin: 10px 0 4px; }
+  .lede { color: var(--dim); font-size: 15px; line-height: 1.65; font-style: italic; max-width: 640px; }
+  .step { background: var(--card); border: 1px solid var(--line); border-radius: 4px; margin-top: 22px; padding: 18px 20px; }
+  .step h2 { font-size: 13px; font-family: var(--mono); letter-spacing: .18em; color: var(--accent);
+             margin: 0 0 4px; font-weight: 600; }
+  .step .why { font-size: 13.5px; color: var(--dim); line-height: 1.6; margin: 0 0 14px; }
+  .frow { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .fld label { display: block; font-family: var(--mono); font-size: 10.5px; color: var(--dim); margin-bottom: 4px; }
+  .fld input, .fld select { width: 100%; background: #fff; border: 1px solid var(--line); border-radius: 3px;
+    font-family: var(--mono); font-size: 13px; padding: 6px 8px; color: var(--ink); outline: none; }
+  .fld input:focus, .fld select:focus { border-color: var(--accent); }
+  .fld input.bad { border-color: var(--fail); background: #fdf1f0; }
+  .fld .note { font-size: 11px; color: var(--dim); margin-top: 4px; line-height: 1.45; }
+  .work { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 12px; }
+  .work summary { cursor: pointer; font-size: 12.5px; color: var(--accent); font-family: var(--mono); }
+  .eq { font-family: var(--mono); font-size: 12.5px; background: #f3efe3; border-left: 3px solid var(--accent);
+        padding: 10px 12px; margin: 10px 0 0; line-height: 1.8; overflow-x: auto; white-space: pre; border-radius: 0 3px 3px 0; }
+  .eq b { color: var(--accent); }
+  .kv { display: flex; justify-content: space-between; border-bottom: 1px dotted var(--line);
+        padding: 7px 2px; font-size: 14.5px; }
+  .kv .k { color: var(--dim); font-size: 13px; }
+  .kv .v { font-family: var(--mono); font-weight: 600; }
+  .verdict { text-align: center; padding: 20px; border-radius: 4px; border: 2px solid; margin-bottom: 14px; }
+  .verdict .word { font-family: var(--mono); font-size: 24px; letter-spacing: .3em; font-weight: 700; }
+  .verdict .expl { font-size: 13.5px; margin-top: 8px; line-height: 1.6; }
+  .verdict.pass { border-color: var(--pass); color: var(--pass); background: #f0f7f2; }
+  .verdict.fail { border-color: var(--fail); color: var(--fail); background: #fbf1f0; }
+  .verdict.indeterminate { border-color: var(--hold); color: var(--hold); background: #faf5ea; }
+  .verdict.invalid { border-color: var(--line); color: var(--dim); }
+  .warn { font-size: 13px; line-height: 1.6; padding: 9px 12px; border-left: 3px solid; margin-top: 8px; background: #faf7ee; border-radius: 0 3px 3px 0; }
+  .warn.blocking { border-color: var(--hold); }
+  .warn.caution { border-color: #c9a95c; color: #6d6a60; }
+  .warn.info { border-color: var(--line); color: var(--dim); }
+  .warn.error { border-color: var(--fail); color: var(--fail); }
+  svg { width: 100%; height: auto; display: block; }
+  .mono { font-family: var(--mono); }
+  .foot { font-size: 12px; color: var(--dim); line-height: 1.7; margin-top: 26px; border-top: 1px solid var(--line); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back" href="./index.html">← SNAPLAB DESIGN CANDIDATES</a>
+  <h1>Snap-Fit Worksheet</h1>
+  <p class="lede">Design C — a guided, show-your-work calculator. Every number can be opened to reveal the
+    equation it came from, with your values substituted, so the tool teaches while it checks.</p>
+
+  <!-- STEP 1 -->
+  <div class="step">
+    <h2>STEP 1 — GEOMETRY</h2>
+    <p class="why">The arm bends as a cantilever when the hook rides over the mating edge. Strain grows with
+      thickness and undercut, and falls with the <em>square</em> of length — length is your strongest lever.</p>
+    <div class="frow">
+      <div class="fld"><label>Profile</label>
+        <select id="profile">
+          <option value="uniform">Uniform section</option>
+          <option value="taperThickness">Thickness taper t → t/2</option>
+          <option value="taperWidth">Width taper b → b/4</option>
+        </select></div>
+      <div class="fld"><label>Length L (mm)</label><input id="L" type="number" step="0.1" value="19"></div>
+      <div class="fld"><label>Width b (mm)</label><input id="b" type="number" step="0.1" value="9.5"></div>
+      <div class="fld"><label>Thickness t (mm)</label><input id="t" type="number" step="0.05" value="2.4"></div>
+      <div class="fld"><label>Undercut y (mm)</label><input id="y" type="number" step="0.05" value="2.4"></div>
+      <div class="fld"><label>Root fillet R (mm)</label><input id="R" type="number" step="0.05" value="0.6">
+        <div class="note">R/t below ~0.5 concentrates strain at the root.</div></div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step">
+    <h2>STEP 2 — MATERIAL STATE</h2>
+    <p class="why">Use the secant modulus at the working strain, for the <em>actual</em> grade, temperature and
+      moisture state. The presets below are generic teaching values — never production allowables.</p>
+    <div class="frow">
+      <div class="fld"><label>Material preset</label><select id="mat"></select>
+        <div class="note" id="matnote"></div></div>
+      <div class="fld"><label>Secant modulus E<sub>s</sub> (MPa)</label><input id="Es" type="number" step="10" value="1200"></div>
+      <div class="fld"><label>Permissible strain ε<sub>allow</sub> (%)</label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
+      <div class="fld"><label>Concentration K<sub>t</sub> (—)</label><input id="Kt" type="number" step="0.05" value="1.00">
+        <div class="note">Only from a traceable chart or FEA — never a guess. 1.00 = not included.</div></div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step">
+    <h2>STEP 3 — RAMPS &amp; FRICTION</h2>
+    <p class="why">The entry ramp turns your push into beam deflection; friction taxes it. Past
+      μ·tanα = 1 the wedge model self-locks: no finite push force will assemble the joint.</p>
+    <div class="frow">
+      <div class="fld"><label>Entry angle α (deg)</label><input id="alpha" type="number" step="1" value="30"></div>
+      <div class="fld"><label>Return angle α′ (deg)</label><input id="alphaP" type="number" step="1" value="45">
+        <div class="note">90° = permanent (non-releasable) joint.</div></div>
+      <div class="fld"><label>Friction μ (—)</label><input id="mu" type="number" step="0.02" value="0.30">
+        <div class="note">Treat as a range in real designs; texture, rate and wear all shift it.</div></div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step">
+    <h2>STEP 4 — VERDICT</h2>
+    <div class="verdict invalid" id="verdict"><div class="word">—</div><div class="expl"></div></div>
+    <div id="results"></div>
+    <details class="work" id="work-eps" open>
+      <summary>Show the work — strain, force, assembly</summary>
+      <div class="eq" id="eq-block"></div>
+    </details>
+    <div id="warns"></div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="step">
+    <h2>STEP 5 — WHAT DOMINATES THE RESULT</h2>
+    <p class="why">Each bar shows how a +10 % change in one input moves the strain utilization U (left) and the
+      insertion force W (right). Note that the modulus moves force but <em>not</em> strain — in a
+      displacement-controlled snap, strain is pure geometry.</p>
+    <svg id="tornado" viewBox="0 0 840 250" role="img" aria-label="Sensitivity chart"></svg>
+  </div>
+
+  <div class="foot">
+    Model: linear Euler–Bernoulli cantilever, ideally fixed root, secant modulus, Coulomb friction
+    (BASF &amp; Bayer snap-fit manuals; constants ÷4 / ÷6.528 / ÷5.136 verified at runtime against an independent
+    Castigliano integral: <span class="mono" id="xc">—</span>). Outside its envelope — short beams, large
+    deflection, creep, fatigue, weld lines — the verdict reads <em>indeterminate</em> rather than green.
+    A pass is a preliminary design check, not a production release.
+  </div>
+</div>
+
+<script src="./snapfit-engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const U = SnapFit.UNITS;
+  const num = (id) => parseFloat($(id).value);
+  const fmt = (n, d) => (n === null || !isFinite(n)) ? "—" : n.toFixed(d !== undefined ? d : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2));
+
+  const matSel = $("mat");
+  SnapFit.MATERIALS.forEach((m) => { const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; matSel.appendChild(o); });
+  matSel.value = "pa66-cond";
+  $("matnote").textContent = SnapFit.MATERIALS.find((m) => m.id === "pa66-cond").note;
+  matSel.addEventListener("change", () => {
+    const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
+    $("matnote").textContent = m.note;
+    if (m.Es !== null) { $("Es").value = m.Es; $("eAllow").value = (m.eAllow * 100).toFixed(1); }
+    render();
+  });
+
+  function collect() {
+    return {
+      profile: $("profile").value,
+      L: num("L"), b: num("b"), t: num("t"), y: num("y"), R: num("R"),
+      Es: num("Es"), eAllow: num("eAllow") / 100, mu: num("mu"), Kt: num("Kt"),
+      alphaRad: U.degToRad(num("alpha")), alphaPrimeRad: U.degToRad(num("alphaP")),
+    };
+  }
+
+  const VERDICT = {
+    pass: ["PASS", "The model is applicable and the root strain stays inside your permissible value. Remember: this clears the assembly event only — retention over time (creep) and repeat cycles (fatigue) need their own evidence."],
+    fail: ["FAIL", "The calculated root strain exceeds the permissible value. Lengthen the arm (strain falls with 1/L²), thin the root, reduce the undercut, or taper the beam."],
+    indeterminate: ["INDETERMINATE", "The linear model is not credible for this input set — see the blocking notes below. No pass/fail is issued, because a number here would be false precision."],
+    invalid: ["INVALID INPUT", "Fix the highlighted fields; the calculation is suspended so a nonsense geometry can never produce a plausible-looking answer."],
+  };
+
+  function render() {
+    const inp = collect();
+    const r = SnapFit.evaluate(inp);
+    const bad = new Set(r.errors.map((e) => e.field === "alphaPrime" ? "alphaP" : e.field));
+    ["L","b","t","y","R","Es","eAllow","mu","alpha","alphaP","Kt"].forEach((f) => $(f).classList.toggle("bad", bad.has(f)));
+
+    const vd = $("verdict");
+    vd.className = "verdict " + r.status;
+    vd.querySelector(".word").textContent = VERDICT[r.status][0];
+    vd.querySelector(".expl").textContent = VERDICT[r.status][1];
+
+    const res = $("results"), warns = $("warns");
+    res.innerHTML = ""; warns.innerHTML = "";
+    if (r.status === "invalid") {
+      r.errors.forEach((e) => warns.insertAdjacentHTML("beforeend", `<div class="warn error">${e.msg}</div>`));
+      $("eq-block").textContent = "—"; $("xc").textContent = "—";
+      drawTornado(null); return;
+    }
+    const v = r.values;
+    const row = (k, val) => res.insertAdjacentHTML("beforeend", `<div class="kv"><span class="k">${k}</span><span class="v">${val}</span></div>`);
+    row("Root strain × Kt", `${(v.epsEff * 100).toFixed(2)} % of ${(inp.eAllow * 100).toFixed(1)} % allowed`);
+    row("Strain utilization U", `${fmt(v.U, 2)} (${v.margin >= 0 ? "margin +" + (v.margin * 100).toFixed(0) + "%" : "over by " + (-v.margin * 100).toFixed(0) + "%"})`);
+    row("Deflection force P", fmt(v.P) + " N");
+    row("Insertion force W", r.selfLock.insert ? "self-locking — no finite force" : fmt(v.W) + " N");
+    row("Removal force W′", r.selfLock.remove ? (num("alphaP") >= 90 ? "permanent joint" : "self-locking") : fmt(v.Wremove) + " N");
+    row("Checks", `L/t = ${fmt(v.slenderness, 1)} · y/L = ${fmt(v.deflectionRatio, 2)} · R/t = ${v.RoverT === null ? "—" : fmt(v.RoverT, 2)}`);
+
+    const prof = SnapFit.PROFILES[inp.profile];
+    const C = prof.strainCoef, D = prof.forceDivisor;
+    const tanA = Math.tan(inp.alphaRad);
+    $("eq-block").innerHTML =
+`<b>strain</b>   ε = ${C.toFixed(2)}·t·y / L²
+         = ${C.toFixed(2)} × ${fmt(inp.t)} × ${fmt(inp.y)} / ${fmt(inp.L)}²  =  ${(v.eps * 100).toFixed(2)} %
+         × Kt ${fmt(inp.Kt, 2)}  =  ${(v.epsEff * 100).toFixed(2)} %   (allow ${(inp.eAllow * 100).toFixed(1)} %)
+
+<b>force</b>    P = Es·b·(t/L)³·y / ${D}
+         = ${fmt(inp.Es, 0)} × ${fmt(inp.b)} × (${fmt(inp.t)}/${fmt(inp.L)})³ × ${fmt(inp.y)} / ${D}  =  ${fmt(v.P)} N
+
+<b>assembly</b> W = P·(μ + tanα) / (1 − μ·tanα)
+         = ${fmt(v.P)} × (${fmt(inp.mu, 2)} + ${fmt(tanA, 3)}) / (1 − ${fmt(inp.mu * tanA, 3)})  =  ${r.selfLock.insert ? "SELF-LOCKING (denominator ≤ 0)" : fmt(v.W) + " N"}
+
+<b>source</b>   BASF Snap-Fit Design Manual / Bayer Snap-Fit Joints for Plastics — ${prof.label}`;
+
+    r.warnings.forEach((w) => warns.insertAdjacentHTML("beforeend", `<div class="warn ${w.level}">${w.msg}</div>`));
+    const xc = SnapFit.crossCheck(inp, 800);
+    $("xc").textContent = "Δ " + (xc.diffPct >= 0 ? "+" : "") + xc.diffPct.toFixed(2) + "%";
+    drawTornado(inp);
+  }
+
+  /* Sensitivity: % change of U and W for a +10 % bump of each input. */
+  function drawTornado(inp) {
+    const svg = $("tornado");
+    if (!inp) { svg.innerHTML = `<text x="420" y="125" text-anchor="middle" fill="#6d6a60" font-size="13">— suspended: invalid input —</text>`; return; }
+    const nom = SnapFit.evaluate(inp);
+    if (!nom.values || nom.selfLock.insert) { svg.innerHTML = `<text x="420" y="125" text-anchor="middle" fill="#6d6a60" font-size="13">— sensitivity unavailable (invalid or self-locking design) —</text>`; return; }
+    const bump = (key) => {
+      const mod = Object.assign({}, inp);
+      if (key === "alphaRad") mod.alphaRad = Math.min(inp.alphaRad * 1.1, Math.PI / 2 * 0.98);
+      else mod[key] = inp[key] * 1.1;
+      const r2 = SnapFit.evaluate(mod);
+      if (!r2.values) return { dU: NaN, dW: NaN, lock: false };
+      return {
+        dU: 100 * (r2.values.U - nom.values.U) / nom.values.U,
+        dW: r2.selfLock.insert || nom.values.W === null ? NaN : 100 * (r2.values.W - nom.values.W) / nom.values.W,
+        lock: r2.selfLock.insert,
+      };
+    };
+    const rows = [
+      ["L  (+10%)", bump("L")], ["t  (+10%)", bump("t")], ["y  (+10%)", bump("y")],
+      ["Es (+10%)", bump("Es")], ["ε_allow (+10%)", bump("eAllow")], ["μ  (+10%)", bump("mu")], ["α  (+10%)", bump("alphaRad")],
+    ];
+    const H = 250, midL = 250, midR = 640, half = 130, rh = 26, top = 40;
+    const sc = (d) => Math.max(-1, Math.min(1, d / 25)) * half / 1; // ±25% full scale
+    let s = `<text x="${midL}" y="16" text-anchor="middle" font-size="12" fill="#2b2a26">Δ utilization U</text>
+             <text x="${midR}" y="16" text-anchor="middle" font-size="12" fill="#2b2a26">Δ insertion force W</text>
+             <line x1="${midL}" y1="26" x2="${midL}" y2="${top + rows.length * rh}" stroke="#d9d3c4"/>
+             <line x1="${midR}" y1="26" x2="${midR}" y2="${top + rows.length * rh}" stroke="#d9d3c4"/>`;
+    rows.forEach(([label, d], i) => {
+      const yb = top + i * rh;
+      s += `<text x="16" y="${yb + 13}" font-size="11.5" font-family="monospace" fill="#6d6a60">${label}</text>`;
+      const bar = (mid, val, lock) => {
+        if (lock) return `<text x="${mid + 6}" y="${yb + 13}" font-size="10" fill="#a5741a">→ self-locks</text>`;
+        if (!isFinite(val)) return `<text x="${mid + 6}" y="${yb + 13}" font-size="10" fill="#6d6a60">n/a</text>`;
+        const w = sc(val), x = w >= 0 ? mid : mid + w;
+        const col = Math.abs(val) < 0.5 ? "#c9c3b2" : (val > 0 ? "#b3372f" : "#2e7d4f");
+        return `<rect x="${x}" y="${yb + 2}" width="${Math.max(1.5, Math.abs(w))}" height="16" fill="${col}" opacity=".85"/>`
+          + `<text x="${w >= 0 ? mid + w + 5 : mid + w - 5}" y="${yb + 14}" font-size="10.5" font-family="monospace" ${w >= 0 ? "" : 'text-anchor="end"'} fill="#2b2a26">${val >= 0 ? "+" : ""}${val.toFixed(1)}%</text>`;
+      };
+      s += bar(midL, d.dU, false);
+      s += bar(midR, d.dW, d.lock);
+    });
+    s += `<text x="16" y="${top + rows.length * rh + 20}" font-size="10.5" fill="#6d6a60">Red = pushes the design toward failure / higher force · green = helps. Es moving W but not U is the model speaking: strain is geometric.</text>`;
+    svg.innerHTML = s;
+  }
+
+  ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", render));
+  render();
+})();
+</script>
+</body>
+</html>

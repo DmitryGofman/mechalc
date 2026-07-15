@@ -38,6 +38,13 @@ const CALCS: CalcCard[] = [
     ready: true,
   },
   {
+    tag: "Compliant mechanisms",
+    title: "Cantilever Snap-Fit",
+    desc: "Strain, deflection and insertion/removal force for molded snap arms — uniform and tapered, with self-locking and validity guards. Four HTML design candidates are under /designs/snapfit/.",
+    eq: "ε = 3ty / 2L²",
+    ready: false,
+  },
+  {
     tag: "Drivetrain",
     title: "Shaft in Torsion",
     desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",

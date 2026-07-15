@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnapLab — Design B: Blueprint Sheet</title>
+<style>
+  :root {
+    --paper: #14315e; --paper2: #10294f; --ink: #dbe8ff; --line: #9db9e8; --faint: #5f7cab;
+    --grid: rgba(157,185,232,.07); --pass: #7fe3a8; --fail: #ff9d9d; --hold: #ffd88a;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0b1f3d; color: var(--ink); font-family: var(--mono); }
+  .sheet { max-width: 1150px; margin: 18px auto 40px; background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 100% 24px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 24px 100%,
+      var(--paper);
+    border: 2px solid var(--line); outline: 1px solid var(--line); outline-offset: -8px;
+    padding: 26px; position: relative; }
+  a.back { color: var(--faint); font-size: 10px; letter-spacing: .2em; text-decoration: none; }
+  a.back:hover { color: var(--ink); }
+  .head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--line);
+          padding-bottom: 10px; margin-bottom: 14px; flex-wrap: wrap; gap: 8px; }
+  .head h1 { font-size: 15px; letter-spacing: .3em; margin: 0; font-weight: 600; }
+  .head .no { font-size: 10px; color: var(--faint); letter-spacing: .15em; }
+  .lay { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; }
+  @media (max-width: 900px) { .lay { grid-template-columns: minmax(0,1fr); } }
+  svg { width: 100%; height: auto; display: block; }
+  text { font-family: var(--mono); }
+  /* dimension schedule */
+  .sched h2, .notes h2, .tb h2 { font-size: 10px; letter-spacing: .25em; color: var(--faint); margin: 0 0 8px; font-weight: 600; }
+  table.dims { width: 100%; border-collapse: collapse; font-size: 11px; }
+  table.dims td { border: 1px solid var(--faint); padding: 4px 6px; }
+  table.dims td:first-child { width: 44%; color: var(--ink); }
+  table.dims td:last-child { width: 26%; color: var(--faint); }
+  table.dims input, table.dims select { width: 100%; background: var(--paper2); border: 1px solid transparent; color: #fff;
+    font-family: var(--mono); font-size: 12px; padding: 3px 4px; text-align: right; outline: none; }
+  table.dims select { text-align: left; }
+  table.dims input:focus { border-color: var(--line); }
+  table.dims input.bad { border-color: var(--fail); color: var(--fail); }
+  .notes { margin-top: 18px; }
+  .notes ol { margin: 0; padding-left: 20px; font-size: 10.5px; line-height: 1.65; color: var(--ink); }
+  .notes li { margin-bottom: 6px; }
+  .notes li.blocking { color: var(--hold); }
+  .notes li.error { color: var(--fail); }
+  .notes li.info { color: var(--faint); }
+  /* title block */
+  .tb { margin-top: 18px; border: 1px solid var(--line); }
+  .tb-grid { display: grid; grid-template-columns: 1fr 1fr; }
+  .tb-cell { border: 1px solid var(--faint); padding: 6px 8px; min-height: 44px; }
+  .tb-cell .k { font-size: 8.5px; letter-spacing: .2em; color: var(--faint); }
+  .tb-cell .v { font-size: 14px; margin-top: 3px; }
+  .tb-cell .v small { font-size: 9px; color: var(--faint); }
+  .stamp { position: relative; text-align: center; padding: 14px 6px; }
+  .stamp span { display: inline-block; border: 3px double; border-radius: 4px; padding: 6px 18px;
+    font-size: 18px; letter-spacing: .35em; font-weight: 700; transform: rotate(-6deg); }
+  .stamp.pass span { color: var(--pass); border-color: var(--pass); }
+  .stamp.fail span { color: var(--fail); border-color: var(--fail); }
+  .stamp.indeterminate span { color: var(--hold); border-color: var(--hold); }
+  .stamp.invalid span { color: var(--faint); border-color: var(--faint); }
+  .foot { font-size: 9px; color: var(--faint); letter-spacing: .08em; line-height: 1.8; margin-top: 14px;
+          border-top: 1px solid var(--faint); padding-top: 8px; }
+</style>
+</head>
+<body>
+<div class="sheet">
+  <div class="head">
+    <a class="back" href="./index.html">← SNAPLAB DESIGN CANDIDATES</a>
+    <h1>CANTILEVER SNAP-FIT — DESIGN CHECK SHEET</h1>
+    <span class="no">DWG SF-001 · REV B · SCALE NTS · UNITS mm/N/MPa</span>
+  </div>
+
+  <div class="lay">
+    <div>
+      <svg id="dwg" viewBox="0 0 720 470" role="img" aria-label="Dimensioned snap-fit drawing"></svg>
+      <div class="foot">
+        LINEAR EULER–BERNOULLI MODEL. SECTION CONSTANTS PER BASF / BAYER SNAP-FIT MANUALS
+        (UNIFORM ÷4 · THICKNESS TAPER ÷6.528 · WIDTH TAPER ÷5.136), VERIFIED AGAINST INDEPENDENT
+        CASTIGLIANO INTEGRAL: <span id="xc">—</span>.
+        DEFORMED SHAPE DRAWN EXAGGERATED FOR CLARITY; SEE SCHEDULE FOR TRUE VALUES.
+        THIS SHEET IS A PRELIMINARY DESIGN CHECK — NOT A PRODUCTION RELEASE.
+      </div>
+    </div>
+
+    <div>
+      <div class="sched">
+        <h2>DIMENSION &amp; MATERIAL SCHEDULE</h2>
+        <table class="dims">
+          <tr><td>PROFILE</td><td colspan="2">
+            <select id="profile">
+              <option value="uniform">UNIFORM</option>
+              <option value="taperThickness">TAPER t → t/2</option>
+              <option value="taperWidth">TAPER b → b/4</option>
+            </select></td></tr>
+          <tr><td>L — ARM LENGTH</td><td><input id="L" type="number" step="0.1" value="19"></td><td>mm</td></tr>
+          <tr><td>b — ROOT WIDTH</td><td><input id="b" type="number" step="0.1" value="9.5"></td><td>mm</td></tr>
+          <tr><td>t — ROOT THICKNESS</td><td><input id="t" type="number" step="0.05" value="2.4"></td><td>mm</td></tr>
+          <tr><td>y — UNDERCUT</td><td><input id="y" type="number" step="0.05" value="2.4"></td><td>mm</td></tr>
+          <tr><td>R — ROOT FILLET</td><td><input id="R" type="number" step="0.05" value="0.6"></td><td>mm</td></tr>
+          <tr><td>α — ENTRY ANGLE</td><td><input id="alpha" type="number" step="1" value="30"></td><td>deg</td></tr>
+          <tr><td>α′ — RETURN ANGLE</td><td><input id="alphaP" type="number" step="1" value="45"></td><td>deg</td></tr>
+          <tr><td>μ — FRICTION COEF</td><td><input id="mu" type="number" step="0.02" value="0.30"></td><td>—</td></tr>
+          <tr><td>Es — SECANT MODULUS</td><td><input id="Es" type="number" step="10" value="1200"></td><td>MPa</td></tr>
+          <tr><td>ε ALLOW — PERMISSIBLE</td><td><input id="eAllow" type="number" step="0.1" value="6.0"></td><td>%</td></tr>
+          <tr><td>Kt — CONCENTRATION</td><td><input id="Kt" type="number" step="0.05" value="1.00"></td><td>—</td></tr>
+        </table>
+      </div>
+
+      <div class="tb">
+        <h2 style="padding:6px 8px 0">RESULT BLOCK</h2>
+        <div class="tb-grid">
+          <div class="tb-cell"><div class="k">ROOT STRAIN Kt·ε</div><div class="v" id="r-eps">—</div></div>
+          <div class="tb-cell"><div class="k">UTILIZATION U</div><div class="v" id="r-U">—</div></div>
+          <div class="tb-cell"><div class="k">DEFLECTION FORCE P</div><div class="v" id="r-P">—</div></div>
+          <div class="tb-cell"><div class="k">STIFFNESS k</div><div class="v" id="r-k">—</div></div>
+          <div class="tb-cell"><div class="k">INSERTION FORCE W</div><div class="v" id="r-W">—</div></div>
+          <div class="tb-cell"><div class="k">REMOVAL FORCE W′</div><div class="v" id="r-Wp">—</div></div>
+        </div>
+        <div class="stamp invalid" id="stamp"><span>—</span></div>
+      </div>
+
+      <div class="notes">
+        <h2>NOTES</h2>
+        <ol id="notes"></ol>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="./snapfit-engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const U = SnapFit.UNITS;
+  const num = (id) => parseFloat($(id).value);
+  const fmt = (n, d) => (n === null || !isFinite(n)) ? "—" : n.toFixed(d !== undefined ? d : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2));
+
+  const BASE_NOTES = [
+    { level: "info", msg: "ROOT ASSUMED IDEALLY FIXED; WALL COMPLIANCE NOT INCLUDED." },
+    { level: "info", msg: "STRAIN IS DISPLACEMENT-CONTROLLED: ε = C·t·y/L² — MODULUS AFFECTS FORCE ONLY." },
+    { level: "info", msg: "CREEP, FATIGUE, WELD LINES, FIBER ORIENTATION AND MOISTURE SHIFT NOT MODELLED — SEE FOUNDATION §6." },
+  ];
+
+  function render() {
+    const inp = {
+      profile: $("profile").value,
+      L: num("L"), b: num("b"), t: num("t"), y: num("y"), R: num("R"),
+      Es: num("Es"), eAllow: num("eAllow") / 100, mu: num("mu"), Kt: num("Kt"),
+      alphaRad: U.degToRad(num("alpha")), alphaPrimeRad: U.degToRad(num("alphaP")),
+    };
+    const r = SnapFit.evaluate(inp);
+
+    const badFields = new Set(r.errors.map((e) => e.field === "alphaPrime" ? "alphaP" : e.field));
+    ["L","b","t","y","R","Es","eAllow","mu","alpha","alphaP","Kt"].forEach((f) => $(f).classList.toggle("bad", badFields.has(f)));
+
+    const stamp = $("stamp");
+    stamp.className = "stamp " + r.status;
+    stamp.innerHTML = "<span>" + ({ pass: "PASS", fail: "REJECT", indeterminate: "HOLD", invalid: "VOID" }[r.status]) + "</span>";
+
+    const notes = $("notes");
+    notes.innerHTML = "";
+    const li = (level, msg) => notes.insertAdjacentHTML("beforeend", `<li class="${level}">${msg}</li>`);
+    if (r.status === "invalid") {
+      r.errors.forEach((e) => li("error", e.msg.toUpperCase()));
+    } else {
+      r.warnings.forEach((w) => li(w.level, w.msg.toUpperCase()));
+    }
+    BASE_NOTES.forEach((n) => li(n.level, n.msg));
+
+    const v = r.values;
+    $("r-eps").innerHTML = v ? `${(v.epsEff * 100).toFixed(2)}% <small>/ ${(inp.eAllow * 100).toFixed(1)}%</small>` : "—";
+    $("r-U").innerHTML = v ? `${fmt(v.U, 2)} <small>${v.margin >= 0 ? "MARGIN +" + (v.margin * 100).toFixed(0) + "%" : "OVER " + (-v.margin * 100).toFixed(0) + "%"}</small>` : "—";
+    $("r-P").textContent = v ? fmt(v.P) + " N" : "—";
+    $("r-k").textContent = v ? fmt(v.k) + " N/mm" : "—";
+    $("r-W").textContent = v ? (r.selfLock.insert ? "SELF-LOCKING" : fmt(v.W) + " N") : "—";
+    $("r-Wp").textContent = v ? (r.selfLock.remove ? (num("alphaP") >= 90 ? "PERMANENT" : "SELF-LOCKING") : fmt(v.Wremove) + " N") : "—";
+
+    if (v) {
+      const xc = SnapFit.crossCheck(inp, 800);
+      $("xc").textContent = "Δ " + (xc.diffPct >= 0 ? "+" : "") + xc.diffPct.toFixed(2) + "%";
+    } else {
+      $("xc").textContent = "—";
+    }
+    draw(r, inp);
+  }
+
+  /* ── the drawing ──────────────────────────────────────────── */
+  function dimH(x1, x2, y, label) {
+    return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`
+      + tick(x1, y, 90) + tick(x2, y, 90)
+      + `<text x="${(x1 + x2) / 2}" y="${y - 5}" fill="var(--ink)" font-size="11" text-anchor="middle">${label}</text>`;
+  }
+  function dimV(x, y1, y2, label, side) {
+    const dx = side === "left" ? -5 : 12;
+    return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="var(--line)" stroke-width="1"/>`
+      + tick(x, y1, 0) + tick(x, y2, 0)
+      + `<text x="${x + dx}" y="${(y1 + y2) / 2 + 4}" fill="var(--ink)" font-size="11" ${side === "left" ? 'text-anchor="end"' : ""}>${label}</text>`;
+  }
+  const tick = (x, y, rot) => `<line x1="${x - 4}" y1="${y + 4}" x2="${x + 4}" y2="${y - 4}" stroke="var(--line)" stroke-width="1" transform="rotate(${rot} ${x} ${y})"/>`;
+  const ext = (x1, y1, x2, y2) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="var(--faint)" stroke-width=".7"/>`;
+
+  function draw(r, inp) {
+    const svg = $("dwg");
+    let s = "";
+    const ok = r.values && Number.isFinite(inp.L) && inp.L > 0 && Number.isFinite(inp.t) && inp.t > 0 && Number.isFinite(inp.y) && inp.y >= 0;
+    // frame ticks
+    s += `<rect x="1" y="1" width="718" height="468" fill="none" stroke="var(--faint)" stroke-width="1"/>`;
+    if (!ok) {
+      s += `<text x="360" y="230" fill="var(--faint)" font-size="13" text-anchor="middle">— DRAWING SUSPENDED: SCHEDULE CONTAINS INVALID ENTRIES —</text>`;
+      svg.innerHTML = s; return;
+    }
+    const x0 = 120, beamLen = 470, cy = 175;
+    const scale = beamLen / inp.L;
+    const tPx = Math.max(8, inp.t * scale);
+    const yPx = Math.min(inp.y * scale, 120);
+    const prof = SnapFit.PROFILES[inp.profile];
+    // wall with hatching
+    s += `<rect x="${x0 - 46}" y="60" width="46" height="300" fill="none" stroke="var(--line)"/>`;
+    for (let i = 0; i < 15; i++) s += `<line x1="${x0 - 46}" y1="${80 + i * 20}" x2="${x0}" y2="${60 + i * 20}" stroke="var(--faint)" stroke-width=".8"/>`;
+    // undeformed beam outline (top + bottom per taper)
+    const N = 30;
+    let topPts = "", botPts = "";
+    for (let i = 0; i <= N; i++) {
+      const u = i / N, X = x0 + u * beamLen;
+      const ti = Math.max(8, prof.thicknessAt(inp.t, u) * scale);
+      topPts += `${X},${cy - ti / 2} `;
+      botPts = `${X},${cy + ti / 2} ` + botPts;
+    }
+    s += `<polygon points="${topPts}${botPts}" fill="rgba(157,185,232,.08)" stroke="var(--ink)" stroke-width="1.6"/>`;
+    // deformed centre-line (dashed)
+    const shape = SnapFit.deflectionShape(1, N);
+    let defl = "";
+    for (let i = 0; i <= N; i++) defl += `${x0 + shape[i].u * beamLen},${cy + shape[i].v * yPx} `;
+    s += `<polyline points="${defl}" fill="none" stroke="var(--hold)" stroke-width="1.2" stroke-dasharray="6 4"/>`;
+    s += `<text x="${x0 + beamLen * 0.55}" y="${cy + yPx * 0.62 + 16}" fill="var(--hold)" font-size="10">DEFLECTED ℄ (EXAGG.)</text>`;
+    // hook: entry ramp α at outer face, return α′ inner
+    const tipX = x0 + beamLen, hy0 = cy + Math.max(8, prof.thicknessAt(inp.t, 1) * scale) / 2;
+    const hookH = Math.max(10, Math.min(inp.y * scale, 60));
+    const runE = Math.min(90, hookH / Math.tan(Math.max(0.12, inp.alphaRad)));
+    const runR = inp.alphaPrimeRad >= Math.PI / 2 - 1e-9 ? 0 : Math.min(90, hookH / Math.tan(Math.max(0.12, inp.alphaPrimeRad)));
+    const hx1 = tipX - runR - 26 - runE;
+    s += `<polygon points="${hx1},${hy0} ${hx1 + runR},${hy0 + hookH} ${hx1 + runR + 26},${hy0 + hookH} ${tipX},${hy0}"
+           fill="rgba(157,185,232,.08)" stroke="var(--ink)" stroke-width="1.6"/>`;
+    // angle callouts
+    s += `<text x="${hx1 + runR + 30}" y="${hy0 + hookH + 16}" fill="var(--ink)" font-size="11">α = ${fmt(U.radToDeg(inp.alphaRad), 0)}°</text>`;
+    s += `<text x="${hx1 - 4}" y="${hy0 + hookH + 16}" fill="var(--ink)" font-size="11" text-anchor="end">α′ = ${fmt(U.radToDeg(inp.alphaPrimeRad), 0)}°</text>`;
+    // root fillet callout
+    s += `<path d="M ${x0 + 26} ${cy - tPx / 2 - 26} L ${x0 + 6} ${cy - tPx / 2 - 4}" stroke="var(--line)" fill="none"/>`;
+    s += `<text x="${x0 + 30}" y="${cy - tPx / 2 - 30}" fill="var(--ink)" font-size="11">R${fmt(inp.R, 2)} (R/t = ${fmt(inp.R / inp.t, 2)})</text>`;
+    // dimensions
+    s += ext(x0, cy - tPx / 2, x0, 92) + ext(tipX, cy - tPx / 2, tipX, 92);
+    s += dimH(x0, tipX, 100, `L = ${fmt(inp.L)} mm`);
+    s += ext(x0, cy - tPx / 2, 78, cy - tPx / 2) + ext(x0, cy + tPx / 2, 78, cy + tPx / 2);
+    s += dimV(86, cy - tPx / 2, cy + tPx / 2, `t = ${fmt(inp.t)}`, "left");
+    s += ext(tipX, hy0, tipX + 40, hy0) + ext(hx1 + runR, hy0 + hookH, tipX + 40, hy0 + hookH);
+    s += dimV(tipX + 34, hy0, hy0 + hookH, `y = ${fmt(inp.y)}`, "right");
+    // section note + strain flag at root
+    s += `<text x="${x0 + 8}" y="${cy + tPx / 2 + 26}" fill="var(--faint)" font-size="10">SECTION ${inp.profile === "uniform" ? "b × t CONSTANT" : (inp.profile === "taperThickness" ? "t TAPERS TO t/2 AT TIP" : "b TAPERS TO b/4 AT TIP")} · b = ${fmt(inp.b)} mm</text>`;
+    const epsTxt = r.values ? (r.values.epsEff * 100).toFixed(2) + "%" : "—";
+    const stC = r.status === "pass" ? "var(--pass)" : r.status === "fail" ? "var(--fail)" : "var(--hold)";
+    s += `<circle cx="${x0 + 10}" cy="${cy}" r="5" fill="none" stroke="${stC}" stroke-width="1.5"/>`;
+    s += `<line x1="${x0 + 14}" y1="${cy - 4}" x2="${x0 + 66}" y2="${cy - 42}" stroke="${stC}" stroke-width=".8"/>`;
+    s += `<text x="${x0 + 70}" y="${cy - 46}" fill="${stC}" font-size="11">MAX STRAIN @ ROOT = ${epsTxt}</text>`;
+    // insertion direction arrow
+    s += `<line x1="${tipX + 60}" y1="${hy0 + hookH + 40}" x2="${tipX - 30}" y2="${hy0 + hookH + 40}" stroke="var(--line)" stroke-width="1.4"/>`;
+    s += `<polygon points="${tipX - 30},${hy0 + hookH + 40} ${tipX - 20},${hy0 + hookH + 36} ${tipX - 20},${hy0 + hookH + 44}" fill="var(--line)"/>`;
+    s += `<text x="${tipX + 64}" y="${hy0 + hookH + 44}" fill="var(--ink)" font-size="11" text-anchor="start">W ${r.values ? (r.selfLock.insert ? "— SELF-LOCKING" : "= " + fmt(r.values.W) + " N") : ""}</text>`;
+    svg.innerHTML = s;
+  }
+
+  ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", render));
+  render();
+})();
+</script>
+</body>
+</html>
