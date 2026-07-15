@@ -43,11 +43,11 @@
 <body>
 <div class="shell">
   <div class="kicker">MECHCALC · SNAPLAB — CANTILEVER SNAP-FIT CALCULATOR</div>
-  <h1>Four design candidates</h1>
-  <p class="sub">Same engineering core, four different products. Every candidate runs the identical
+  <h1>Five design candidates</h1>
+  <p class="sub">Same engineering core, five different products. Every candidate runs the identical
     <code>snapfit-engine.js</code> — one tested implementation of the BASF/Bayer cantilever model with
     applicability guards — so the choice below is purely about how the tool should <em>feel</em> in the
-    MechCalc hub. All four refuse to show a green number when the model isn't credible.</p>
+    MechCalc hub. All five refuse to show a green number when the model isn't credible.</p>
 
   <div class="grid">
     <a class="card" href="./design-a-console.html">
@@ -119,9 +119,28 @@
         <span class="pick"><b>PICK IF</b> comparison + uncertainty is the hero feature (foundation §13 default).</span>
       </div>
     </a>
+    <a class="card" href="./design-e-flexure3d.html">
+      <div class="thumb" style="background:#080c10">
+        <i style="left:8%;top:14%;width:38%;height:10%;background:#0e1419;border:1px solid #1f2a33"></i>
+        <i style="left:8%;top:30%;width:38%;height:10%;background:#0e1419;border:1px solid #1f2a33"></i>
+        <i style="left:54%;top:12%;width:38%;height:26%;background:rgba(79,180,119,.12);border:1px solid #4fb477"></i>
+        <i style="left:8%;top:52%;width:84%;height:36%;background:#0b1015;border:1px solid #141c22"></i>
+        <i style="left:16%;top:64%;width:52%;height:7%;background:linear-gradient(90deg,#d64545,#d98c38,#4fb477);border-radius:3px;transform:rotate(6deg)"></i>
+        <i style="left:66%;top:70%;width:9%;height:9%;background:#31404f;transform:rotate(6deg)"></i>
+      </div>
+      <div class="body">
+        <span class="tag">DESIGN E</span>
+        <span class="ttl">Flexure Twin (3D)</span>
+        <span class="desc">The Cantilever Flexure calculator's exact layout, retooled for snap-fits: grab the
+          3D arm to deflect it and feel the strain — signed stress colors (tension warms, compression cools),
+          spring-back on release, haptic/audio feedback — with the verdict card and theory section in the
+          same places your users already know.</span>
+        <span class="pick"><b>PICK IF</b> the snap tool should feel like a sibling of the existing Flexure calculator.</span>
+      </div>
+    </a>
   </div>
 
-  <h2>BULLETPROOFING — SHARED BY ALL FOUR CANDIDATES</h2>
+  <h2>BULLETPROOFING — SHARED BY ALL FIVE CANDIDATES</h2>
   <table>
     <tr><th>Risk (from the unknown-unknowns register)</th><th>Guard in the shared engine</th></tr>
     <tr><td>Self-locking wedge</td><td>1 − μ·tanα ≤ 0 never renders a finite force — insertion shows <span class="yes">SELF-LOCKING</span>, α′ = 90° shows PERMANENT. Verdict is held.</td></tr>

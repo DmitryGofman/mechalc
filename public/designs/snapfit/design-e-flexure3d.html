@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnapLab — Design E: Flexure Twin (3D)</title>
+<style>
+  :root {
+    --bg: #080c10; --panel: #0b1015; --line: #1f2a33; --line2: #141c22;
+    --ink: #e8edf1; --dim: #8b97a3; --faint: #46515c; --mid: #6b7884;
+    --blue: #3a78c2; --green: #4fb477; --amber: #d9a441; --red: #d65c5c;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  .shell { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+  a.back { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--faint); text-decoration: none; }
+  a.back:hover { color: var(--blue); }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
+            border-bottom: 1px solid var(--line); padding-bottom: 14px; margin: 10px 0 22px; }
+  .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
+  h1 { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
+  .eqcorner { text-align: right; font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.6; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start; }
+  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.15fr) minmax(0,.85fr); gap: 12px; } }
+  .inputs { display: flex; flex-direction: column; gap: 12px; }
+  .fld label { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+               color: var(--mid); font-family: var(--mono); margin-bottom: 4px; }
+  .fld label span { text-transform: none; letter-spacing: 0; color: var(--faint); float: right; }
+  .fld input, .fld select { width: 100%; background: #0e1419; border: 1px solid var(--line); border-radius: 2px;
+    color: var(--ink); padding: 8px 10px; font-family: var(--mono); font-size: 13.5px; outline: none; }
+  .fld input:focus, .fld select:focus { border-color: var(--blue); }
+  .fld input.bad { border-color: var(--red); }
+  .fld .note { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
+  .fld .note.warn { color: var(--amber); }
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* status card + readouts (flexure style) */
+  .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; margin-bottom: 16px; }
+  .sfhead { display: flex; justify-content: space-between; align-items: center; }
+  .sfhead .lab { font-family: var(--mono); font-size: 11px; letter-spacing: .15em; color: var(--mid); }
+  .sfhead .badge { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .15em;
+                   border: 1px solid; border-radius: 2px; padding: 2px 7px; }
+  .sfval { font-family: var(--mono); font-size: 38px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .sfsub { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 2px; }
+  .readout { display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+             padding: 9px 2px; border-bottom: 1px solid var(--line2); }
+  .readout .k { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
+  .readout .v { font-family: var(--mono); font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .readout .v small { font-size: 10px; color: var(--faint); font-weight: 400; }
+  .warn { font-size: 11px; line-height: 1.55; padding: 8px 9px; border-left: 2px solid; border-radius: 2px;
+          margin-top: 8px; background: #0d1319; color: var(--dim); }
+  .warn.blocking { border-color: var(--amber); color: #e6c98a; }
+  .warn.caution { border-color: var(--amber); }
+  .warn.info { border-color: var(--faint); color: var(--faint); }
+  .warn.error { border-color: var(--red); color: #e0a3a3; }
+  /* 3D viz panel */
+  .viz { margin-top: 24px; background: var(--panel); border: 1px solid var(--line2); border-radius: 3px; padding: 16px; }
+  .vizhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+  .vizhead .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid); }
+  .vizhead .live { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 2px; }
+  .vizhead button { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+    cursor: pointer; border-radius: 2px; padding: 6px 10px; background: #0e1419; border: 1px solid var(--line);
+    color: var(--dim); white-space: nowrap; }
+  #beamwrap { width: 100%; height: 320px; border-radius: 3px; overflow: hidden; position: relative; background: var(--panel); }
+  #beam { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #beammsg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+             font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  @media (max-width: 640px) { #beamwrap { height: 240px; } }
+  .vizhint { font-family: var(--mono); font-size: 9.5px; color: var(--mid); margin-top: 6px; text-align: center; }
+  /* theory */
+  .theory { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 18px; }
+  .theory .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+                 color: var(--blue); margin-bottom: 12px; }
+  .eqrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 0;
+           border-bottom: 1px solid var(--line2); flex-wrap: wrap; }
+  .eqrow .e { font-family: var(--mono); font-size: 13px; color: var(--ink); white-space: nowrap; }
+  .eqrow .n { font-family: var(--mono); font-size: 10px; color: var(--mid); text-align: right; }
+  .legend { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 10px; line-height: 1.6; }
+  .prose { font-family: var(--sans); font-size: 12.5px; color: var(--dim); margin-top: 16px; line-height: 1.7; }
+  .prose strong { color: #c2ccd4; }
+  .inshort { font-family: var(--sans); font-size: 12.5px; color: #b9c3cc; margin-top: 16px; padding-top: 12px;
+             border-top: 1px dashed var(--line); line-height: 1.7; }
+  .inshort u { text-underline-offset: 3px; color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="./index.html">← SNAPLAB DESIGN CANDIDATES</a>
+  <div class="header">
+    <div>
+      <div class="kicker">DESIGN E — FLEXURE TWIN · COMPLIANT MECHANISMS</div>
+      <h1>Cantilever Snap-Fit</h1>
+    </div>
+    <div class="eqcorner">
+      <div>ε = 1.5·t·y / L²</div>
+      <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <!-- INPUTS -->
+    <div class="inputs">
+      <div class="fld">
+        <label>Material</label>
+        <select id="mat"></select>
+        <div class="note" id="matmeta"></div>
+        <div class="note warn" id="matnote"></div>
+      </div>
+      <div class="fld">
+        <label>Beam profile</label>
+        <select id="profile">
+          <option value="uniform">Uniform section</option>
+          <option value="taperThickness">Thickness taper t → t/2</option>
+          <option value="taperWidth">Width taper b → b/4</option>
+        </select>
+      </div>
+      <div class="fld"><label>Length L <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
+      <div class="fld"><label>Width b <span>mm</span></label><input id="b" type="number" step="0.5" value="9.5"></div>
+      <div class="fld"><label>Thickness t <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
+      <div class="fld"><label>Undercut y <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
+      <div class="duo">
+        <div class="fld"><label>Entry α <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
+        <div class="fld"><label>Return α′ <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>Friction μ</label><input id="mu" type="number" step="0.02" value="0.30"></div>
+        <div class="fld"><label>Fillet R <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>ε allow <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
+        <div class="fld"><label>Kt</label><input id="Kt" type="number" step="0.05" value="1.00"></div>
+      </div>
+      <div class="fld"><label>Secant modulus E<sub>s</sub> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
+    </div>
+
+    <!-- OUTPUTS -->
+    <div>
+      <div class="sfcard" id="sfcard">
+        <div class="sfhead">
+          <span class="lab">STRAIN UTILIZATION</span>
+          <span class="badge" id="badge">—</span>
+        </div>
+        <div class="sfval" id="sfval">—</div>
+        <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub></div>
+      </div>
+      <div id="readouts"></div>
+      <div id="warns"></div>
+    </div>
+  </div>
+
+  <!-- 3D BEAM -->
+  <div class="viz">
+    <div class="vizhead">
+      <div>
+        <div class="lab">Deflected shape · 3D</div>
+        <div class="live" id="vizlive"></div>
+      </div>
+      <button id="ibtn" type="button">● Interactive</button>
+    </div>
+    <div id="beamwrap">
+      <canvas id="beam"></canvas>
+      <div id="beammsg">awaiting valid geometry…</div>
+    </div>
+    <div class="vizhint" id="vizhint">grab the arm to deflect it · drag empty space to rotate</div>
+  </div>
+
+  <!-- THEORY -->
+  <div class="theory">
+    <div class="lab">Theory &amp; Equations</div>
+    <div id="eqs"></div>
+    <div class="legend">
+      E<sub>s</sub> secant modulus · I second moment of area · L arm length · t thickness (bending direction) ·
+      b width · y undercut (tip deflection) · ε root surface strain · ε<sub>allow</sub> permissible strain ·
+      U utilization · α entry ramp · α′ return ramp · μ friction
+    </div>
+    <p class="prose"><strong>Model.</strong> A molded snap arm is a compliant mechanism: the hook rides the
+      mating edge and the arm bends like an end-loaded Euler–Bernoulli cantilever, rigidly built in at the
+      wall. Bending moment grows from zero at the hook to a maximum at the root, so strain peaks where the
+      arm meets the wall — exactly where snap arms crack. The 3D arm colors this directly: the stretched face
+      warms toward red, the compressed face cools toward blue, and the neutral axis stays a calm green, all
+      most intense at the root. Because the snap event is displacement-controlled, the root strain
+      ε = C·t·y/L² is pure geometry — the modulus only sets how much force the deflection takes.</p>
+    <p class="prose"><strong>Designing a snap arm.</strong> You usually fix the undercut y you need and size
+      the arm around it. Length is the strongest lever — strain falls with 1/L² — while thinning t helps both
+      strain (∝ t) and insertion force (∝ t³). Tapering the thickness to t/2 or the width to b/4 sheds root
+      strain and material for the same undercut. Keep the return angle α′ below the self-locking limit unless
+      you want a permanent joint, and treat μ as a range, not a number.</p>
+    <p class="prose"><strong>Scope.</strong> Linear small-deflection theory with a secant modulus, accurate
+      for roughly y/L ≲ 0.1 and L/t ≳ 10; the tool warns as you leave that envelope and holds the verdict —
+      INDETERMINATE — once the model is no longer credible (very short arms, y/L &gt; 0.25, self-locking
+      ramps). The 3D viewer draws a length-preserving large-deflection curve that curls further than the
+      linear numbers imply. Creep, fatigue, weld lines and fiber orientation are not modelled; a green PASS
+      clears the assembly event, not the product's lifetime. Closed forms are cross-checked at runtime
+      against an independent Castigliano integral: <span id="xc" style="font-family:var(--mono)">—</span>.</p>
+    <p class="inshort"><u>In short:</u> the snap arm is a spring you design backwards — you know the travel
+      (the undercut), and the game is spending as little strain as possible to buy it. Length is your budget;
+      thickness is your tax.</p>
+  </div>
+</div>
+
+<script src="./snapfit-engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const U = SnapFit.UNITS;
+  const num = (id) => parseFloat($(id).value);
+  const fmt = (n, d) => (n === null || !isFinite(n)) ? "—" : n.toFixed(d !== undefined ? d : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2));
+
+  /* ── materials ──────────────────────────────────────────────── */
+  const matSel = $("mat");
+  SnapFit.MATERIALS.forEach((m) => { const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; matSel.appendChild(o); });
+  matSel.value = "pa66-cond";
+  function applyMat() {
+    const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
+    $("matnote").textContent = m.note;
+    if (m.Es !== null) {
+      $("Es").value = m.Es; $("eAllow").value = (m.eAllow * 100).toFixed(1);
+      $("matmeta").innerHTML = `E<sub>s</sub> = ${m.Es} MPa · ε<sub>allow</sub> = ${(m.eAllow * 100).toFixed(1)}%`;
+    } else $("matmeta").textContent = "";
+  }
+  applyMat();
+  matSel.addEventListener("change", () => { applyMat(); onEdit(); });
+
+  /* ── equations table ────────────────────────────────────────── */
+  const EQUATIONS = [
+    ["I = b·t³ / 12", "Second moment of area, rectangular root section"],
+    ["P = Es·b·(t/L)³·y / C_P", "Deflection force · C_P = 4 / 6.528 / 5.136 (uniform / t-taper / b-taper)"],
+    ["ε = C_ε·t·y / L²", "Root strain · C_ε = 1.50 / 0.92 / 1.17 — geometry only, no modulus"],
+    ["U = Kt·ε / ε_allow", "Strain utilization; PASS needs U ≤ 1 with the model applicable"],
+    ["W = P·(μ+tanα)/(1−μ·tanα)", "Insertion force; 1−μ·tanα ≤ 0 → self-locking, no finite W"],
+    ["W′ = P·(μ+tanα′)/(1−μ·tanα′)", "Removal force; α′ = 90° → permanent joint"],
+    ["Es(ε) = σ(ε)/ε", "Secant modulus at working strain, temperature and moisture state"],
+  ];
+  $("eqs").innerHTML = EQUATIONS.map(([e, n]) => `<div class="eqrow"><span class="e">${e}</span><span class="n">${n}</span></div>`).join("");
+
+  /* ── engine glue ────────────────────────────────────────────── */
+  function collect(yOverride) {
+    return {
+      profile: $("profile").value,
+      L: num("L"), b: num("b"), t: num("t"), R: num("R"),
+      y: yOverride !== undefined ? yOverride : num("y"),
+      Es: num("Es"), eAllow: num("eAllow") / 100, mu: num("mu"), Kt: num("Kt"),
+      alphaRad: U.degToRad(num("alpha")), alphaPrimeRad: U.degToRad(num("alphaP")),
+    };
+  }
+
+  const BADGE = { pass: ["PASS", "var(--green)"], fail: ["FAIL", "var(--red)"], indeterminate: ["HELD", "var(--amber)"], invalid: ["INVALID", "var(--faint)"] };
+
+  function renderResults(liveY) {
+    const yAbs = liveY !== null ? Math.max(Math.abs(liveY), 1e-9) : undefined;
+    const inp = collect(yAbs);
+    const r = SnapFit.evaluate(inp);
+    const bad = new Set(r.errors.map((e) => e.field === "alphaPrime" ? "alphaP" : e.field));
+    ["L","b","t","y","R","Es","eAllow","mu","alpha","alphaP","Kt"].forEach((f) => $(f).classList.toggle("bad", bad.has(f)));
+
+    const [btxt, bcol] = BADGE[r.status];
+    $("badge").textContent = btxt;
+    $("badge").style.color = bcol; $("badge").style.borderColor = bcol;
+    $("sfcard").style.borderColor = bcol;
+    $("sfval").style.color = bcol;
+    $("sfval").textContent = r.values ? fmt(r.values.U, 2) : "—";
+
+    const ro = $("readouts"), warns = $("warns");
+    ro.innerHTML = ""; warns.innerHTML = "";
+    if (!r.values) {
+      r.errors.forEach((e) => warns.insertAdjacentHTML("beforeend", `<div class="warn error">${e.msg}</div>`));
+      return r;
+    }
+    const v = r.values;
+    const row = (k, val) => ro.insertAdjacentHTML("beforeend", `<div class="readout"><span class="k">${k}</span><span class="v">${val}</span></div>`);
+    row("Root strain · Kt", `${(v.epsEff * 100).toFixed(2)} <small>% / ${(inp.eAllow * 100).toFixed(1)}%</small>`);
+    row("Deflection force P", `${fmt(v.P)} <small>N</small>`);
+    row("Insertion force W", r.selfLock.insert ? `<span style="color:var(--amber)">SELF-LOCKING</span>` : `${fmt(v.W)} <small>N</small>`);
+    row("Removal force W′", r.selfLock.remove ? `<span style="color:var(--amber)">${num("alphaP") >= 90 ? "PERMANENT" : "SELF-LOCKING"}</span>` : `${fmt(v.Wremove)} <small>N</small>`);
+    row("Stiffness k", `${fmt(v.k)} <small>N/mm</small>`);
+    row("Checks", `<small>L/t ${fmt(v.slenderness, 1)} · y/L ${fmt(v.deflectionRatio, 2)} · R/t ${v.RoverT === null ? "—" : fmt(v.RoverT, 2)}</small>`);
+    r.warnings.forEach((w) => warns.insertAdjacentHTML("beforeend", `<div class="warn ${w.level}">${w.msg}</div>`));
+    const xc = SnapFit.crossCheck(inp, 800);
+    $("xc").textContent = "Δ " + (xc.diffPct >= 0 ? "+" : "") + xc.diffPct.toFixed(2) + "%";
+    return r;
+  }
+
+  /* ══ 3D beam viewer — dependency-free canvas painter ══════════
+     Mirrors the app's Beam3D: true L:t:b proportions, arc-length-
+     preserving bend, signed stress colors, orbit + grab + spring. */
+  const canvas = $("beam"), wrap = $("beamwrap"), msg = $("beammsg");
+  const ctx = canvas.getContext("2d");
+  const view = { yaw: -0.6, pitch: -0.35, dist: 6.5, dragging: false, lx: 0, ly: 0 };
+  let interactive = true, grabbing = false, springing = false, springVel = 0;
+  let liveY = num("y"), designY = num("y");
+  let geomOK = true;
+  let dragStartY = 0, dragStartDelta = 0;
+
+  // stress→color ramp (same stops as the app's stressColor.ts)
+  const NEUTRAL = [0.31, 0.706, 0.467];
+  const T_STOPS = [[0, NEUTRAL], [0.5, [0.85, 0.55, 0.22]], [1, [0.84, 0.27, 0.27]], [1.3, [1, 0.3, 0.3]]];
+  const C_STOPS = [[0, NEUTRAL], [0.5, [0.2, 0.58, 0.68]], [1, [0.27, 0.46, 0.9]], [1.3, [0.3, 0.4, 1]]];
+  function ramp(stops, x) {
+    const xc = Math.max(0, Math.min(stops[stops.length - 1][0], x));
+    for (let i = 1; i < stops.length; i++) {
+      const [p1, c1] = stops[i];
+      if (xc <= p1) {
+        const [p0, c0] = stops[i - 1], f = (xc - p0) / (p1 - p0 || 1);
+        return [c0[0] + (c1[0] - c0[0]) * f, c0[1] + (c1[1] - c0[1]) * f, c0[2] + (c1[2] - c0[2]) * f];
+      }
+    }
+    return stops[stops.length - 1][1];
+  }
+  const stressColor = (signed) => signed >= 0 ? ramp(T_STOPS, signed) : ramp(C_STOPS, -signed);
+
+  // geometry state, rebuilt on input change
+  const SEG = 40;
+  let G = null; // { Ls, halfT[], halfW[], shape[], scale, Lmm }
+  function rebuildGeom() {
+    const inp = collect();
+    geomOK = [inp.L, inp.b, inp.t].every((v) => Number.isFinite(v) && v > 0) && SnapFit.PROFILES[inp.profile];
+    msg.style.display = geomOK ? "none" : "flex";
+    if (!geomOK) { G = null; return; }
+    const prof = SnapFit.PROFILES[inp.profile];
+    const maxd = Math.max(inp.L, inp.b, inp.t);
+    const s = 3.2 / maxd;
+    const halfT = [], halfW = [], shape = [];
+    const I0 = inp.b * Math.pow(inp.t, 3) / 12;
+    const eps0 = inp.t / 2 / I0; // strain shape reference at root (× P·L / Es)
+    for (let i = 0; i <= SEG; i++) {
+      const p = i / SEG;
+      const ti = prof.thicknessAt(inp.t, p), bi = prof.widthAt(inp.b, p);
+      halfT.push(Math.max(ti * s / 2, 0.02));
+      halfW.push(Math.max(bi * s / 2, 0.02));
+      const Ii = bi * Math.pow(ti, 3) / 12;
+      shape.push(((1 - p) * ti / 2 / Ii) / eps0); // ε(x)/ε_root
+    }
+    G = { Ls: inp.L * s, halfT, halfW, shape, scale: s, Lmm: inp.L };
+  }
+
+  // centerline slope: matches the app (small-angle tip drop ≈ c)
+  const slope = (p, c) => c * (3 * p - 1.5 * p * p);
+
+  function project(pt, W, H, f) {
+    // yaw about Y, then pitch about X, camera on +Z
+    const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
+    const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
+    const x1 = pt[0] * cy + pt[2] * sy, z1 = -pt[0] * sy + pt[2] * cy;
+    const y2 = pt[1] * cp - z1 * sp, z2 = pt[1] * sp + z1 * cp;
+    const zc = view.dist - z2;
+    return [W / 2 + (x1 * f) / zc, H / 2 - (y2 * f) / zc, zc, x1, y2];
+  }
+
+  const LIGHT = (() => { const l = [0.45, 0.7, 0.55], n = Math.hypot(...l); return l.map((v) => v / n); })();
+  function shadeOf(q) { // q = 4 projected-space [sx,sy,zc,xr,yr]… use raw 3D rotated coords for normal
+    const ax = q[1][3] - q[0][3], ay = q[1][4] - q[0][4], az = q[0][2] - q[1][2];
+    const bx = q[3][3] - q[0][3], by = q[3][4] - q[0][4], bz = q[0][2] - q[3][2];
+    let nx = ay * bz - az * by, ny = az * bx - ax * bz, nz = ax * by - ay * bx;
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    const d = Math.abs((nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
+    return 0.45 + 0.55 * d;
+  }
+  const css = (rgb, sh) => `rgb(${rgb.map((v) => Math.round(Math.min(1, v * sh) * 255)).join(",")})`;
+
+  function drawScene() {
+    const W = wrap.clientWidth, H = wrap.clientHeight || 320;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#0b1015"; ctx.fillRect(0, 0, W, H);
+    if (!G) return;
+    const f = (H / 2) / Math.tan((40 * Math.PI) / 360);
+    const inp = collect();
+    const engineOK = Number.isFinite(inp.eAllow) && inp.eAllow > 0 && Number.isFinite(inp.Kt) && inp.Kt >= 1;
+    const prof = SnapFit.PROFILES[inp.profile];
+
+    // deflection ratio, arc-length-preserving centerline (X right, Y up; +y bends down)
+    let c = (liveY || 0) / Math.max(G.Lmm, 1e-3);
+    c = Math.max(-0.95, Math.min(0.95, c));
+    const M = 64, dp = 1 / M, cx = [0], cyl = [0];
+    for (let i = 1; i <= M; i++) {
+      const phi = slope((i - 0.5) * dp, c);
+      cx.push(cx[i - 1] + G.Ls * Math.cos(phi) * dp);
+      cyl.push(cyl[i - 1] - G.Ls * Math.sin(phi) * dp);
+    }
+    const ringAt = (p) => { const fi = p * M, i0 = Math.min(M - 1, Math.floor(fi)), fr = fi - i0;
+      return [cx[i0] + (cx[i0 + 1] - cx[i0]) * fr, cyl[i0] + (cyl[i0 + 1] - cyl[i0]) * fr]; };
+
+    // root strain ratio drives color intensity (signed by face and bend direction)
+    const ratioRoot = engineOK ? (inp.Kt * prof.strainCoef * inp.t * Math.abs(liveY)) / (G.Lmm * G.Lmm) / inp.eAllow : 0;
+    const dir = Math.sign(liveY) || 1; // +y (down) → top face in tension
+
+    const x0 = -G.Ls / 2; // center the beam like the app
+    // ring vertex helper: thickness offset a, width offset z
+    const vtx = (i, a, z) => {
+      const p = i / SEG, phi = slope(p, c), [X, Y] = ringAt(p);
+      return [x0 + X + a * Math.sin(phi), Y + a * Math.cos(phi), z];
+    };
+
+    const quads = []; // {pts:[[x,y,z]×4], col:[r,g,b]}
+    const NEUTRAL_DIM = NEUTRAL;
+    for (let i = 0; i < SEG; i++) {
+      const s0 = G.shape[i], hT0 = G.halfT[i], hW0 = G.halfW[i];
+      const hT1 = G.halfT[i + 1], hW1 = G.halfW[i + 1];
+      // top & bottom faces (full tension / compression color)
+      quads.push({ pts: [vtx(i, hT0, -hW0), vtx(i + 1, hT1, -hW1), vtx(i + 1, hT1, hW1), vtx(i, hT0, hW0)],
+                   col: stressColor(ratioRoot * s0 * dir) });
+      quads.push({ pts: [vtx(i, -hT0, -hW0), vtx(i + 1, -hT1, -hW1), vtx(i + 1, -hT1, hW1), vtx(i, -hT0, hW0)],
+                   col: stressColor(-ratioRoot * s0 * dir) });
+      // side faces in 3 strips for a through-thickness gradient
+      for (const zsign of [-1, 1]) {
+        for (let k = 0; k < 3; k++) {
+          const a0 = -1 + (2 * k) / 3, a1 = -1 + (2 * (k + 1)) / 3; // fractions of halfT
+          const amid = (a0 + a1) / 2;
+          quads.push({
+            pts: [vtx(i, a0 * hT0, zsign * hW0), vtx(i + 1, a0 * hT1, zsign * hW1),
+                  vtx(i + 1, a1 * hT1, zsign * hW1), vtx(i, a1 * hT0, zsign * hW0)],
+            col: stressColor(ratioRoot * s0 * dir * amid),
+          });
+        }
+      }
+    }
+    // tip cap
+    quads.push({ pts: [vtx(SEG, G.halfT[SEG], -G.halfW[SEG]), vtx(SEG, G.halfT[SEG], G.halfW[SEG]),
+                       vtx(SEG, -G.halfT[SEG], G.halfW[SEG]), vtx(SEG, -G.halfT[SEG], -G.halfW[SEG])], col: NEUTRAL_DIM });
+
+    // hook: wedge under the tip, riding with the tip's rotation
+    if (Number.isFinite(inp.y) && inp.y > 0 && Number.isFinite(inp.alphaRad)) {
+      const phi1 = slope(1, c), [TX, TY] = ringAt(1);
+      const hH = Math.min(G.Ls * 0.22, Math.max(0.12, inp.y * G.scale));
+      const runE = Math.min(G.Ls * 0.25, hH / Math.tan(Math.max(0.15, inp.alphaRad)));
+      const runR = inp.alphaPrimeRad >= Math.PI / 2 - 1e-9 ? 0.001 : Math.min(G.Ls * 0.25, hH / Math.tan(Math.max(0.15, inp.alphaPrimeRad || 0.15)));
+      const hWz = G.halfW[SEG] * 0.9;
+      // local frame at tip: e1 along the beam, e2 outward through the thickness
+      // (bottom face sits at −e2·halfT; the hook extends further along −e2)
+      const e1 = [Math.cos(phi1), -Math.sin(phi1)], e2 = [Math.sin(phi1), Math.cos(phi1)];
+      const base = [x0 + TX - e2[0] * G.halfT[SEG], TY - e2[1] * G.halfT[SEG]];
+      const loc = (u, d2) => [base[0] + e1[0] * u - e2[0] * d2, base[1] + e1[1] * u - e2[1] * d2];
+      const A = loc(-(runR + runE), 0), B = loc(-runE, hH), C = loc(0, 0);
+      const tri = [A, B, C];
+      const hookCol = [0.22, 0.29, 0.36];
+      // two caps + three side walls
+      quads.push({ pts: [[A[0], A[1], -hWz], [B[0], B[1], -hWz], [C[0], C[1], -hWz], [C[0], C[1], -hWz]], col: hookCol });
+      quads.push({ pts: [[A[0], A[1], hWz], [B[0], B[1], hWz], [C[0], C[1], hWz], [C[0], C[1], hWz]], col: hookCol });
+      for (let k = 0; k < 3; k++) {
+        const P1 = tri[k], P2 = tri[(k + 1) % 3];
+        quads.push({ pts: [[P1[0], P1[1], -hWz], [P2[0], P2[1], -hWz], [P2[0], P2[1], hWz], [P1[0], P1[1], hWz]], col: hookCol });
+      }
+    }
+
+    // anchor wall slab at the root
+    const wT = 0.22, wY = G.halfT[0] * 2.2 + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
+    const wx1 = x0 - wT, wx2 = x0;
+    const wallCol = [0.1, 0.14, 0.17];
+    const wallFaces = [
+      [[wx2, -wY, -wZ], [wx2, wY, -wZ], [wx2, wY, wZ], [wx2, -wY, wZ]],
+      [[wx1, -wY, -wZ], [wx1, wY, -wZ], [wx1, wY, wZ], [wx1, -wY, wZ]],
+      [[wx1, wY, -wZ], [wx2, wY, -wZ], [wx2, wY, wZ], [wx1, wY, wZ]],
+      [[wx1, -wY, -wZ], [wx2, -wY, -wZ], [wx2, -wY, wZ], [wx1, -wY, wZ]],
+      [[wx1, -wY, wZ], [wx2, -wY, wZ], [wx2, wY, wZ], [wx1, wY, wZ]],
+      [[wx1, -wY, -wZ], [wx2, -wY, -wZ], [wx2, wY, -wZ], [wx1, wY, -wZ]],
+    ];
+    wallFaces.forEach((pts) => quads.push({ pts, col: wallCol }));
+
+    // floor grid (drawn first, no occlusion — matches the app's backdrop feel)
+    ctx.strokeStyle = "#141c22"; ctx.lineWidth = 1;
+    for (let g = -4; g <= 4; g++) {
+      const a = project([g, -1.7, -4], W, H, f), b2 = project([g, -1.7, 4], W, H, f);
+      const c2 = project([-4, -1.7, g], W, H, f), d2 = project([4, -1.7, g], W, H, f);
+      if (a[2] > 0.5 && b2[2] > 0.5) { ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b2[0], b2[1]); ctx.stroke(); }
+      if (c2[2] > 0.5 && d2[2] > 0.5) { ctx.beginPath(); ctx.moveTo(c2[0], c2[1]); ctx.lineTo(d2[0], d2[1]); ctx.stroke(); }
+    }
+
+    // project, sort far→near, fill
+    const drawn = quads.map((q) => {
+      const pp = q.pts.map((p) => project(p, W, H, f));
+      return { pp, col: q.col, z: (pp[0][2] + pp[1][2] + pp[2][2] + pp[3][2]) / 4 };
+    }).filter((q) => q.pp.every((p) => p[2] > 0.5));
+    drawn.sort((a, b2) => b2.z - a.z);
+    for (const q of drawn) {
+      const sh = shadeOf(q.pp);
+      ctx.fillStyle = css(q.col, sh);
+      ctx.strokeStyle = ctx.fillStyle;
+      ctx.beginPath();
+      ctx.moveTo(q.pp[0][0], q.pp[0][1]);
+      for (let i = 1; i < 4; i++) ctx.lineTo(q.pp[i][0], q.pp[i][1]);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+
+    // auto-fit: ease the camera so the bent arm stays in frame. The beam is
+    // centered on the origin (x0 = −Ls/2), so its bounding radius is ~Ls/2
+    // plus however far the tip has drooped.
+    const tip = ringAt(1);
+    const radius = Math.max(1.6, Math.hypot(G.Ls / 2, Math.abs(tip[1]) * 0.8) + 0.35);
+    const halfFov = Math.min((40 * Math.PI) / 360, Math.atan(Math.tan((40 * Math.PI) / 360) * (W / H)));
+    const want = Math.max(4.2, (radius * 1.35) / Math.sin(halfFov));
+    view.dist += (want - view.dist) * 0.1;
+  }
+
+  // grab detection: pointer near the projected centerline
+  function hitsBeam(px, py) {
+    if (!G) return false;
+    const W = wrap.clientWidth, H = wrap.clientHeight || 320;
+    const f = (H / 2) / Math.tan((40 * Math.PI) / 360);
+    let c = (liveY || 0) / Math.max(G.Lmm, 1e-3);
+    c = Math.max(-0.95, Math.min(0.95, c));
+    let X = 0, Y = 0;
+    const M = 32, dp = 1 / M;
+    const grabR = 42; // forgiving target, like the app's fat invisible proxy
+    for (let i = 0; i <= M; i++) {
+      if (i > 0) { const phi = slope((i - 0.5) * dp, c); X += G.Ls * Math.cos(phi) * dp; Y -= G.Ls * Math.sin(phi) * dp; }
+      const pr = project([-G.Ls / 2 + X, Y, 0], W, H, f);
+      if (pr[2] > 0.5 && Math.hypot(pr[0] - px, pr[1] - py) < grabR) return true;
+    }
+    return false;
+  }
+
+  /* haptic/audio feel (compact port of the app's) */
+  let audio = null, yielded = false, lastVibe = 0;
+  function ensureAudio() {
+    if (audio) { audio.ctx.resume && audio.ctx.resume(); return; }
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return;
+      const actx = new AC(), gain = actx.createGain(); gain.gain.value = 0;
+      const osc = actx.createOscillator(); osc.type = "sawtooth"; osc.frequency.value = 80;
+      osc.connect(gain); gain.connect(actx.destination); osc.start();
+      audio = { ctx: actx, gain, osc };
+    } catch (e) { /* silent fallback */ }
+  }
+  function updateFeel() {
+    const inp = collect();
+    const ok = Number.isFinite(inp.eAllow) && inp.eAllow > 0;
+    const prof = SnapFit.PROFILES[inp.profile];
+    const ratio = ok && G ? ((inp.Kt || 1) * prof.strainCoef * inp.t * Math.abs(liveY)) / (G.Lmm * G.Lmm) / inp.eAllow : 0;
+    if (audio) {
+      audio.gain.gain.setTargetAtTime(Math.min(0.14, ratio * 0.12), audio.ctx.currentTime, 0.02);
+      audio.osc.frequency.setTargetAtTime(70 + Math.min(ratio, 1.5) * 230, audio.ctx.currentTime, 0.02);
+    }
+    const yielding = ratio >= 1;
+    if (yielding && !yielded && audio) { // crack burst on crossing ε_allow
+      const a = audio.ctx, dur = 0.18, buf = a.createBuffer(1, Math.floor(a.sampleRate * dur), a.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const src = a.createBufferSource(); src.buffer = buf;
+      const bp = a.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 1100; bp.Q.value = 0.8;
+      const g = a.createGain(); g.gain.value = 0.3;
+      src.connect(bp); bp.connect(g); g.connect(a.destination); src.start();
+      if (navigator.vibrate) navigator.vibrate([0, 45, 25, 75]);
+    }
+    yielded = yielding;
+    if (navigator.vibrate) {
+      const now = performance.now(), interval = 220 - Math.min(ratio, 1.2) * 150;
+      if (now - lastVibe > interval) { navigator.vibrate(6); lastVibe = now; }
+    }
+  }
+  const stopFeel = () => { if (audio) audio.gain.gain.setTargetAtTime(0, audio.ctx.currentTime, 0.08); yielded = false; };
+
+  /* pointer wiring */
+  canvas.addEventListener("pointerdown", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    if (interactive && hitsBeam(e.clientX - rect.left, e.clientY - rect.top)) {
+      grabbing = true; springing = false; springVel = 0;
+      dragStartY = e.clientY; dragStartDelta = liveY;
+      ensureAudio();
+      canvas.style.cursor = "ns-resize";
+      canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+      e.preventDefault(); return;
+    }
+    view.dragging = true; view.lx = e.clientX; view.ly = e.clientY;
+    canvas.style.cursor = "grabbing";
+    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+  }, { passive: false });
+  canvas.addEventListener("pointermove", (e) => {
+    if (grabbing && G) {
+      e.preventDefault();
+      const H = wrap.clientHeight || 320;
+      const mmPerPx = (G.Lmm * 1.4) / H, lim = G.Lmm * 0.9;
+      liveY = Math.max(-lim, Math.min(lim, dragStartDelta + (e.clientY - dragStartY) * mmPerPx));
+      renderResults(liveY); updateLiveCaption(); updateFeel();
+      return;
+    }
+    if (!view.dragging) return;
+    e.preventDefault();
+    view.yaw += (e.clientX - view.lx) * 0.01;
+    view.pitch = Math.max(-1.4, Math.min(1.4, view.pitch + (e.clientY - view.ly) * 0.01));
+    view.lx = e.clientX; view.ly = e.clientY;
+  }, { passive: false });
+  const release = (e) => {
+    if (grabbing) {
+      grabbing = false; springing = true; stopFeel();
+      canvas.style.cursor = "grab";
+      canvas.releasePointerCapture && canvas.releasePointerCapture(e.pointerId);
+      return;
+    }
+    view.dragging = false; canvas.style.cursor = "grab";
+  };
+  canvas.addEventListener("pointerup", release);
+  canvas.addEventListener("pointerleave", release);
+  canvas.addEventListener("pointercancel", release);
+  canvas.addEventListener("touchmove", (e) => { if (view.dragging || grabbing) e.preventDefault(); }, { passive: false });
+
+  $("ibtn").addEventListener("click", () => {
+    interactive = !interactive;
+    if (!interactive) { liveY = designY; springing = false; renderResults(null); }
+    styleIbtn(); updateLiveCaption();
+    $("vizhint").textContent = interactive
+      ? "grab the arm to deflect it · drag empty space to rotate"
+      : "drag to rotate · proportions are true to L : t : b";
+  });
+  function styleIbtn() {
+    const btn = $("ibtn");
+    btn.textContent = interactive ? "● Interactive" : "Interactive";
+    btn.style.color = interactive ? "var(--green)" : "var(--dim)";
+    btn.style.borderColor = interactive ? "var(--green)" : "var(--line)";
+    btn.style.background = interactive ? "rgba(79,180,119,.12)" : "#0e1419";
+  }
+  styleIbtn();
+
+  function updateLiveCaption() {
+    const bending = grabbing || springing;
+    $("vizlive").textContent = bending
+      ? `● deflecting · y ${Math.abs(liveY).toFixed(1)} mm`
+      : geomOK ? `L ${num("L")} · b ${num("b")} · t ${num("t")} mm · y ${num("y")} mm` : "—";
+    $("vizlive").style.color = bending ? "var(--green)" : "var(--faint)";
+  }
+
+  /* main loop: spring-back + draw */
+  function tick() {
+    if (springing) {
+      const target = designY, cur = liveY;
+      const Es = num("Es");
+      const norm = Math.min(1, Math.max(0, (Math.log10(Math.max(Es / 1000, 1e-3)) + 2) / 4.3));
+      const ks = 0.12 + 0.3 * norm;
+      springVel = (springVel + (target - cur) * ks) * 0.8;
+      let ncur = cur + springVel;
+      if (Math.abs(target - ncur) < 1e-3 && Math.abs(springVel) < 1e-3) {
+        ncur = target; springing = false; renderResults(null);
+      } else renderResults(ncur);
+      liveY = ncur;
+      updateLiveCaption();
+    }
+    drawScene();
+    requestAnimationFrame(tick);
+  }
+
+  /* input wiring */
+  function onEdit() {
+    designY = num("y");
+    if (!grabbing && !springing) liveY = Number.isFinite(designY) ? designY : 0;
+    rebuildGeom();
+    renderResults(null);
+    updateLiveCaption();
+  }
+  ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
+  window.addEventListener("resize", drawScene);
+
+  onEdit();
+  tick();
+})();
+</script>
+</body>
+</html>

@@ -40,7 +40,7 @@ const CALCS: CalcCard[] = [
   {
     tag: "Compliant mechanisms",
     title: "Cantilever Snap-Fit",
-    desc: "Strain, deflection and insertion/removal force for molded snap arms — uniform and tapered, with self-locking and validity guards. Four HTML design candidates are under /designs/snapfit/.",
+    desc: "Strain, deflection and insertion/removal force for molded snap arms — uniform and tapered, with self-locking and validity guards. Five HTML design candidates are under /designs/snapfit/.",
     eq: "ε = 3ty / 2L²",
     ready: false,
   },
