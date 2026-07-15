@@ -445,6 +445,23 @@
       }
     }
 
+    // root fillet: molded wedges blending the beam's top/bottom faces into
+    // the wall, sized by R (the root is at φ≈0, so no rotation is needed)
+    if (Number.isFinite(inp.R) && inp.R > 0) {
+      const hT0 = G.halfT[0], hW0 = G.halfW[0] * 0.999;
+      const Rs = Math.min(inp.R * G.scale, G.Ls * 0.15, hT0 * 1.6); // stay inside the wall slab
+
+      for (const sgn of [1, -1]) {
+        const col = stressColor(ratioRoot * dir * sgn * 0.85);
+        const yWall = sgn * (hT0 + Rs), yBeam = sgn * hT0;
+        // sloped face + two triangular end caps
+        quads.push({ pts: [[x0, yWall, -hW0], [x0, yWall, hW0], [x0 + Rs, yBeam, hW0], [x0 + Rs, yBeam, -hW0]], col });
+        for (const z of [-hW0, hW0]) {
+          quads.push({ pts: [[x0, yWall, z], [x0 + Rs, yBeam, z], [x0, yBeam, z], [x0, yBeam, z]], col });
+        }
+      }
+    }
+
     // anchor wall slab at the root
     const wT = 0.22, wY = G.halfT[0] * 2.2 + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
     const wx1 = x0 - wT, wx2 = x0;
@@ -491,7 +508,9 @@
     const radius = Math.max(1.6, Math.hypot(G.Ls / 2, Math.abs(tip[1]) * 0.8) + 0.35);
     const halfFov = Math.min((40 * Math.PI) / 360, Math.atan(Math.tan((40 * Math.PI) / 360) * (W / H)));
     const want = Math.max(4.2, (radius * 1.35) / Math.sin(halfFov));
-    view.dist += (want - view.dist) * 0.1;
+    // ease toward the fit distance, then snap — so a static scene renders
+    // pixel-identical frames instead of easing forever
+    view.dist = Math.abs(want - view.dist) < 0.002 ? want : view.dist + (want - view.dist) * 0.1;
   }
 
   // grab detection: pointer near the projected centerline
