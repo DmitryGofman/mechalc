@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnapLab — Design A: Console Workbench</title>
+<style>
+  :root {
+    --bg: #080c10; --panel: #0b1015; --line: #1f2a33; --line2: #141c22;
+    --ink: #e8edf1; --dim: #8b97a3; --faint: #46515c;
+    --blue: #3a78c2; --green: #4fb477; --amber: #d9a53f; --red: #d95f5f;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  .shell { max-width: 1180px; margin: 0 auto; padding: 22px 16px 40px; }
+  a.back { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--faint); text-decoration: none; }
+  a.back:hover { color: var(--blue); }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 18px;
+           display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px; }
+  .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
+  h1 { margin: 6px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -.02em; }
+  .sub { font-size: 12px; color: var(--dim); margin-top: 6px; max-width: 620px; line-height: 1.6; }
+  .unitwrap { font-family: var(--mono); font-size: 10px; color: var(--dim); display: flex; gap: 6px; align-items: center; }
+  .unitwrap button { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; background: none;
+                     border: 1px solid var(--line); color: var(--dim); padding: 4px 10px; border-radius: 2px; cursor: pointer; }
+  .unitwrap button.on { border-color: var(--blue); color: var(--blue); }
+  .grid { display: grid; grid-template-columns: 290px minmax(0,1fr) 300px; gap: 16px; align-items: start; }
+  @media (max-width: 980px) { .grid { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } .viz-col { order: 3; grid-column: 1 / -1; } }
+  @media (max-width: 640px)  { .grid { grid-template-columns: minmax(0,1fr); } }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 14px; }
+  .ptitle { font-family: var(--mono); font-size: 9.5px; letter-spacing: .2em; color: var(--faint); margin-bottom: 12px; }
+  .field { margin-bottom: 10px; }
+  .field label { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 10.5px;
+                 color: var(--dim); margin-bottom: 4px; }
+  .field label .u { color: var(--faint); }
+  .field input[type=number], .field select {
+    width: 100%; background: #060a0d; border: 1px solid var(--line); color: var(--ink);
+    font-family: var(--mono); font-size: 12.5px; padding: 6px 8px; border-radius: 2px; outline: none; }
+  .field input:focus, .field select:focus { border-color: var(--blue); }
+  .field input.bad { border-color: var(--red); }
+  .field input[type=range] { width: 100%; margin: 4px 0 0; accent-color: var(--blue); }
+  .fnote { font-size: 10px; color: var(--faint); line-height: 1.5; margin-top: 3px; }
+  .sep { border-top: 1px solid var(--line2); margin: 14px 0; }
+  /* results */
+  .status { font-family: var(--mono); font-weight: 700; letter-spacing: .18em; font-size: 13px;
+            border: 1px solid; border-radius: 2px; text-align: center; padding: 10px; margin-bottom: 12px; }
+  .status.pass { color: var(--green); border-color: var(--green); background: rgba(79,180,119,.07); }
+  .status.fail { color: var(--red); border-color: var(--red); background: rgba(217,95,95,.07); }
+  .status.indeterminate { color: var(--amber); border-color: var(--amber); background: rgba(217,165,63,.07); }
+  .status.invalid { color: var(--dim); border-color: var(--line); }
+  .rrow { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid var(--line2); }
+  .rrow .k { font-family: var(--mono); font-size: 10.5px; color: var(--dim); }
+  .rrow .v { font-family: var(--mono); font-size: 14px; font-weight: 600; }
+  .rrow .v small { font-size: 10px; color: var(--faint); font-weight: 400; margin-left: 4px; }
+  .ubar { height: 7px; background: #060a0d; border: 1px solid var(--line2); border-radius: 2px; margin: 8px 0 3px; position: relative; overflow: hidden; }
+  .ubar i { position: absolute; inset: 0 auto 0 0; border-radius: 1px; }
+  .ulab { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 9.5px; color: var(--faint); }
+  .warn { font-size: 11px; line-height: 1.55; padding: 8px 9px; border-left: 2px solid; border-radius: 2px; margin-top: 8px; background: #0d1319; }
+  .warn.blocking { border-color: var(--amber); color: #e6c98a; }
+  .warn.caution  { border-color: var(--amber); color: var(--dim); }
+  .warn.info     { border-color: var(--faint); color: var(--faint); }
+  .warn.error    { border-color: var(--red); color: #e0a3a3; }
+  .xcheck { font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 10px; line-height: 1.6; }
+  .xcheck b { color: var(--green); font-weight: 600; }
+  .viz { padding: 10px; }
+  .viz svg { width: 100%; height: auto; display: block; }
+  .viztools { display: flex; gap: 8px; align-items: center; font-family: var(--mono); font-size: 10px; color: var(--faint); margin-top: 8px; flex-wrap: wrap; }
+  .viztools button { background: none; border: 1px solid var(--line); color: var(--dim); font-family: var(--mono);
+                     font-size: 10px; padding: 3px 8px; border-radius: 2px; cursor: pointer; }
+  .viztools button.on { border-color: var(--blue); color: var(--blue); }
+  footer { font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.8; border-top: 1px solid var(--line2); margin-top: 22px; padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="./index.html">← SNAPLAB DESIGN CANDIDATES</a>
+  <header>
+    <div>
+      <div class="kicker">DESIGN A — CONSOLE WORKBENCH · CANTILEVER SNAP-FIT</div>
+      <h1>SnapLab Console</h1>
+      <div class="sub">Four coordinated regions in the MechCalc house style: inputs, live mechanism view with
+        strain colormap, engineering verdict, and the assumption ledger. Linear Euler–Bernoulli model with
+        applicability guards — results outside the envelope are held, not shown green.</div>
+    </div>
+    <div class="unitwrap">
+      UNITS
+      <button id="u-si" class="on" type="button">mm · N · MPa</button>
+      <button id="u-us" type="button">in · lbf · ksi</button>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- ── inputs ─────────────────────────────────────────── -->
+    <div class="panel">
+      <div class="ptitle">GEOMETRY &amp; CONTACT</div>
+      <div class="field"><label>Beam profile</label>
+        <select id="profile">
+          <option value="uniform">Uniform section</option>
+          <option value="taperThickness">Thickness taper t → t/2</option>
+          <option value="taperWidth">Width taper b → b/4</option>
+        </select>
+      </div>
+      <div class="field"><label><span>Length L</span><span class="u" data-u="len">mm</span></label>
+        <input type="number" id="L" step="0.1" /><input type="range" id="Ls" min="4" max="60" step="0.5" /></div>
+      <div class="field"><label><span>Root width b</span><span class="u" data-u="len">mm</span></label>
+        <input type="number" id="b" step="0.1" /><input type="range" id="bs" min="1" max="25" step="0.5" /></div>
+      <div class="field"><label><span>Root thickness t</span><span class="u" data-u="len">mm</span></label>
+        <input type="number" id="t" step="0.05" /><input type="range" id="ts" min="0.4" max="8" step="0.05" /></div>
+      <div class="field"><label><span>Undercut y</span><span class="u" data-u="len">mm</span></label>
+        <input type="number" id="y" step="0.05" /><input type="range" id="ys" min="0.1" max="8" step="0.05" /></div>
+      <div class="field"><label><span>Root fillet R</span><span class="u" data-u="len">mm</span></label>
+        <input type="number" id="R" step="0.05" /></div>
+      <div class="sep"></div>
+      <div class="field"><label><span>Entry angle α</span><span class="u">deg</span></label>
+        <input type="number" id="alpha" step="1" /><input type="range" id="alphas" min="5" max="85" step="1" /></div>
+      <div class="field"><label><span>Return angle α′</span><span class="u">deg (90 = permanent)</span></label>
+        <input type="number" id="alphaP" step="1" /><input type="range" id="alphaPs" min="0" max="90" step="1" /></div>
+      <div class="field"><label><span>Friction μ</span></label>
+        <input type="number" id="mu" step="0.02" /><input type="range" id="mus" min="0" max="1" step="0.02" /></div>
+      <div class="sep"></div>
+      <div class="ptitle">MATERIAL STATE</div>
+      <div class="field"><label>Material (educational defaults)</label><select id="mat"></select>
+        <div class="fnote" id="matnote"></div></div>
+      <div class="field"><label><span>Secant modulus E<sub>s</sub></span><span class="u" data-u="mod">MPa</span></label>
+        <input type="number" id="Es" step="10" /></div>
+      <div class="field"><label><span>Permissible strain ε<sub>allow</sub></span><span class="u">%</span></label>
+        <input type="number" id="eAllow" step="0.1" /></div>
+      <div class="field"><label><span>Concentration K<sub>t</sub></span><span class="u">traceable only</span></label>
+        <input type="number" id="Kt" step="0.05" /></div>
+    </div>
+
+    <!-- ── mechanism view ─────────────────────────────────── -->
+    <div class="panel viz viz-col">
+      <div class="ptitle">MECHANISM VIEW — SIDE ELEVATION, STRAIN COLORMAP</div>
+      <svg id="mech" viewBox="0 0 660 380" role="img" aria-label="Deformed snap-fit beam with strain colormap"></svg>
+      <div class="viztools">
+        DEFLECTION SCALE
+        <button type="button" class="on" data-ex="1">1×</button>
+        <button type="button" data-ex="3">3×</button>
+        <button type="button" data-ex="6">6×</button>
+        <span id="vizlabel"></span>
+      </div>
+    </div>
+
+    <!-- ── results ────────────────────────────────────────── -->
+    <div class="panel">
+      <div class="ptitle">ENGINEERING RESULT</div>
+      <div class="status" id="status">—</div>
+      <div id="rows"></div>
+      <div class="ubar"><i id="ufill"></i></div>
+      <div class="ulab"><span>0</span><span>strain utilization U = K<sub>t</sub>·ε / ε<sub>allow</sub></span><span>1.5</span></div>
+      <div id="warns"></div>
+      <div class="xcheck" id="xcheck"></div>
+    </div>
+  </div>
+
+  <footer id="ledger">
+    MODEL LEDGER — Euler–Bernoulli cantilever, ideally fixed root, small deflection, secant modulus at working
+    strain, Coulomb friction on a rigid wedge. Constants: uniform P·4, thickness-taper P·6.528, width-taper
+    P·5.136 (BASF / Bayer manuals), cross-checked live against an independent Castigliano integral.
+    Not modelled: creep &amp; stress relaxation of the retained preload, fatigue from repeated cycles, weld lines,
+    fiber orientation, temperature/moisture shifts beyond the entered material state. A green PASS is a
+    preliminary design check, not a production release.
+  </footer>
+</div>
+
+<script src="./snapfit-engine.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const state = { // SI master state — mm, MPa, fractions, degrees held for UI only
+    profile: "uniform", L: 19, b: 9.5, t: 2.4, y: 2.4, R: 0.6,
+    alpha: 30, alphaP: 45, mu: 0.3, Es: 1200, eAllow: 0.06, Kt: 1,
+  };
+  let units = "si", exagg = 1;
+  const U = SnapFit.UNITS;
+  const lenOut = (v) => units === "si" ? v : U.mmToIn(v);
+  const lenIn  = (v) => units === "si" ? v : U.inToMm(v);
+  const modOut = (v) => units === "si" ? v : U.mpaToKsi(v);
+  const modIn  = (v) => units === "si" ? v : U.ksiToMpa(v);
+  const forceFmt = (n) => units === "si" ? fmt(n) + " N" : fmt(U.nToLbf(n)) + " lbf";
+  function fmt(n, d) {
+    if (n === null || !isFinite(n)) return "—";
+    const dd = d !== undefined ? d : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2);
+    return n.toFixed(dd);
+  }
+
+  // material presets
+  const matSel = $("mat");
+  SnapFit.MATERIALS.forEach((m) => {
+    const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; matSel.appendChild(o);
+  });
+  matSel.value = "pa66-cond";
+  $("matnote").textContent = SnapFit.MATERIALS.find((m) => m.id === "pa66-cond").note;
+
+  const lenFields = ["L", "b", "t", "y", "R"];
+  function pushToInputs() {
+    lenFields.forEach((f) => { $(f).value = fmt(lenOut(state[f]), units === "si" ? 2 : 3); });
+    ["alpha", "alphaP", "mu", "Kt"].forEach((f) => { $(f).value = state[f]; });
+    $("Es").value = fmt(modOut(state.Es), units === "si" ? 0 : 1);
+    $("eAllow").value = (state.eAllow * 100).toFixed(1);
+    $("profile").value = state.profile;
+    ["L","b","t","y"].forEach((f) => { $(f + "s").value = state[f]; });
+    $("alphas").value = state.alpha; $("alphaPs").value = state.alphaP; $("mus").value = state.mu;
+    document.querySelectorAll("[data-u=len]").forEach((el) => el.textContent = units === "si" ? "mm" : "in");
+    document.querySelectorAll("[data-u=mod]").forEach((el) => el.textContent = units === "si" ? "MPa" : "ksi");
+  }
+
+  function readInput(id, conv) {
+    const el = $(id);
+    const raw = parseFloat(el.value);
+    const v = Number.isFinite(raw) ? (conv ? conv(raw) : raw) : NaN;
+    return v;
+  }
+
+  function pullFromInputs() {
+    lenFields.forEach((f) => { const v = readInput(f, lenIn); if (Number.isFinite(v)) state[f] = v; else state[f] = NaN; });
+    state.Es = readInput("Es", modIn);
+    const ea = readInput("eAllow"); state.eAllow = Number.isFinite(ea) ? ea / 100 : NaN;
+    state.alpha = readInput("alpha"); state.alphaP = readInput("alphaP");
+    state.mu = readInput("mu"); state.Kt = readInput("Kt");
+    state.profile = $("profile").value;
+  }
+
+  // ── render ─────────────────────────────────────────────────
+  const STATUS_TEXT = { pass: "PASS", fail: "FAIL — STRAIN LIMIT", indeterminate: "INDETERMINATE — MODEL HELD", invalid: "INVALID INPUT" };
+  function render() {
+    const inp = {
+      profile: state.profile, L: state.L, b: state.b, t: state.t, y: state.y,
+      Es: state.Es, eAllow: state.eAllow, mu: state.mu, Kt: state.Kt, R: state.R,
+      alphaRad: U.degToRad(state.alpha), alphaPrimeRad: U.degToRad(state.alphaP),
+    };
+    const r = SnapFit.evaluate(inp);
+    const st = $("status");
+    st.className = "status " + r.status;
+    st.textContent = STATUS_TEXT[r.status];
+
+    const badFields = new Set(r.errors.map((e) => e.field === "alpha" ? "alpha" : e.field === "alphaPrime" ? "alphaP" : e.field));
+    ["L","b","t","y","R","Es","eAllow","mu","alpha","alphaP","Kt"].forEach((f) => {
+      $(f).classList.toggle("bad", badFields.has(f));
+    });
+
+    const rows = $("rows"), warns = $("warns");
+    rows.innerHTML = ""; warns.innerHTML = "";
+    if (r.status === "invalid") {
+      r.errors.forEach((e) => { warns.insertAdjacentHTML("beforeend", `<div class="warn error">${e.msg}</div>`); });
+      $("ufill").style.width = "0"; $("xcheck").textContent = "";
+      drawMech(null, inp); return;
+    }
+    const v = r.values;
+    const row = (k, val) => rows.insertAdjacentHTML("beforeend",
+      `<div class="rrow"><span class="k">${k}</span><span class="v">${val}</span></div>`);
+    row("Root strain ε (·K<sub>t</sub>)", `${(v.epsEff * 100).toFixed(2)} <small>% vs ${(state.eAllow*100).toFixed(1)}% allow</small>`);
+    row("Utilization U", fmt(v.U, 2) + (v.margin >= 0 ? ` <small>margin +${(v.margin*100).toFixed(0)}%</small>` : ` <small>over by ${(-v.margin*100).toFixed(0)}%</small>`));
+    row("Deflection force P", forceFmt(v.P));
+    row("Insertion force W", r.selfLock.insert ? `<span style="color:var(--amber)">SELF-LOCKING</span>` : forceFmt(v.W));
+    row("Removal force W′", r.selfLock.remove ? `<span style="color:var(--amber)">${state.alphaP >= 90 ? "PERMANENT" : "SELF-LOCKING"}</span>` : forceFmt(v.Wremove));
+    row("Stiffness k", units === "si" ? fmt(v.k) + " N/mm" : fmt(U.nToLbf(v.k) * 25.4) + " lbf/in");
+    row("Slenderness L/t", fmt(v.slenderness, 1) + ` <small>y/L ${fmt(v.deflectionRatio, 2)}</small>`);
+
+    const fill = $("ufill");
+    fill.style.width = Math.min(100, (v.U / 1.5) * 100) + "%";
+    fill.style.background = v.U <= 0.8 ? "var(--green)" : v.U <= 1 ? "var(--amber)" : "var(--red)";
+
+    r.warnings.forEach((w) => warns.insertAdjacentHTML("beforeend", `<div class="warn ${w.level}">${w.msg}</div>`));
+
+    const xc = SnapFit.crossCheck(inp, 800);
+    $("xcheck").innerHTML = `INDEPENDENT CHECK — Castigliano integral vs closed form: Δ <b>${xc.diffPct >= 0 ? "+" : ""}${xc.diffPct.toFixed(2)}%</b> · handbook constant verified at runtime`;
+
+    drawMech(r, inp);
+  }
+
+  // ── mechanism drawing ──────────────────────────────────────
+  function strainColor(ratio) {
+    const h = Math.max(0, 165 * (1 - Math.min(ratio, 1.15) / 1.1));
+    return `hsl(${h} 62% 52%)`;
+  }
+  function drawMech(r, inp) {
+    const svg = $("mech");
+    const Wv = 660, Hv = 380;
+    let s = "";
+    // wall
+    s += `<rect x="30" y="40" width="42" height="300" fill="#0d141b" stroke="#243140"/>`;
+    for (let i = 0; i < 12; i++) s += `<line x1="30" y1="${52 + i * 24}" x2="72" y2="${40 + i * 24}" stroke="#243140" stroke-width="1"/>`;
+    if (!r || !inp || !Number.isFinite(inp.L) || !Number.isFinite(inp.t) || inp.L <= 0 || inp.t <= 0) {
+      s += `<text x="330" y="195" fill="#46515c" font-size="12" text-anchor="middle" font-family="monospace">awaiting valid geometry…</text>`;
+      svg.innerHTML = s; $("vizlabel").textContent = ""; return;
+    }
+    const x0 = 72, beamLen = 440, cy = 150;
+    const scale = beamLen / inp.L;
+    const tPx = Math.max(6, inp.t * scale);
+    // cap the drawn deflection so extreme y or exaggeration never leaves the canvas
+    const yPx = Math.min(inp.y * scale * exagg, 150);
+    const clamped = inp.y * scale * exagg > 150;
+    const prof = SnapFit.PROFILES[inp.profile];
+    const shape = SnapFit.deflectionShape(1, 36);
+    const sp = SnapFit.strainProfile(inp, r.values ? r.values.P : 0, 36);
+    const epsA = inp.eAllow;
+    // undeformed ghost
+    s += `<path d="M ${x0} ${cy - tPx / 2} H ${x0 + beamLen} V ${cy + tPx / 2} H ${x0}" fill="none" stroke="#2a3540" stroke-dasharray="4 4"/>`;
+    // deformed beam, segment fills colored by local strain ratio
+    for (let i = 0; i < 36; i++) {
+      const u1 = shape[i].u, u2 = shape[i + 1].u;
+      const v1 = shape[i].v * yPx, v2 = shape[i + 1].v * yPx;
+      const t1 = Math.max(6, prof.thicknessAt(inp.t, u1) * scale), t2 = Math.max(6, prof.thicknessAt(inp.t, u2) * scale);
+      const X1 = x0 + u1 * beamLen, X2 = x0 + u2 * beamLen;
+      const ratio = r.values ? (sp[i].eps * (inp.Kt || 1)) / epsA : 0;
+      s += `<polygon points="${X1},${cy + v1 - t1 / 2} ${X2},${cy + v2 - t2 / 2} ${X2},${cy + v2 + t2 / 2} ${X1},${cy + v1 + t1 / 2}" fill="${strainColor(ratio)}" stroke="none"/>`;
+    }
+    // hook at tip (return face α′ toward the wall, entry ramp α at the free end)
+    const tipX = x0 + beamLen, tipV = cy + yPx, tTip = Math.max(6, prof.thicknessAt(inp.t, 1) * scale);
+    const hookH = Math.min(60, Math.max(8, inp.y * scale));
+    const entryRun = Math.min(80, hookH / Math.tan(Math.max(0.09, inp.alphaRad)));
+    const retRun = (inp.alphaPrimeRad >= Math.PI / 2 - 1e-9) ? 0 : Math.min(80, hookH / Math.tan(Math.max(0.09, inp.alphaPrimeRad)));
+    const hy0 = tipV + tTip / 2;
+    s += `<polygon points="${tipX - retRun - entryRun - 20},${hy0} ${tipX - entryRun - 20},${hy0 + hookH} ${tipX - entryRun},${hy0 + hookH} ${tipX},${hy0}" fill="#31404f" stroke="#4a5d70"/>`;
+    // arrows: insertion W (axial) and P (transverse)
+    s += arrow(tipX + 34, hy0 + hookH + 16, tipX - 8, hy0 + hookH + 16, "#3a78c2");
+    s += `<text x="${tipX + 38}" y="${hy0 + hookH + 20}" fill="#3a78c2" font-size="11" font-family="monospace">W</text>`;
+    s += arrow(tipX - entryRun * 0.5, hy0 + hookH + 44, tipX - entryRun * 0.5, hy0 + hookH + 6, "#d9a53f");
+    s += `<text x="${tipX - entryRun * 0.5 + 6}" y="${hy0 + hookH + 40}" fill="#d9a53f" font-size="11" font-family="monospace">P</text>`;
+    // undercut dimension
+    s += `<line x1="${x0 + beamLen + 18}" y1="${cy}" x2="${x0 + beamLen + 18}" y2="${tipV}" stroke="#46515c"/>`;
+    s += `<text x="${x0 + beamLen + 22}" y="${(cy + tipV) / 2 + 4}" fill="#8b97a3" font-size="10" font-family="monospace">y</text>`;
+    // strain scale legend
+    for (let i = 0; i <= 20; i++) s += `<rect x="${240 + i * 9}" y="352" width="9" height="8" fill="${strainColor(i / 20 * 1.15)}"/>`;
+    s += `<text x="232" y="360" fill="#46515c" font-size="9" font-family="monospace" text-anchor="end">ε/ε_allow 0</text>`;
+    s += `<text x="${240 + 21 * 9 + 4}" y="360" fill="#46515c" font-size="9" font-family="monospace">1.15</text>`;
+    svg.innerHTML = s;
+    $("vizlabel").textContent = `deflection drawn ${exagg}×${clamped ? " (clipped to fit)" : ""} · taper shape ${inp.profile === "uniform" ? "exact" : "centre-line approximated for display"}`;
+  }
+  function arrow(x1, y1, x2, y2, color) {
+    const a = Math.atan2(y2 - y1, x2 - x1);
+    const hx = (t) => x2 - 9 * Math.cos(a - t), hy = (t) => y2 - 9 * Math.sin(a - t);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="1.6"/>` +
+      `<polygon points="${x2},${y2} ${hx(0.4)},${hy(0.4)} ${hx(-0.4)},${hy(-0.4)}" fill="${color}"/>`;
+  }
+
+  // ── wiring ─────────────────────────────────────────────────
+  function onEdit() { pullFromInputs(); render(); }
+  ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
+  [["Ls","L"],["bs","b"],["ts","t"],["ys","y"],["alphas","alpha"],["alphaPs","alphaP"],["mus","mu"]].forEach(([s2, f]) => {
+    $(s2).addEventListener("input", () => {
+      state[f] = parseFloat($(s2).value);
+      pushToInputs(); render();
+    });
+  });
+  matSel.addEventListener("change", () => {
+    const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
+    $("matnote").textContent = m.note;
+    if (m.Es !== null) { state.Es = m.Es; state.eAllow = m.eAllow; pushToInputs(); render(); }
+  });
+  $("u-si").addEventListener("click", () => setUnits("si"));
+  $("u-us").addEventListener("click", () => setUnits("us"));
+  function setUnits(u) {
+    if (units === u) return;
+    pullFromInputs(); // capture edits in old units first
+    units = u;
+    $("u-si").classList.toggle("on", u === "si");
+    $("u-us").classList.toggle("on", u === "us");
+    pushToInputs(); render();
+  }
+  document.querySelectorAll("[data-ex]").forEach((btn) => btn.addEventListener("click", () => {
+    exagg = parseFloat(btn.dataset.ex);
+    document.querySelectorAll("[data-ex]").forEach((b) => b.classList.toggle("on", b === btn));
+    render();
+  }));
+
+  pushToInputs(); render();
+})();
+</script>
+</body>
+</html>

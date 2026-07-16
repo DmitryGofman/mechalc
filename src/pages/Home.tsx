@@ -5,6 +5,8 @@ import { Link } from "../router";
 // grabbable 3D view and honest notes on scope.
 type CalcCard = {
   route?: string;
+  href?: string; // static page shipped alongside the app (e.g. design prototypes)
+  badge?: string; // status chip override (default READY/PLANNED)
   tag: string;
   title: string;
   desc: string;
@@ -35,6 +37,15 @@ const CALCS: CalcCard[] = [
     title: "Beam on Two Supports",
     desc: "Center-load stiffness, force and peak stress for a beam held at both ends — pinned or built-in — press the middle of the 3D beam and watch the moment diagram light up.",
     eq: "k = 48EI / L³",
+    ready: true,
+  },
+  {
+    href: `${import.meta.env.BASE_URL}designs/snapfit/index.html`,
+    badge: "5 DESIGNS",
+    tag: "Compliant mechanisms",
+    title: "Cantilever Snap-Fit",
+    desc: "Strain, deflection and insertion/removal force for molded snap arms — uniform and tapered, with self-locking and validity guards. Pick between five working design candidates, all on one tested engine.",
+    eq: "ε = 3ty / 2L²",
     ready: true,
   },
   {
@@ -110,7 +121,7 @@ function Card({ c }: { c: CalcCard }) {
             whiteSpace: "nowrap",
           }}
         >
-          {c.ready ? "READY" : "PLANNED"}
+          {c.badge ?? (c.ready ? "READY" : "PLANNED")}
         </span>
       </div>
       <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", color: "#e8edf1", marginTop: 10 }}>
@@ -144,6 +155,13 @@ function Card({ c }: { c: CalcCard }) {
       <Link to={c.route} className="home-card home-card-ready">
         {body}
       </Link>
+    );
+  }
+  if (c.ready && c.href) {
+    return (
+      <a href={c.href} className="home-card home-card-ready">
+        {body}
+      </a>
     );
   }
   return <div className="home-card home-card-planned">{body}</div>;
