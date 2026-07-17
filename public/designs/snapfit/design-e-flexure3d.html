@@ -82,6 +82,34 @@
   .inshort { font-family: var(--sans); font-size: 12.5px; color: #b9c3cc; margin-top: 16px; padding-top: 12px;
              border-top: 1px dashed var(--line); line-height: 1.7; }
   .inshort u { text-underline-offset: 3px; color: var(--ink); }
+  /* comparison tab */
+  .tabstrip { display: flex; gap: 2px; margin-bottom: 12px; border-bottom: 1px solid var(--line2); }
+  .tab { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; cursor: pointer;
+    background: none; border: none; border-bottom: 2px solid transparent; color: var(--faint); padding: 7px 11px; }
+  .tab:hover { color: var(--dim); }
+  .tab.on { color: var(--blue); border-bottom-color: var(--blue); }
+  .cmp-intro { font-size: 12px; color: var(--dim); line-height: 1.6; margin-bottom: 12px; }
+  .cmp-intro b { color: #c2ccd4; }
+  .cmp-ctrl { font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--mid); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .cmp-ctrl select { background: #0e1419; border: 1px solid var(--line); color: var(--ink); border-radius: 2px;
+    font-family: var(--mono); font-size: 12px; padding: 5px 8px; outline: none; }
+  .cmp-ctrl .meta { color: var(--faint); }
+  .cmp-callout { font-family: var(--mono); font-size: 11px; color: var(--ink); background: #0d1319;
+    border-left: 2px solid var(--blue); padding: 9px 11px; margin: 0 0 16px; line-height: 1.6; }
+  .cmp-callout b { color: var(--green); }
+  .chart { margin-bottom: 16px; }
+  .chart-t { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); margin-bottom: 5px; }
+  .chart-t small { text-transform: none; letter-spacing: 0; color: var(--faint); font-size: 10px; }
+  .chart svg { width: 100%; height: auto; display: block; }
+  .cmp-eq { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11px; margin: 8px 0 16px; }
+  .cmp-eq th { text-align: left; color: var(--blue); font-size: 9px; letter-spacing: .1em; padding: 6px 8px;
+    border-bottom: 1px solid var(--line); font-weight: 600; }
+  .cmp-eq td { padding: 6px 8px; border-bottom: 1px solid var(--line2); color: var(--ink); vertical-align: top; line-height: 1.4; }
+  .cmp-eq td.dim { color: var(--faint); }
+  .cmp-eq tr td:first-child { color: var(--mid); white-space: nowrap; }
+  .cmp-prose { font-family: var(--sans); font-size: 12.5px; color: var(--dim); line-height: 1.7; margin: 0 0 12px; }
+  .cmp-prose strong { color: #c2ccd4; }
 </style>
 </head>
 <body>
@@ -149,20 +177,83 @@
     </div>
   </div>
 
-  <!-- 3D BEAM -->
+  <!-- 3D BEAM + COMPARISON, tabbed -->
   <div class="viz">
-    <div class="vizhead">
-      <div>
-        <div class="lab">Deflected shape · 3D</div>
-        <div class="live" id="vizlive"></div>
+    <div class="tabstrip">
+      <button class="tab on" type="button" data-tab="view3d">3D View</button>
+      <button class="tab" type="button" data-tab="compare">Classical vs Snap-Fit</button>
+    </div>
+
+    <div id="tab-view3d">
+      <div class="vizhead">
+        <div>
+          <div class="lab">Deflected shape · 3D</div>
+          <div class="live" id="vizlive"></div>
+        </div>
+        <button id="ibtn" type="button">● Interactive</button>
       </div>
-      <button id="ibtn" type="button">● Interactive</button>
+      <div id="beamwrap">
+        <canvas id="beam"></canvas>
+        <div id="beammsg">awaiting valid geometry…</div>
+      </div>
+      <div class="vizhint" id="vizhint">grab the arm to deflect it · drag empty space to rotate</div>
     </div>
-    <div id="beamwrap">
-      <canvas id="beam"></canvas>
-      <div id="beammsg">awaiting valid geometry…</div>
+
+    <div id="tab-compare" hidden>
+      <div class="cmp-intro">
+        A cantilever snap-fit <b>is</b> a cantilever beam — for a uniform section the strain equation is
+        <b>identical</b> to the classic flexure calc (the coefficient 1.50 and force divisor 4 are the
+        textbook Euler–Bernoulli results). They diverge in three places: the snap-fit adds
+        <b>tapered sections</b>, tests <b>strain against a permissible design value</b> instead of stress
+        against yield, and adds an <b>assembly force</b> with a self-locking limit. The charts are live —
+        they track your current L, t, b and material.
+      </div>
+      <div class="cmp-ctrl">
+        <span>CLASSICAL REFERENCE</span>
+        <select id="refmat"></select>
+        <span class="meta" id="refmeta"></span>
+      </div>
+      <div class="cmp-callout" id="cmpCallout"></div>
+
+      <div class="chart">
+        <div class="chart-t">A · Peak strain vs deflection <small>— identical physics; the tools draw the limit in different places</small></div>
+        <svg id="chartA" viewBox="0 0 520 210" role="img" aria-label="Peak strain versus deflection"></svg>
+      </div>
+      <div class="chart">
+        <div class="chart-t">B · Force vs deflection <small>— uniform = classical; tapers soften it, γ stiffens the flexure calc at large bend</small></div>
+        <svg id="chartB" viewBox="0 0 520 210" role="img" aria-label="Force versus deflection"></svg>
+      </div>
+      <div class="chart">
+        <div class="chart-t">C · Utilization vs deflection <small>— where each verdict crosses 1.0</small></div>
+        <svg id="chartC" viewBox="0 0 520 210" role="img" aria-label="Utilization versus deflection"></svg>
+      </div>
+
+      <table class="cmp-eq">
+        <thead><tr><th>Quantity</th><th>Classical cantilever (flexure calc)</th><th>Cantilever snap-fit</th></tr></thead>
+        <tbody>
+          <tr><td>Section</td><td>I = b·t³/12 · uniform only</td><td>I = b·t³/12 · uniform + t-taper + b-taper</td></tr>
+          <tr><td>Stiffness</td><td>k = 3EI / L³</td><td>k = 3E<sub>s</sub>I / L³ · secant modulus</td></tr>
+          <tr><td>Load</td><td>F = k·δ · [×γ large-defl]</td><td>P = E<sub>s</sub>·b·(t/L)³·y / C<sub>P</sub></td></tr>
+          <tr><td>Peak intensity</td><td>σ = 3Etδ / 2L²</td><td>ε = C<sub>ε</sub>·t·y / L²</td></tr>
+          <tr><td>Limit</td><td>n = σ<sub>y</sub> / σ · yield</td><td>U = K<sub>t</sub>·ε / ε<sub>allow</sub> · permissible</td></tr>
+          <tr><td>Assembly</td><td class="dim">— not modelled</td><td>W = P·(μ+tanα) / (1−μ·tanα)</td></tr>
+          <tr><td>Verdict</td><td class="dim">always returns a number</td><td>pass / fail / indeterminate / invalid</td></tr>
+        </tbody>
+      </table>
+
+      <p class="cmp-prose"><strong>Why the limit differs.</strong> The flexure calc asks a strength
+        question — will the surface stress reach yield? For a metal spring that limit is a small strain
+        (steel yields near 0.1–0.6 %). A molded snap is asked a different question — will the brief
+        assembly strain stay under a <em>permissible design value</em> (often 3–6 % for tough plastics)
+        that already sits below break to leave room for creep, fatigue and moisture. Same beam, same
+        strain curve — the tools simply draw the pass/fail line at very different heights, which is why a
+        plastic snap tolerates far more deflection than a steel flexure of identical geometry.</p>
+      <p class="cmp-prose"><strong>What the snap-fit adds.</strong> Tapering the thickness (C<sub>ε</sub>
+        0.92) or width (1.17) sheds root strain the uniform beam (1.50) can't — chart A's lower curves. It
+        computes the force to push the hook over its ramp, including the self-locking singularity the
+        flexure calc has no concept of. And it holds a non-green verdict outside the linear envelope, where
+        the classical calc would still hand back a confident-looking number.</p>
     </div>
-    <div class="vizhint" id="vizhint">grab the arm to deflect it · drag empty space to rotate</div>
   </div>
 
   <!-- THEORY -->
@@ -234,6 +325,146 @@
     ["Es(ε) = σ(ε)/ε", "Secant modulus at working strain, temperature and moisture state"],
   ];
   $("eqs").innerHTML = EQUATIONS.map(([e, n]) => `<div class="eqrow"><span class="e">${e}</span><span class="n">${n}</span></div>`).join("");
+
+  /* ══ Classical-vs-Snap-Fit comparison tab ═══════════════════════
+     The uniform snap-fit and the textbook cantilever are the SAME beam
+     (ε coefficient 1.50, force divisor 4). These charts show the three
+     genuine divergences: tapered sections, permissible-vs-yield limit,
+     and the γ large-deflection term the flexure calc adds. */
+  const CLASSICAL_MATS = [
+    { id: "spring", name: "Spring steel", E: 200000, sy: 1200 },
+    { id: "steel", name: "Steel (mild)", E: 200000, sy: 250 },
+    { id: "al", name: "Aluminum 6061-T6", E: 69000, sy: 276 },
+    { id: "ti", name: "Titanium 6Al-4V", E: 110000, sy: 880 },
+    { id: "becu", name: "Beryllium copper", E: 128000, sy: 1000 },
+    { id: "pc", name: "Polycarbonate", E: 2300, sy: 62 },
+  ];
+  const refSel = $("refmat");
+  CLASSICAL_MATS.forEach((m) => { const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; refSel.appendChild(o); });
+  refSel.value = "spring";
+  refSel.addEventListener("change", drawCompare);
+
+  // large-deflection stiffening γ = 1/∫₀¹cosθ dp, matching the app's flexure calc
+  function cosIntegral(c, steps) {
+    const n = steps || 48; let s = 0; const dp = 1 / n;
+    for (let i = 0; i < n; i++) { const p = (i + 0.5) * dp; s += Math.cos(c * (3 * p - 1.5 * p * p)) * dp; }
+    return s;
+  }
+  const gammaAt = (dMm, Lmm) => 1 / Math.max(0.2, cosIntegral(Math.max(-0.95, Math.min(0.95, dMm / Math.max(Lmm, 1e-6)))));
+
+  const axFmt = (v) => Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(2);
+
+  // Generic line chart → SVG string. series:[{pts,color,width,dash,label}],
+  // hlines:[{y,color,label}]; opts:{xlabel,ylabel,yfmt,cx}.
+  function makeChart(W, H, xmax, ymax, series, hlines, opts) {
+    const L = 46, R = W - 96, T = 14, B = H - 30;
+    if (!(xmax > 0) || !(ymax > 0)) return `<text x="${W / 2}" y="${H / 2}" fill="#46515c" font-size="11" text-anchor="middle" font-family="monospace">enter a valid L, t, b to compare</text>`;
+    const X = (x) => L + (Math.max(0, Math.min(x, xmax)) / xmax) * (R - L);
+    const Y = (y) => B - (Math.max(0, Math.min(y, ymax)) / ymax) * (B - T);
+    let s = `<rect x="${L}" y="${T}" width="${R - L}" height="${B - T}" fill="#0b1015" stroke="#141c22"/>`;
+    for (let i = 0; i <= 4; i++) {
+      const gy = T + (B - T) * i / 4, val = ymax * (1 - i / 4);
+      s += `<line x1="${L}" y1="${gy}" x2="${R}" y2="${gy}" stroke="#141c22"/>`;
+      s += `<text x="${L - 6}" y="${gy + 3}" fill="#46515c" font-size="9" text-anchor="end" font-family="monospace">${opts.yfmt(val)}</text>`;
+      const gx = L + (R - L) * i / 4;
+      s += `<text x="${gx}" y="${B + 14}" fill="#46515c" font-size="9" text-anchor="middle" font-family="monospace">${axFmt(xmax * i / 4)}</text>`;
+    }
+    hlines.forEach((h) => {
+      if (!(h.y > 0) || h.y > ymax) return;
+      const gy = Y(h.y);
+      s += `<line x1="${L}" y1="${gy}" x2="${R}" y2="${gy}" stroke="${h.color}" stroke-width="1" stroke-dasharray="5 3"/>`;
+      s += `<text x="${R + 4}" y="${gy + 3}" fill="${h.color}" font-size="8.5" font-family="monospace">${h.label}</text>`;
+    });
+    if (opts.cx != null && opts.cx > 0 && opts.cx <= xmax) {
+      const gx = X(opts.cx);
+      s += `<line x1="${gx}" y1="${T}" x2="${gx}" y2="${B}" stroke="#6b7884" stroke-width="1" stroke-dasharray="2 3"/>`;
+      s += `<text x="${gx}" y="${T - 3}" fill="#6b7884" font-size="8.5" text-anchor="middle" font-family="monospace">design</text>`;
+    }
+    series.forEach((se) => {
+      let d = "";
+      se.pts.forEach((p, i) => { d += (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1); });
+      s += `<path d="${d}" fill="none" stroke="${se.color}" stroke-width="${se.width || 1.6}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ""} stroke-linejoin="round"/>`;
+    });
+    s += `<text x="${(L + R) / 2}" y="${H - 1}" fill="#6b7884" font-size="9" text-anchor="middle" font-family="monospace">${opts.xlabel}</text>`;
+    s += `<text x="9" y="${(T + B) / 2}" fill="#6b7884" font-size="9" text-anchor="middle" font-family="monospace" transform="rotate(-90 9 ${(T + B) / 2})">${opts.ylabel}</text>`;
+    series.forEach((se, i) => {
+      const lx = L + 8, ly = T + 9 + i * 12;
+      s += `<line x1="${lx}" y1="${ly}" x2="${lx + 14}" y2="${ly}" stroke="${se.color}" stroke-width="2.2" ${se.dash ? `stroke-dasharray="${se.dash}"` : ""}/>`;
+      s += `<text x="${lx + 18}" y="${ly + 3}" fill="#8b97a3" font-size="8.5" font-family="monospace">${se.label}</text>`;
+    });
+    return s;
+  }
+
+  function drawCompare() {
+    const inp = collect();
+    const L = inp.L, t = inp.t, b = inp.b, Es = inp.Es, eAllow = inp.eAllow, Kt = inp.Kt || 1, prof = inp.profile;
+    const ref = CLASSICAL_MATS.find((m) => m.id === refSel.value) || CLASSICAL_MATS[0];
+    const epsY = ref.sy / ref.E;
+    $("refmeta").innerHTML = `E = ${(ref.E / 1000).toFixed(0)} GPa · σ_y = ${ref.sy} MPa · ε_y = ${(epsY * 100).toFixed(2)}%`;
+
+    const geomOK = [L, t, b].every((v) => Number.isFinite(v) && v > 0);
+    if (!geomOK) {
+      ["chartA", "chartB", "chartC"].forEach((id) => $(id).innerHTML = makeChart(520, 210, 0, 0, [], [], {}));
+      $("cmpCallout").textContent = "Enter a valid L, t and b to see the comparison.";
+      return;
+    }
+    const snapOK = Number.isFinite(eAllow) && eAllow > 0 && Number.isFinite(Es) && Es > 0 && Number.isFinite(Kt) && Kt >= 1;
+    const curY = Number.isFinite(inp.y) && inp.y > 0 ? inp.y : 0;
+    const xmax = Math.max(0.30 * L, 1.25 * curY, 0.02 * L);
+    const N = 60, xs = [];
+    for (let i = 0; i <= N; i++) xs.push(xmax * i / N);
+    const CE = { uniform: 1.5, taperThickness: 0.92, taperWidth: 1.17 };
+    const CP = { uniform: 4, taperThickness: 6.528, taperWidth: 5.136 };
+    const activeCoef = CE[prof], activeDiv = CP[prof];
+    const strain = (coef, d) => (coef * t * d) / (L * L);
+    const wOf = (prf) => (prf === prof ? 2.4 : 1.3);
+
+    // ── Chart A: peak strain vs deflection (E-independent) ──────
+    const aMax = Math.max(strain(1.5, xmax), snapOK ? eAllow : 0, epsY) * 1.08;
+    const seriesA = [
+      { pts: xs.map((d) => [d, strain(1.5, d)]), color: "#c2ccd4", width: wOf("uniform"), label: "uniform = classical" },
+      { pts: xs.map((d) => [d, strain(0.92, d)]), color: "#3fbfb0", width: wOf("taperThickness"), label: "t-taper 0.92" },
+      { pts: xs.map((d) => [d, strain(1.17, d)]), color: "#3a78c2", width: wOf("taperWidth"), label: "b-taper 1.17" },
+    ];
+    const hlinesA = [{ y: epsY, color: "#d9a441", label: `ε_y ${(epsY * 100).toFixed(2)}%` }];
+    if (snapOK) hlinesA.unshift({ y: eAllow, color: "#4fb477", label: `ε_allow ${(eAllow * 100).toFixed(1)}%` });
+    $("chartA").innerHTML = makeChart(520, 210, xmax, aMax, seriesA, hlinesA,
+      { xlabel: "tip deflection y (mm)", ylabel: "root strain", yfmt: (v) => (v * 100).toFixed(1) + "%", cx: curY });
+
+    // ── Chart B: force vs deflection, snap material ─────────────
+    if (snapOK) {
+      const force = (cp, d) => (Es * b * Math.pow(t / L, 3) * d) / cp;
+      const bMax = force(4, xmax) * gammaAt(xmax, L) * 1.06;
+      const seriesB = [
+        { pts: xs.map((d) => [d, force(4, d)]), color: "#c2ccd4", width: wOf("uniform"), label: "uniform P" },
+        { pts: xs.map((d) => [d, force(6.528, d)]), color: "#3fbfb0", width: wOf("taperThickness"), label: "t-taper P" },
+        { pts: xs.map((d) => [d, force(5.136, d)]), color: "#3a78c2", width: wOf("taperWidth"), label: "b-taper P" },
+        { pts: xs.map((d) => [d, force(4, d) * gammaAt(d, L)]), color: "#c2ccd4", width: 1.3, dash: "5 3", label: "uniform ×γ (flexure)" },
+      ];
+      $("chartB").innerHTML = makeChart(520, 210, xmax, bMax, seriesB, [],
+        { xlabel: "tip deflection y (mm)", ylabel: "force (N)", yfmt: (v) => v.toFixed(v >= 10 ? 0 : 1), cx: curY });
+    } else {
+      $("chartB").innerHTML = makeChart(520, 210, xmax, 1, [], [], { xlabel: "tip deflection y (mm)", ylabel: "force (N)", yfmt: (v) => v.toFixed(0), cx: curY });
+    }
+
+    // ── Chart C: utilization vs deflection ──────────────────────
+    const uClass = (d) => strain(1.5, d) / epsY; // σ/σ_y ≡ ε/ε_y (E cancels)
+    const seriesC = [{ pts: xs.map((d) => [d, uClass(d)]), color: "#d9a441", width: 2.2, label: "classical σ/σ_y" }];
+    if (snapOK) seriesC.unshift({ pts: xs.map((d) => [d, (Kt * strain(activeCoef, d)) / eAllow]), color: "#3a78c2", width: 2.2, label: "snap  Kt·ε/ε_allow" });
+    $("chartC").innerHTML = makeChart(520, 210, xmax, 2.5, seriesC, [{ y: 1, color: "#d65c5c", label: "limit = 1" }],
+      { xlabel: "tip deflection y (mm)", ylabel: "utilization", yfmt: (v) => v.toFixed(1), cx: curY });
+
+    // ── Callout: allowable deflection under each criterion ──────
+    const dClass = (epsY * L * L) / (1.5 * t);
+    const profName = prof === "uniform" ? "uniform" : prof === "taperThickness" ? "t-taper" : "b-taper";
+    if (snapOK) {
+      const dSnap = (eAllow * L * L) / (activeCoef * t * Kt);
+      const ratio = dClass > 0 ? dSnap / dClass : Infinity;
+      $("cmpCallout").innerHTML = `Same L=${axFmt(L)} · t=${axFmt(t)} · b=${axFmt(b)} mm arm — a <b style="color:#d9a441">${ref.name}</b> flexure reaches yield at δ ≈ <b>${dClass.toFixed(2)} mm</b>; this ${profName} snap (ε_allow ${(eAllow * 100).toFixed(1)}%, Kt ${Kt.toFixed(2)}) is permissible to y ≈ <b>${dSnap.toFixed(2)} mm</b> — ${isFinite(ratio) ? "<b>" + ratio.toFixed(1) + "×</b> the travel" : "—"}.`;
+    } else {
+      $("cmpCallout").innerHTML = `A <b style="color:#d9a441">${ref.name}</b> flexure of this geometry reaches yield at δ ≈ <b>${dClass.toFixed(2)} mm</b>. Enter a valid ε_allow / Es / Kt to compare the snap side.`;
+    }
+  }
 
   /* ── engine glue ────────────────────────────────────────────── */
   function collect(yOverride) {
@@ -360,6 +591,7 @@
   const css = (rgb, sh) => `rgb(${rgb.map((v) => Math.round(Math.min(1, v * sh) * 255)).join(",")})`;
 
   function drawScene() {
+    if (!wrap.offsetParent) return; // 3D tab hidden — skip (0-size canvas otherwise)
     const W = wrap.clientWidth, H = wrap.clientHeight || 320;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) { canvas.width = W * dpr; canvas.height = H * dpr; }
@@ -667,9 +899,19 @@
     rebuildGeom();
     renderResults(null);
     updateLiveCaption();
+    drawCompare();
   }
   ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
   window.addEventListener("resize", drawScene);
+
+  // tab switching between the 3D view and the comparison charts
+  document.querySelectorAll(".tab").forEach((btn) => btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.toggle("on", x === btn));
+    const t = btn.dataset.tab;
+    $("tab-view3d").hidden = t !== "view3d";
+    $("tab-compare").hidden = t !== "compare";
+    if (t === "compare") drawCompare();
+  }));
 
   onEdit();
   tick();
