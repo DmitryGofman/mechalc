@@ -110,6 +110,28 @@
   .cmp-eq tr td:first-child { color: var(--mid); white-space: nowrap; }
   .cmp-prose { font-family: var(--sans); font-size: 12.5px; color: var(--dim); line-height: 1.7; margin: 0 0 12px; }
   .cmp-prose strong { color: #c2ccd4; }
+  /* parameter tooltips: hover on desktop, tap (focus) on touch */
+  .hint { display: inline-flex; align-items: center; justify-content: center; width: 13px; height: 13px;
+    margin-left: 5px; border: 1px solid var(--faint); border-radius: 50%; color: var(--faint);
+    font-family: var(--mono); font-size: 8.5px; font-weight: 700; cursor: help; position: relative;
+    vertical-align: 1px; text-transform: none; letter-spacing: 0; user-select: none; }
+  .hint:hover, .hint:focus { border-color: var(--blue); color: var(--blue); outline: none; }
+  .hint::after {
+    content: attr(data-tip); position: absolute; bottom: calc(100% + 7px); left: 50%;
+    transform: translateX(-50%); width: 230px; background: #131a21; border: 1px solid var(--line);
+    border-radius: 3px; padding: 8px 10px; color: var(--ink); font-family: var(--sans);
+    font-size: 11px; font-weight: 400; line-height: 1.55; text-align: left; white-space: normal;
+    opacity: 0; pointer-events: none; transition: opacity .12s; z-index: 30;
+    box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .hint:hover::after, .hint:focus::after { opacity: 1; }
+  /* keep tooltips on-screen at panel edges */
+  .fld .hint::after { left: 0; transform: none; }
+  .readout .hint::after { left: auto; right: 0; transform: none; }
+  /* cards near the top of the page open their tooltip downward instead */
+  .sfhead .hint::after { bottom: auto; top: calc(100% + 7px); left: auto; right: -60px; transform: none; }
+  .theory-link { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--blue);
+    text-decoration: none; border: 1px solid var(--line); border-radius: 2px; padding: 5px 10px; }
+  .theory-link:hover { border-color: var(--blue); }
 </style>
 </head>
 <body>
@@ -130,47 +152,47 @@
     <!-- INPUTS -->
     <div class="inputs">
       <div class="fld">
-        <label>Material</label>
+        <label>Material<i class="hint" tabindex="0" data-tip="Educational presets that fill the secant modulus and permissible strain below. They are generic teaching values — for a real part use your exact grade's datasheet, at the right temperature and moisture state.">?</i></label>
         <select id="mat"></select>
         <div class="note" id="matmeta"></div>
         <div class="note warn" id="matnote"></div>
       </div>
       <div class="fld">
-        <label>Beam profile</label>
+        <label>Beam profile<i class="hint" tabindex="0" data-tip="How the cross-section changes from root to tip. Tapering sheds root strain for the same undercut: a thickness taper to t/2 allows ~63% more deflection, a width taper to b/4 ~28% more.">?</i></label>
         <select id="profile">
           <option value="uniform">Uniform section</option>
           <option value="taperThickness">Thickness taper t → t/2</option>
           <option value="taperWidth">Width taper b → b/4</option>
         </select>
       </div>
-      <div class="fld"><label>Length L <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
-      <div class="fld"><label>Width b <span>mm</span></label><input id="b" type="number" step="0.5" value="9.5"></div>
-      <div class="fld"><label>Thickness t <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
-      <div class="fld"><label>Undercut y <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
+      <div class="fld"><label>Length L<i class="hint" tabindex="0" data-tip="Arm length from the wall to where the hook touches the mating edge. Your strongest lever: strain falls with L² and force with L³, so a slightly longer arm helps a lot.">?</i> <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
+      <div class="fld"><label>Width b<i class="hint" tabindex="0" data-tip="Beam width at the root (out of the bending plane). Width changes force in direct proportion but does NOT change strain — widen the arm for retention force, not for survivability.">?</i> <span>mm</span></label><input id="b" type="number" step="0.5" value="9.5"></div>
+      <div class="fld"><label>Thickness t<i class="hint" tabindex="0" data-tip="Beam thickness at the root, in the bending direction. Strain grows with t, force with t³ — a thinner arm is both safer and easier to push. Thin here before shortening L.">?</i> <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
+      <div class="fld"><label>Undercut y<i class="hint" tabindex="0" data-tip="How far the hook must deflect to slide past the mating edge — the engagement depth. This is the travel you're designing for; more undercut = stronger retention but more strain.">?</i> <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
       <div class="duo">
-        <div class="fld"><label>Entry α <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
-        <div class="fld"><label>Return α′ <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
+        <div class="fld"><label>Entry α<i class="hint" tabindex="0" data-tip="Ramp angle on the face the mating part pushes over during assembly. Shallower = easier insertion. Past 1−μ·tanα = 0 the wedge self-locks and no finite push assembles it.">?</i> <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
+        <div class="fld"><label>Return α′<i class="hint" tabindex="0" data-tip="Ramp angle on the back face, which sets the removal force. Steeper = harder to pull apart; 90° means no sliding release — a permanent joint.">?</i> <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
       </div>
       <div class="duo">
-        <div class="fld"><label>Friction μ</label><input id="mu" type="number" step="0.02" value="0.30"></div>
-        <div class="fld"><label>Fillet R <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
+        <div class="fld"><label>Friction μ<i class="hint" tabindex="0" data-tip="Coulomb friction coefficient between the sliding faces. Plastic-on-plastic is typically 0.2–0.6 and shifts with texture, speed and wear — treat it as a range, not one number.">?</i></label><input id="mu" type="number" step="0.02" value="0.30"></div>
+        <div class="fld"><label>Fillet R<i class="hint" tabindex="0" data-tip="Radius where the arm meets the wall. A sharp corner concentrates strain right where it already peaks — aim for R/t ≥ 0.5. Very large fillets create a thick molded section instead.">?</i> <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
       </div>
       <div class="duo">
-        <div class="fld"><label>ε allow <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
-        <div class="fld"><label>Kt</label><input id="Kt" type="number" step="0.05" value="1.00"></div>
+        <div class="fld"><label>ε allow<i class="hint" tabindex="0" data-tip="Permissible strain — the most the material may be stretched ONCE without damage, from the supplier's datasheet (often ~half the yield/break strain). Tough plastics: 3–8%. Use lower values for repeated use.">?</i> <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
+        <div class="fld"><label>Kt<i class="hint" tabindex="0" data-tip="Stress-concentration factor at the root — multiplies the calculated strain to account for the sharp corner. Use 1.00 when not included, or a traceable value from a chart/FEA. Never guess it.">?</i></label><input id="Kt" type="number" step="0.05" value="1.00"></div>
       </div>
-      <div class="fld"><label>Secant modulus E<sub>s</sub> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
+      <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
     </div>
 
     <!-- OUTPUTS -->
     <div>
       <div class="sfcard" id="sfcard">
         <div class="sfhead">
-          <span class="lab">STRAIN UTILIZATION</span>
+          <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
           <span class="badge" id="badge">—</span>
         </div>
         <div class="sfval" id="sfval">—</div>
-        <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub></div>
+        <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
       </div>
       <div id="readouts"></div>
       <div id="warns"></div>
@@ -258,7 +280,10 @@
 
   <!-- THEORY -->
   <div class="theory">
-    <div class="lab">Theory &amp; Equations</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="lab" style="margin-bottom:0">Theory &amp; Equations</div>
+      <a class="theory-link" href="./theory.html">FULL DERIVATIONS &amp; DESIGN IDEAS →</a>
+    </div>
     <div id="eqs"></div>
     <div class="legend">
       E<sub>s</sub> secant modulus · I second moment of area · L arm length · t thickness (bending direction) ·
@@ -299,13 +324,23 @@
   const num = (id) => parseFloat($(id).value);
   const fmt = (n, d) => (n === null || !isFinite(n)) ? "—" : n.toFixed(d !== undefined ? d : (Math.abs(n) >= 100 ? 0 : Math.abs(n) >= 10 ? 1 : 2));
 
-  /* ── materials ──────────────────────────────────────────────── */
+  /* ── materials, grouped molded / printed ────────────────────── */
   const matSel = $("mat");
-  SnapFit.MATERIALS.forEach((m) => { const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; matSel.appendChild(o); });
+  const addGroup = (label, filter) => {
+    const g = document.createElement("optgroup"); g.label = label;
+    SnapFit.MATERIALS.filter(filter).forEach((m) => {
+      const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; g.appendChild(o);
+    });
+    matSel.appendChild(g);
+  };
+  addGroup("Molded (educational)", (m) => !m.printed && m.id !== "custom");
+  addGroup("3D-printed (educational)", (m) => m.printed);
+  addGroup("—", (m) => m.id === "custom");
   matSel.value = "pa66-cond";
   function applyMat() {
     const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
-    $("matnote").textContent = m.note;
+    $("matnote").textContent = m.printed ? "⚠ " + m.note : m.note;
+    $("matnote").classList.toggle("warn", !!m.printed);
     if (m.Es !== null) {
       $("Es").value = m.Es; $("eAllow").value = (m.eAllow * 100).toFixed(1);
       $("matmeta").innerHTML = `E<sub>s</sub> = ${m.Es} MPa · ε<sub>allow</sub> = ${(m.eAllow * 100).toFixed(1)}%`;
@@ -500,13 +535,26 @@
       return r;
     }
     const v = r.values;
-    const row = (k, val) => ro.insertAdjacentHTML("beforeend", `<div class="readout"><span class="k">${k}</span><span class="v">${val}</span></div>`);
-    row("Root strain · Kt", `${(v.epsEff * 100).toFixed(2)} <small>% / ${(inp.eAllow * 100).toFixed(1)}%</small>`);
-    row("Deflection force P", `${fmt(v.P)} <small>N</small>`);
-    row("Insertion force W", r.selfLock.insert ? `<span style="color:var(--amber)">SELF-LOCKING</span>` : `${fmt(v.W)} <small>N</small>`);
-    row("Removal force W′", r.selfLock.remove ? `<span style="color:var(--amber)">${num("alphaP") >= 90 ? "PERMANENT" : "SELF-LOCKING"}</span>` : `${fmt(v.Wremove)} <small>N</small>`);
-    row("Stiffness k", `${fmt(v.k)} <small>N/mm</small>`);
-    row("Checks", `<small>L/t ${fmt(v.slenderness, 1)} · y/L ${fmt(v.deflectionRatio, 2)} · R/t ${v.RoverT === null ? "—" : fmt(v.RoverT, 2)}</small>`);
+    const hint = (tip) => `<i class='hint' tabindex='0' data-tip='${tip}'>?</i>`;
+    const row = (k, tip, val) => ro.insertAdjacentHTML("beforeend", `<div class="readout"><span class="k">${k}${hint(tip)}</span><span class="v">${val}</span></div>`);
+    row("Root strain · Kt",
+      "How far the surface at the arm's root is stretched at full deflection, as a percent (2.39% = stretched by 2.39% of its length), times Kt. Compared against the permissible strain — pure geometry: ε = C·t·y/L².",
+      `${(v.epsEff * 100).toFixed(2)} <small>% / ${(inp.eAllow * 100).toFixed(1)}%</small>`);
+    row("Deflection force P",
+      "Sideways force needed to bend the arm through the full undercut y — what the mating edge must exert on the hook. Scales with the secant modulus.",
+      `${fmt(v.P)} <small>N</small>`);
+    row("Insertion force W",
+      "Push force to assemble the joint: P redirected through the entry ramp plus friction, W = P·(μ+tanα)/(1−μ·tanα). SELF-LOCKING means the wedge model predicts no finite push will assemble it.",
+      r.selfLock.insert ? `<span style="color:var(--amber)">SELF-LOCKING</span>` : `${fmt(v.W)} <small>N</small>`);
+    row("Removal force W′",
+      "Pull force to separate the joint, same wedge equation with the return angle α′. PERMANENT means α′ = 90° — no sliding release by design.",
+      r.selfLock.remove ? `<span style="color:var(--amber)">${num("alphaP") >= 90 ? "PERMANENT" : "SELF-LOCKING"}</span>` : `${fmt(v.Wremove)} <small>N</small>`);
+    row("Stiffness k",
+      "Spring rate of the arm: newtons of tip force per millimetre of deflection, k = P/y. Useful for comparing designs and for tolerance thinking — a stiff arm turns small dimension errors into big force changes.",
+      `${fmt(v.k)} <small>N/mm</small>`);
+    row("Checks",
+      "Model applicability at a glance. L/t (slenderness) should be ≥ 10 for beam theory; y/L (relative deflection) ≤ 0.1 for the linear model; R/t (fillet ratio) ≥ 0.5 to avoid a sharp-root concentration.",
+      `<small>L/t ${fmt(v.slenderness, 1)} · y/L ${fmt(v.deflectionRatio, 2)} · R/t ${v.RoverT === null ? "—" : fmt(v.RoverT, 2)}</small>`);
     r.warnings.forEach((w) => warns.insertAdjacentHTML("beforeend", `<div class="warn ${w.level}">${w.msg}</div>`));
     const xc = SnapFit.crossCheck(inp, 800);
     $("xc").textContent = "Δ " + (xc.diffPct >= 0 ? "+" : "") + xc.diffPct.toFixed(2) + "%";

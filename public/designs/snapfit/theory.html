@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SnapLab — Theory, Derivations &amp; Design Ideas</title>
+<style>
+  :root {
+    --bg: #080c10; --panel: #0b1015; --line: #1f2a33; --line2: #141c22;
+    --ink: #e8edf1; --dim: #8b97a3; --faint: #46515c; --mid: #6b7884;
+    --blue: #3a78c2; --green: #4fb477; --amber: #d9a441; --red: #d65c5c;
+    --mono: "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  .page { max-width: 760px; margin: 0 auto; padding: 24px 16px 60px; }
+  a.back { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--faint); text-decoration: none; margin-right: 16px; }
+  a.back:hover { color: var(--blue); }
+  .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); margin-top: 12px; }
+  h1 { margin: 6px 0 0; font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
+  .lede { font-size: 13px; color: var(--dim); line-height: 1.7; max-width: 640px; margin: 10px 0 0; }
+  h2 { font-family: var(--mono); font-size: 11px; letter-spacing: .2em; text-transform: uppercase; color: var(--blue);
+       font-weight: 600; margin: 40px 0 12px; padding-top: 18px; border-top: 1px solid var(--line2); }
+  p { font-size: 13px; color: var(--dim); line-height: 1.75; margin: 0 0 12px; }
+  p strong, li strong { color: #c2ccd4; }
+  ul { margin: 0 0 12px; padding-left: 20px; }
+  li { font-size: 13px; color: var(--dim); line-height: 1.7; margin-bottom: 6px; }
+  math[display="block"] { display: block; margin: 14px auto 16px; font-size: 19px; color: var(--ink);
+    text-align: center; overflow-x: auto; }
+  .boxed { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--green);
+    border-radius: 3px; padding: 12px 8px; margin: 14px 0 16px; }
+  .boxed math[display="block"] { margin: 0 auto; }
+  .boxed .why { font-family: var(--mono); font-size: 10px; color: var(--faint); text-align: center; margin-top: 8px; }
+  .var { font-family: var(--mono); font-size: 11px; color: var(--mid); line-height: 1.9; background: var(--panel);
+    border: 1px solid var(--line2); border-radius: 3px; padding: 10px 14px; margin: 0 0 12px; }
+  .var b { color: var(--ink); font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin: 10px 0 16px; }
+  th { font-family: var(--mono); font-size: 9.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--mid);
+       text-align: left; padding: 7px 9px; border-bottom: 1px solid var(--line); background: var(--panel); font-weight: 600; }
+  td { padding: 8px 9px; border-bottom: 1px solid var(--line2); color: var(--dim); line-height: 1.55; vertical-align: top; }
+  td:first-child { color: var(--ink); }
+  td.num { font-family: var(--mono); white-space: nowrap; }
+  td .g { color: var(--green); font-family: var(--mono); font-weight: 600; }
+  .note { font-family: var(--mono); font-size: 10.5px; color: var(--faint); line-height: 1.7; border-left: 2px solid var(--line);
+          padding: 8px 12px; margin: 12px 0; }
+  .note.warn { border-color: var(--amber); color: #c9ae76; }
+  footer { font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.8; margin-top: 40px;
+           border-top: 1px solid var(--line2); padding-top: 14px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div>
+    <a class="back" href="./index.html">← DESIGN CANDIDATES</a>
+    <a class="back" href="./design-e-flexure3d.html">← FLEXURE TWIN CALCULATOR</a>
+  </div>
+  <div class="kicker">MECHCALC · SNAPLAB — THEORY PAGE</div>
+  <h1>Snap-Fit Theory, Derivations &amp; Design Ideas</h1>
+  <p class="lede">Every equation the calculator uses, derived from first principles, plus the handbook
+    tricks for buying more deflection than a plain beam allows. Sources: BASF <em>Snap-Fit Design
+    Manual</em> and Bayer <em>Snap-Fit Joints for Plastics</em>; the section constants are re-derived
+    here and cross-checked numerically in the calculator at runtime.</p>
+
+  <h2>1 · Model &amp; symbols</h2>
+  <p>A cantilever snap-fit is treated as an end-loaded Euler–Bernoulli beam: plane sections stay plane,
+    shear deformation is negligible, the root is ideally fixed in a rigid wall, and deflections are small
+    enough to use the undeformed geometry. The polymer is represented by a secant modulus at the working
+    strain (§5). Everything below follows from those assumptions — and fails with them, which is why the
+    calculator holds its verdict outside the envelope (short arms L/t &lt; 10, large deflection
+    y/L &gt; 0.1–0.25).</p>
+  <div class="var">
+    <b>L</b> arm length (mm) · <b>b</b> root width (mm) · <b>t</b> root thickness (mm) ·
+    <b>y</b> undercut = tip deflection (mm) · <b>P</b> transverse tip force (N) ·
+    <b>W, W′</b> insertion / removal force (N) · <b>E<sub>s</sub></b> secant modulus (MPa) ·
+    <b>I</b> second moment of area (mm⁴) · <b>ε</b> root surface strain (–) ·
+    <b>α, α′</b> entry / return ramp angle · <b>μ</b> friction coefficient ·
+    <b>K<sub>t</sub></b> concentration factor · <b>R</b> root fillet radius (mm)
+  </div>
+
+  <h2>2 · The uniform arm — identical to the classical cantilever</h2>
+  <p>For a rectangular section, the second moment of area and the standard end-loaded cantilever
+    deflection are</p>
+  <math display="block"><mrow>
+    <mi>I</mi><mo>=</mo><mfrac><mrow><mi>b</mi><msup><mi>t</mi><mn>3</mn></msup></mrow><mn>12</mn></mfrac>
+    <mspace width="2.5em"/>
+    <mi>y</mi><mo>=</mo><mfrac><mrow><mi>P</mi><msup><mi>L</mi><mn>3</mn></msup></mrow>
+    <mrow><mn>3</mn><msub><mi>E</mi><mi>s</mi></msub><mi>I</mi></mrow></mfrac>
+  </mrow></math>
+  <p>Substituting I and solving for the force to reach a prescribed deflection y:</p>
+  <math display="block"><mrow>
+    <mi>P</mi><mo>=</mo>
+    <mfrac><mrow><msub><mi>E</mi><mi>s</mi></msub><mi>b</mi><msup><mi>t</mi><mn>3</mn></msup></mrow>
+    <mrow><mn>4</mn><msup><mi>L</mi><mn>3</mn></msup></mrow></mfrac><mo>&#8290;</mo><mi>y</mi>
+    <mspace width="2.5em"/>
+    <mi>k</mi><mo>=</mo><mfrac><mi>P</mi><mi>y</mi></mfrac><mo>=</mo>
+    <mfrac><mrow><msub><mi>E</mi><mi>s</mi></msub><mi>b</mi></mrow><mn>4</mn></mfrac>
+    <msup><mrow><mo>(</mo><mfrac><mi>t</mi><mi>L</mi></mfrac><mo>)</mo></mrow><mn>3</mn></msup>
+  </mrow></math>
+  <p>The bending moment peaks at the root, M<sub>max</sub> = P·L, and the surface strain there is
+    ε = M·(t/2)/(E<sub>s</sub>·I). Substituting P eliminates the modulus entirely:</p>
+  <div class="boxed">
+    <math display="block"><mrow>
+      <msub><mi>ε</mi><mrow><mi>m</mi><mi>a</mi><mi>x</mi></mrow></msub><mo>=</mo>
+      <mfrac><mrow><mn>3</mn><mi>t</mi><mo>&#8290;</mo><mi>y</mi></mrow>
+      <mrow><mn>2</mn><msup><mi>L</mi><mn>2</mn></msup></mrow></mfrac>
+      <mo>=</mo><mn>1.50</mn><mo>&#8290;</mo>
+      <mfrac><mrow><mi>t</mi><mo>&#8290;</mo><mi>y</mi></mrow><msup><mi>L</mi><mn>2</mn></msup></mfrac>
+    </mrow></math>
+    <div class="why">strain is pure geometry — the modulus only sets the force</div>
+  </div>
+  <p>This is the deepest fact in snap-fit design: in a <strong>displacement-controlled</strong> event
+    (the hook must travel y, whatever that takes), the strain depends only on the shape. A softer grade
+    doesn't reduce strain — it only makes the click easier. To survive, change geometry: strain falls
+    with <strong>L²</strong>, linearly with thinner <strong>t</strong>, and not at all with
+    <strong>b</strong>.</p>
+
+  <h2>3 · Tapered arms</h2>
+  <p>For a variable section, Castigliano's theorem gives the tip compliance as an integral over the
+    varying stiffness:</p>
+  <math display="block"><mrow>
+    <mi>y</mi><mo>=</mo><mi>P</mi>
+    <msubsup><mo>&#8747;</mo><mn>0</mn><mi>L</mi></msubsup>
+    <mfrac><msup><mrow><mo>(</mo><mi>L</mi><mo>&#8722;</mo><mi>x</mi><mo>)</mo></mrow><mn>2</mn></msup>
+    <mrow><msub><mi>E</mi><mi>s</mi></msub><mi>I</mi><mo>(</mo><mi>x</mi><mo>)</mo></mrow></mfrac>
+    <mi>d</mi><mi>x</mi>
+  </mrow></math>
+  <p>With a linear thickness taper t(x) = t·(1 − x/2L) (tip = t/2) or a width taper
+    b(x) = b·(1 − 3x/4L) (tip = b/4), the integral evaluates to the handbook constants. The calculator
+    re-computes this integral numerically on every run and displays the Δ% against the closed form —
+    that's the "independent check" line.</p>
+  <table>
+    <tr><th>Profile</th><th>Force</th><th>Root strain</th><th>Permissible deflection vs uniform</th></tr>
+    <tr><td>Uniform</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 4</td><td class="num">ε = 1.50·ty/L²</td><td class="num">×1.00</td></tr>
+    <tr><td>Thickness taper t→t/2</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 6.528</td><td class="num">ε = 0.92·ty/L²</td><td class="num"><span class="g">×1.63</span></td></tr>
+    <tr><td>Width taper b→b/4</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 5.136</td><td class="num">ε = 1.17·ty/L²</td><td class="num"><span class="g">×1.28</span></td></tr>
+  </table>
+  <p>Why tapering helps: a uniform arm is "wasted" toward the tip, where the bending moment is small.
+    Removing material there softens the whole arm (more deflection per unit strain) while the root — the
+    critical section — keeps its full depth. The thickness taper also spreads strain more evenly along
+    the arm instead of concentrating it at the root.</p>
+
+  <h2>4 · Assembly &amp; removal force</h2>
+  <p>During assembly the mating edge pushes on the entry ramp. Resolving the normal force N and the
+    friction force μN along and across the insertion direction:</p>
+  <math display="block"><mrow>
+    <mi>W</mi><mo>=</mo><mi>N</mi><mo>(</mo><mi>sin</mi><mo>&#8290;</mo><mi>α</mi><mo>+</mo>
+    <mi>μ</mi><mo>&#8290;</mo><mi>cos</mi><mo>&#8290;</mo><mi>α</mi><mo>)</mo>
+    <mspace width="2.5em"/>
+    <mi>P</mi><mo>=</mo><mi>N</mi><mo>(</mo><mi>cos</mi><mo>&#8290;</mo><mi>α</mi><mo>&#8722;</mo>
+    <mi>μ</mi><mo>&#8290;</mo><mi>sin</mi><mo>&#8290;</mo><mi>α</mi><mo>)</mo>
+  </mrow></math>
+  <p>Dividing the two eliminates N:</p>
+  <div class="boxed">
+    <math display="block"><mrow>
+      <mi>W</mi><mo>=</mo><mi>P</mi><mo>&#8290;</mo>
+      <mfrac><mrow><mi>μ</mi><mo>+</mo><mi>tan</mi><mo>&#8290;</mo><mi>α</mi></mrow>
+      <mrow><mn>1</mn><mo>&#8722;</mo><mi>μ</mi><mo>&#8290;</mo><mi>tan</mi><mo>&#8290;</mo><mi>α</mi></mrow></mfrac>
+    </mrow></math>
+    <div class="why">same equation with α′ for removal · denominator ≤ 0 → self-locking</div>
+  </div>
+  <p>The denominator is a real physical limit, not a math quirk: when μ·tanα ≥ 1 the harder you push,
+    the harder the wedge grips — the idealized model predicts <strong>no finite force</strong> assembles
+    the joint. The calculator refuses to display a number there. Used deliberately on the
+    <em>return</em> face (large α′, or 90°), self-locking is how you design a permanent joint.</p>
+
+  <h2>5 · Secant modulus</h2>
+  <p>Plastics don't have one stiffness. The stress–strain curve bends over well before yield, so the
+    tangent at zero (the datasheet "Young's modulus") overestimates stiffness at snap-fit strains of
+    several percent. The honest single number is the <strong>secant modulus</strong> — the slope of a
+    straight line from the origin to the operating point on the curve:</p>
+  <math display="block"><mrow>
+    <msub><mi>E</mi><mi>s</mi></msub><mo>(</mo><mi>ε</mi><mo>)</mo><mo>=</mo>
+    <mfrac><mrow><mi>σ</mi><mo>(</mo><mi>ε</mi><mo>)</mo></mrow><mi>ε</mi></mfrac>
+  </mrow></math>
+  <p>Because strain is pure geometry (§2), you can compute ε first, then read E<sub>s</sub> at that
+    strain from the material's curve — one pass, no iteration. E<sub>s</sub> depends on temperature,
+    moisture (nylons especially: PA66 drops from ~2800 MPa dry to ~1200 MPa conditioned) and strain
+    rate. Use the curve for your actual grade and state.</p>
+
+  <h2>6 · The verdict: permissible strain &amp; utilization</h2>
+  <p>A metal flexure is checked against yield. A molded snap is checked against a
+    <strong>permissible strain</strong> ε<sub>allow</sub> — a design value from the supplier, typically
+    about half the strain at yield or break for a single assembly event, lower for repeated use. The
+    calculator reports</p>
+  <math display="block"><mrow>
+    <mi>U</mi><mo>=</mo>
+    <mfrac><mrow><msub><mi>K</mi><mi>t</mi></msub><mo>&#8290;</mo><msub><mi>ε</mi><mrow><mi>c</mi><mi>a</mi><mi>l</mi><mi>c</mi></mrow></msub></mrow>
+    <msub><mi>ε</mi><mrow><mi>a</mi><mi>l</mi><mi>l</mi><mi>o</mi><mi>w</mi></mrow></msub></mfrac>
+  </mrow></math>
+  <p><strong>U is the fraction of the strain budget spent.</strong> U = 0.40 means the click uses 40%
+    of what the material tolerates — comfortable. U = 1 is the edge. The verdict has four states, not
+    two: <strong>pass</strong> (model applicable, U ≤ 1), <strong>fail</strong> (U &gt; 1),
+    <strong>indeterminate</strong> (the model itself isn't credible here — short arm, huge deflection,
+    self-locking ramp — so no number is trustworthy), and <strong>invalid</strong> (nonsense input).
+    A pass clears the assembly event only; creep, fatigue, and environment need their own evidence.</p>
+
+  <h2>7 · Getting more travel — the handbook design ideas</h2>
+  <p>You mentioned the handbooks achieve much higher deflection ratios with certain designs — correct,
+    and here is the toolbox. Permissible undercut for a given arm is
+    y<sub>max</sub> = ε<sub>allow</sub>·L²/(C<sub>ε</sub>·t·K<sub>t</sub>), so anything that raises L,
+    lowers C<sub>ε</sub>, lowers K<sub>t</sub> or shares the deflection multiplies your travel:</p>
+  <table>
+    <tr><th>Design idea</th><th>Gain in permissible deflection</th><th>Cost / caveat</th></tr>
+    <tr><td><strong>Thickness taper</strong> t → t/2</td><td class="num"><span class="g">×1.63</span></td>
+      <td>Slightly weaker hook base; supported by this calculator.</td></tr>
+    <tr><td><strong>Width taper</strong> b → b/4</td><td class="num"><span class="g">×1.28</span></td>
+      <td>Narrow tip needs room for the hook; supported by this calculator.</td></tr>
+    <tr><td><strong>Lengthen the arm</strong> ×1.5</td><td class="num"><span class="g">×2.25</span> (L²)</td>
+      <td>Package space; retention stiffness falls with L³ — check holding force.</td></tr>
+    <tr><td><strong>Both parts flexible</strong> — arm and mating edge each deflect</td>
+      <td class="num"><span class="g">up to ×2</span></td>
+      <td>The required y splits between the two members in proportion to their compliances. Needs both parts designed for it.</td></tr>
+    <tr><td><strong>U-shaped / folded arm</strong> — the arm doubles back on itself</td>
+      <td class="num"><span class="g">×4+</span> (effective L doubled in the same envelope)</td>
+      <td>The big one for tight packages. Curved-root behavior is beyond this v1 beam model — design by handbook chart or FEA. Planned for v2.</td></tr>
+    <tr><td><strong>Generous root fillet</strong> R/t ≥ 0.5</td>
+      <td class="num"><span class="g">removes the K<sub>t</sub> penalty</span> (a sharp corner can cost 2–3×)</td>
+      <td>Very large R creates a thick section → sink marks and voids. R/t ≈ 0.5–0.6 is the sweet spot.</td></tr>
+    <tr><td><strong>Material state</strong> — e.g. conditioned PA66 instead of dry</td>
+      <td class="num"><span class="g">×1.5</span> on ε<sub>allow</sub> (4% → 6%)</td>
+      <td>Only if the part really lives conditioned; dry-as-molded parts must survive assembly dry.</td></tr>
+    <tr><td><strong>Assembly aids</strong> — lead-ins, shallow α, lubricant</td>
+      <td class="num">lowers W, not strain</td>
+      <td>Helps force problems, not survivability. Lubricants change μ permanently — retest removal.</td></tr>
+  </table>
+  <p>These multiply: a thickness-tapered arm, 1.5× longer, with a proper fillet on a conditioned nylon
+    can legitimately take <strong>5–8×</strong> the undercut of a naive short, sharp-cornered, uniform
+    arm — which is exactly the spread you see between the conservative worked examples and the
+    aggressive production designs in the manuals.</p>
+
+  <h2>8 · A note on printed plastics</h2>
+  <p>The calculator now includes educational entries for printed materials — PC-ABS (molded blend),
+    PA12 MJF, and FDM PETG / PLA / ABS. Two honest cautions:</p>
+  <ul>
+    <li><strong>Anisotropy.</strong> FDM parts are far weaker across layer lines than along them. The
+      beam model assumes one material in every direction — orient the arm so bending stays in the XY
+      plane, and treat the numbers as in-plane values. MJF is much closer to isotropic but still
+      deserves printed-coupon verification.</li>
+    <li><strong>Creep and brittleness.</strong> PLA is stiff but brittle and creeps at room temperature —
+      poor for reusable snaps. PETG and PA12 behave much better. For any printed snap that stays loaded,
+      test a printed coupon over time; the datasheet won't tell you.</li>
+  </ul>
+  <div class="note warn">All material values in this tool are generic educational defaults, never
+    production allowables. The material card names the state (dry / conditioned / XY printed) because
+    the same polymer can differ by 2× between states.</div>
+
+  <footer>
+    SOURCES — BASF Snap-Fit Design Manual · Bayer MaterialScience, Snap-Fit Joints for Plastics.
+    Constants ÷4 / ÷6.528 / ÷5.136 and coefficients 1.50 / 0.92 / 1.17 re-derived via the Castigliano
+    integral and verified by 30 automated tests plus a runtime cross-check in snapfit-engine.js.
+    Equations are typeset in native MathML — no external libraries.
+  </footer>
+</div>
+</body>
+</html>

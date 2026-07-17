@@ -436,6 +436,11 @@
     { id: "pom", name: "POM (acetal)", Es: 2600, eAllow: 0.04, note: "Generic educational value — unfilled acetal, 23 °C. Not a production allowable." },
     { id: "pp", name: "PP", Es: 1300, eAllow: 0.05, note: "Generic educational value — unfilled polypropylene, 23 °C. Not a production allowable." },
     { id: "pbt-gf30", name: "PBT-GF30", Es: 8000, eAllow: 0.012, note: "Generic educational value — 30% glass PBT, flow direction, 23 °C. Anisotropy NOT modelled. Not a production allowable." },
+    { id: "pc-abs", name: "PC-ABS blend", Es: 2200, eAllow: 0.03, note: "Generic educational value — molded PC-ABS blend, 23 °C. Grades vary widely by ratio; not a production allowable." },
+    { id: "pa12-mjf", name: "PA12 (MJF printed)", Es: 1700, eAllow: 0.04, printed: true, note: "Generic educational value — HP Multi Jet Fusion nylon 12, XY plane, 23 °C. Near-isotropic for a printed part, but verify with printed coupons. Not a production allowable." },
+    { id: "petg-fdm", name: "PETG (FDM printed)", Es: 1900, eAllow: 0.025, printed: true, note: "Generic educational value — FDM PETG, in-plane (XY). Layer adhesion is far weaker: orient the arm so bending stays in-plane, never across layers. Not a production allowable." },
+    { id: "pla-fdm", name: "PLA (FDM printed)", Es: 3100, eAllow: 0.015, printed: true, note: "Generic educational value — FDM PLA, in-plane (XY). Stiff but brittle and creeps badly; poor choice for reusable snaps. Orient bending in-plane. Not a production allowable." },
+    { id: "abs-fdm", name: "ABS (FDM printed)", Es: 1800, eAllow: 0.02, printed: true, note: "Generic educational value — FDM ABS, in-plane (XY). Layer bonds are the weak point: orient bending in-plane and add a generous root fillet. Not a production allowable." },
     { id: "custom", name: "Custom…", Es: null, eAllow: null, note: "Enter your own grade-specific secant modulus and permissible strain, with source." },
   ];
 
