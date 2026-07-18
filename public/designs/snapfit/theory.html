@@ -47,13 +47,27 @@
   .note.warn { border-color: var(--amber); color: #c9ae76; }
   footer { font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.8; margin-top: 40px;
            border-top: 1px solid var(--line2); padding-top: 14px; }
+  /* wide screens: let a long formula table scroll rather than break the page */
+  .table-wrap { overflow-x: auto; }
+  /* phones: stack each row into a labelled card so nothing gets clipped */
+  @media (max-width: 600px) {
+    table.stack thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    table.stack, table.stack tbody, table.stack tr, table.stack td { display: block; width: 100%; }
+    table.stack tr { border: 1px solid var(--line); border-radius: 4px; background: var(--panel);
+      margin-bottom: 10px; overflow: hidden; }
+    table.stack td { border: none; border-bottom: 1px solid var(--line2); padding: 9px 12px; white-space: normal; }
+    table.stack td.num { white-space: normal; }
+    table.stack tr td:last-child { border-bottom: none; }
+    table.stack td::before { content: attr(data-label); display: block; color: var(--mid);
+      font-family: var(--mono); font-size: 9px; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 3px; }
+  }
 </style>
 </head>
 <body>
 <div class="page">
   <div>
-    <a class="back" href="./index.html">← DESIGN CANDIDATES</a>
-    <a class="back" href="./design-e-flexure3d.html">← FLEXURE TWIN CALCULATOR</a>
+    <a class="back" href="../../">← MECHCALC</a>
+    <a class="back" href="./design-e-flexure3d.html">← SNAP-FIT CALCULATOR</a>
   </div>
   <div class="kicker">MECHCALC · SNAPLAB — THEORY PAGE</div>
   <h1>Snap-Fit Theory, Derivations &amp; Design Ideas</h1>
@@ -129,12 +143,14 @@
     b(x) = b·(1 − 3x/4L) (tip = b/4), the integral evaluates to the handbook constants. The calculator
     re-computes this integral numerically on every run and displays the Δ% against the closed form —
     that's the "independent check" line.</p>
-  <table>
-    <tr><th>Profile</th><th>Force</th><th>Root strain</th><th>Permissible deflection vs uniform</th></tr>
-    <tr><td>Uniform</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 4</td><td class="num">ε = 1.50·ty/L²</td><td class="num">×1.00</td></tr>
-    <tr><td>Thickness taper t→t/2</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 6.528</td><td class="num">ε = 0.92·ty/L²</td><td class="num"><span class="g">×1.63</span></td></tr>
-    <tr><td>Width taper b→b/4</td><td class="num">P = E<sub>s</sub>b(t/L)³y / 5.136</td><td class="num">ε = 1.17·ty/L²</td><td class="num"><span class="g">×1.28</span></td></tr>
-  </table>
+  <div class="table-wrap"><table class="stack">
+    <thead><tr><th>Profile</th><th>Force (÷ larger = softer)</th><th>Root strain</th><th>Permissible deflection vs uniform</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Profile">Uniform</td><td class="num" data-label="Force">P = E<sub>s</sub>b(t/L)³y / 4</td><td class="num" data-label="Root strain">ε = 1.50·ty/L²</td><td class="num" data-label="Perm. defl. vs uniform">×1.00</td></tr>
+    <tr><td data-label="Profile">Thickness taper t→t/2</td><td class="num" data-label="Force">P = E<sub>s</sub>b(t/L)³y / 6.528</td><td class="num" data-label="Root strain">ε = 0.92·ty/L²</td><td class="num" data-label="Perm. defl. vs uniform"><span class="g">×1.63</span></td></tr>
+    <tr><td data-label="Profile">Width taper b→b/4</td><td class="num" data-label="Force">P = E<sub>s</sub>b(t/L)³y / 5.136</td><td class="num" data-label="Root strain">ε = 1.17·ty/L²</td><td class="num" data-label="Perm. defl. vs uniform"><span class="g">×1.28</span></td></tr>
+    </tbody>
+  </table></div>
   <p>Why tapering helps: a uniform arm is "wasted" toward the tip, where the bending moment is small.
     Removing material there softens the whole arm (more deflection per unit strain) while the root — the
     critical section — keeps its full depth. The thickness taper also spreads strain more evenly along
@@ -200,30 +216,32 @@
     and here is the toolbox. Permissible undercut for a given arm is
     y<sub>max</sub> = ε<sub>allow</sub>·L²/(C<sub>ε</sub>·t·K<sub>t</sub>), so anything that raises L,
     lowers C<sub>ε</sub>, lowers K<sub>t</sub> or shares the deflection multiplies your travel:</p>
-  <table>
-    <tr><th>Design idea</th><th>Gain in permissible deflection</th><th>Cost / caveat</th></tr>
-    <tr><td><strong>Thickness taper</strong> t → t/2</td><td class="num"><span class="g">×1.63</span></td>
-      <td>Slightly weaker hook base; supported by this calculator.</td></tr>
-    <tr><td><strong>Width taper</strong> b → b/4</td><td class="num"><span class="g">×1.28</span></td>
-      <td>Narrow tip needs room for the hook; supported by this calculator.</td></tr>
-    <tr><td><strong>Lengthen the arm</strong> ×1.5</td><td class="num"><span class="g">×2.25</span> (L²)</td>
-      <td>Package space; retention stiffness falls with L³ — check holding force.</td></tr>
-    <tr><td><strong>Both parts flexible</strong> — arm and mating edge each deflect</td>
-      <td class="num"><span class="g">up to ×2</span></td>
-      <td>The required y splits between the two members in proportion to their compliances. Needs both parts designed for it.</td></tr>
-    <tr><td><strong>U-shaped / folded arm</strong> — the arm doubles back on itself</td>
-      <td class="num"><span class="g">×4+</span> (effective L doubled in the same envelope)</td>
-      <td>The big one for tight packages. Curved-root behavior is beyond this v1 beam model — design by handbook chart or FEA. Planned for v2.</td></tr>
-    <tr><td><strong>Generous root fillet</strong> R/t ≥ 0.5</td>
-      <td class="num"><span class="g">removes the K<sub>t</sub> penalty</span> (a sharp corner can cost 2–3×)</td>
-      <td>Very large R creates a thick section → sink marks and voids. R/t ≈ 0.5–0.6 is the sweet spot.</td></tr>
-    <tr><td><strong>Material state</strong> — e.g. conditioned PA66 instead of dry</td>
-      <td class="num"><span class="g">×1.5</span> on ε<sub>allow</sub> (4% → 6%)</td>
-      <td>Only if the part really lives conditioned; dry-as-molded parts must survive assembly dry.</td></tr>
-    <tr><td><strong>Assembly aids</strong> — lead-ins, shallow α, lubricant</td>
-      <td class="num">lowers W, not strain</td>
-      <td>Helps force problems, not survivability. Lubricants change μ permanently — retest removal.</td></tr>
-  </table>
+  <div class="table-wrap"><table class="stack">
+    <thead><tr><th>Design idea</th><th>Gain in permissible deflection</th><th>Cost / caveat</th></tr></thead>
+    <tbody>
+    <tr><td data-label="Idea"><strong>Thickness taper</strong> t → t/2</td><td class="num" data-label="Gain"><span class="g">×1.63</span></td>
+      <td data-label="Cost / caveat">Slightly weaker hook base; supported by this calculator.</td></tr>
+    <tr><td data-label="Idea"><strong>Width taper</strong> b → b/4</td><td class="num" data-label="Gain"><span class="g">×1.28</span></td>
+      <td data-label="Cost / caveat">Narrow tip needs room for the hook; supported by this calculator.</td></tr>
+    <tr><td data-label="Idea"><strong>Lengthen the arm</strong> ×1.5</td><td class="num" data-label="Gain"><span class="g">×2.25</span> (L²)</td>
+      <td data-label="Cost / caveat">Package space; retention stiffness falls with L³ — check holding force.</td></tr>
+    <tr><td data-label="Idea"><strong>Both parts flexible</strong> — arm and mating edge each deflect</td>
+      <td class="num" data-label="Gain"><span class="g">up to ×2</span></td>
+      <td data-label="Cost / caveat">The required y splits between the two members in proportion to their compliances. Needs both parts designed for it.</td></tr>
+    <tr><td data-label="Idea"><strong>U-shaped / folded arm</strong> — the arm doubles back on itself</td>
+      <td class="num" data-label="Gain"><span class="g">×4+</span> (effective L doubled in the same envelope)</td>
+      <td data-label="Cost / caveat">The big one for tight packages. Curved-root behavior is beyond this v1 beam model — design by handbook chart or FEA. Planned for v2.</td></tr>
+    <tr><td data-label="Idea"><strong>Generous root fillet</strong> R/t ≥ 0.5</td>
+      <td class="num" data-label="Gain"><span class="g">removes the K<sub>t</sub> penalty</span> (a sharp corner can cost 2–3×)</td>
+      <td data-label="Cost / caveat">Very large R creates a thick section → sink marks and voids. R/t ≈ 0.5–0.6 is the sweet spot.</td></tr>
+    <tr><td data-label="Idea"><strong>Material state</strong> — e.g. conditioned PA66 instead of dry</td>
+      <td class="num" data-label="Gain"><span class="g">×1.5</span> on ε<sub>allow</sub> (4% → 6%)</td>
+      <td data-label="Cost / caveat">Only if the part really lives conditioned; dry-as-molded parts must survive assembly dry.</td></tr>
+    <tr><td data-label="Idea"><strong>Assembly aids</strong> — lead-ins, shallow α, lubricant</td>
+      <td class="num" data-label="Gain">lowers W, not strain</td>
+      <td data-label="Cost / caveat">Helps force problems, not survivability. Lubricants change μ permanently — retest removal.</td></tr>
+    </tbody>
+  </table></div>
   <p>These multiply: a thickness-tapered arm, 1.5× longer, with a proper fillet on a conditioned nylon
     can legitimately take <strong>5–8×</strong> the undercut of a naive short, sharp-cornered, uniform
     arm — which is exactly the spread you see between the conservative worked examples and the

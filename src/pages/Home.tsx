@@ -40,11 +40,10 @@ const CALCS: CalcCard[] = [
     ready: true,
   },
   {
-    href: `${import.meta.env.BASE_URL}designs/snapfit/index.html`,
-    badge: "5 DESIGNS",
+    href: `${import.meta.env.BASE_URL}designs/snapfit/design-e-flexure3d.html`,
     tag: "Compliant mechanisms",
     title: "Cantilever Snap-Fit",
-    desc: "Strain, deflection and insertion/removal force for molded snap arms — uniform and tapered, with self-locking and validity guards. Pick between five working design candidates, all on one tested engine.",
+    desc: "Strain, deflection and insertion/removal force for molded & printed snap arms — uniform and tapered, with self-locking and validity guards. Grab the 3D arm to feel the strain; a Classical-vs-Snap-Fit tab and full theory page explain the model.",
     eq: "ε = 3ty / 2L²",
     ready: true,
   },
