@@ -24,6 +24,8 @@
   .eqcorner { text-align: right; font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.6; }
   .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start; }
   @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.15fr) minmax(0,.85fr); gap: 12px; } }
+  /* phones: stack inputs above results so the dense readout rows get full width */
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; gap: 16px; } }
   .inputs { display: flex; flex-direction: column; gap: 12px; }
   .fld label { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
                color: var(--mid); font-family: var(--mono); margin-bottom: 4px; }
@@ -129,17 +131,37 @@
   .readout .hint::after { left: auto; right: 0; transform: none; }
   /* cards near the top of the page open their tooltip downward instead */
   .sfhead .hint::after { bottom: auto; top: calc(100% + 7px); left: auto; right: -60px; transform: none; }
+  /* phones: anchor tooltips to the full-width field/row (not the tiny icon) so
+     they never push past the screen edge. Positioning context becomes the
+     .fld / .readout / .sfhead, and the bubble spans it, dropping just below. */
+  @media (max-width: 520px) {
+    .hint { position: static; }
+    .fld, .readout, .sfhead { position: relative; }
+    .hint::after,
+    .fld .hint::after,
+    .readout .hint::after,
+    .sfhead .hint::after { left: 0; right: 0; width: auto; max-width: none; top: calc(100% + 6px);
+      bottom: auto; transform: none; }
+  }
   .theory-link { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; color: var(--blue);
     text-decoration: none; border: 1px solid var(--line); border-radius: 2px; padding: 5px 10px; }
   .theory-link:hover { border-color: var(--blue); }
+  /* engineering notes: full-width below the simulator so warnings appearing/
+     disappearing never shove the results panel. Two columns on wide screens. */
+  #warnsection { margin-top: 20px; }
+  .warns-lab { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--mid); margin-bottom: 10px; }
+  #warns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: start; }
+  #warns .warn { margin-top: 0; }
+  @media (max-width: 560px) { #warns { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
 <div class="shell">
-  <a class="back" href="./index.html">← SNAPLAB DESIGN CANDIDATES</a>
+  <a class="back" href="../../">← MECHCALC</a>
   <div class="header">
     <div>
-      <div class="kicker">DESIGN E — FLEXURE TWIN · COMPLIANT MECHANISMS</div>
+      <div class="kicker">MECHCALC · COMPLIANT MECHANISMS</div>
       <h1>Cantilever Snap-Fit</h1>
     </div>
     <div class="eqcorner">
@@ -195,7 +217,6 @@
         <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
       </div>
       <div id="readouts"></div>
-      <div id="warns"></div>
     </div>
   </div>
 
@@ -276,6 +297,13 @@
         flexure calc has no concept of. And it holds a non-green verdict outside the linear envelope, where
         the classical calc would still hand back a confident-looking number.</p>
     </div>
+  </div>
+
+  <!-- ENGINEERING NOTES — kept below the simulator so appearing/disappearing
+       warnings grow this section instead of shoving the results panel around -->
+  <div id="warnsection" hidden>
+    <div class="warns-lab">ENGINEERING NOTES</div>
+    <div id="warns"></div>
   </div>
 
   <!-- THEORY -->
@@ -530,8 +558,10 @@
 
     const ro = $("readouts"), warns = $("warns");
     ro.innerHTML = ""; warns.innerHTML = "";
+    const syncWarns = () => { $("warnsection").hidden = warns.children.length === 0; };
     if (!r.values) {
       r.errors.forEach((e) => warns.insertAdjacentHTML("beforeend", `<div class="warn error">${e.msg}</div>`));
+      syncWarns();
       return r;
     }
     const v = r.values;
@@ -556,6 +586,7 @@
       "Model applicability at a glance. L/t (slenderness) should be ≥ 10 for beam theory; y/L (relative deflection) ≤ 0.1 for the linear model; R/t (fillet ratio) ≥ 0.5 to avoid a sharp-root concentration.",
       `<small>L/t ${fmt(v.slenderness, 1)} · y/L ${fmt(v.deflectionRatio, 2)} · R/t ${v.RoverT === null ? "—" : fmt(v.RoverT, 2)}</small>`);
     r.warnings.forEach((w) => warns.insertAdjacentHTML("beforeend", `<div class="warn ${w.level}">${w.msg}</div>`));
+    syncWarns();
     const xc = SnapFit.crossCheck(inp, 800);
     $("xc").textContent = "Δ " + (xc.diffPct >= 0 ? "+" : "") + xc.diffPct.toFixed(2) + "%";
     return r;
