@@ -22,11 +22,15 @@
   .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
   h1 { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
   .eqcorner { text-align: right; font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.6; }
-  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 22px; align-items: start; }
-  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.15fr) minmax(0,.85fr); gap: 12px; } }
-  /* phones: stack inputs above results so the dense readout rows get full width */
-  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; gap: 16px; } }
-  .inputs { display: flex; flex-direction: column; gap: 12px; }
+  /* verdict top-right, readouts under it, inputs down the left. On phones the
+     order flips to verdict → inputs → readouts so the result sits up top. */
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px 22px;
+          align-items: start; grid-template-areas: "inputs verdict" "inputs readouts"; }
+  .inputs { grid-area: inputs; } #sfcard { grid-area: verdict; } #readouts { grid-area: readouts; }
+  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 12px 12px; } }
+  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; gap: 14px;
+          grid-template-areas: "verdict" "inputs" "readouts"; } }
+  .inputs { display: flex; flex-direction: column; gap: 9px; }
   .fld label { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
                color: var(--mid); font-family: var(--mono); margin-bottom: 4px; }
   .fld label span { text-transform: none; letter-spacing: 0; color: var(--faint); float: right; }
@@ -38,7 +42,7 @@
   .fld .note.warn { color: var(--amber); }
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   /* status card + readouts (flexure style) */
-  .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; margin-bottom: 16px; }
+  .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; }
   .sfhead { display: flex; justify-content: space-between; align-items: center; }
   .sfhead .lab { font-family: var(--mono); font-size: 11px; letter-spacing: .15em; color: var(--mid); }
   .sfhead .badge { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .15em;
@@ -70,6 +74,17 @@
              font-family: var(--mono); font-size: 12px; color: var(--faint); }
   @media (max-width: 640px) { #beamwrap { height: 240px; } }
   .vizhint { font-family: var(--mono); font-size: 9.5px; color: var(--mid); margin-top: 6px; text-align: center; }
+  /* stress colour legend under the sim — the "what am I looking at" strip */
+  .vizlegend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 16px; margin-top: 10px;
+    font-family: var(--mono); font-size: 9.5px; color: var(--dim); }
+  .vizlegend span { display: inline-flex; align-items: center; gap: 5px; }
+  .vizlegend i { width: 20px; height: 8px; border-radius: 2px; display: inline-block; }
+  .vizlegend .tens { background: linear-gradient(90deg,#4fb477,#d98c38,#d64545); }
+  .vizlegend .comp { background: linear-gradient(90deg,#4fb477,#349bb0,#456fe6); }
+  .vizlegend .neut { background: #4fb477; }
+  .vizmodel { font-family: var(--sans); font-size: 11.5px; color: var(--dim); line-height: 1.6; margin-top: 12px;
+    padding-top: 10px; border-top: 1px solid var(--line2); }
+  .vizmodel b { color: #c2ccd4; }
   /* theory */
   .theory { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 18px; }
   .theory .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
@@ -187,10 +202,14 @@
           <option value="taperWidth">Width taper b → b/4</option>
         </select>
       </div>
-      <div class="fld"><label>Length L<i class="hint" tabindex="0" data-tip="Arm length from the wall to where the hook touches the mating edge. Your strongest lever: strain falls with L² and force with L³, so a slightly longer arm helps a lot.">?</i> <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
-      <div class="fld"><label>Width b<i class="hint" tabindex="0" data-tip="Beam width at the root (out of the bending plane). Width changes force in direct proportion but does NOT change strain — widen the arm for retention force, not for survivability.">?</i> <span>mm</span></label><input id="b" type="number" step="0.5" value="9.5"></div>
-      <div class="fld"><label>Thickness t<i class="hint" tabindex="0" data-tip="Beam thickness at the root, in the bending direction. Strain grows with t, force with t³ — a thinner arm is both safer and easier to push. Thin here before shortening L.">?</i> <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
-      <div class="fld"><label>Undercut y<i class="hint" tabindex="0" data-tip="How far the hook must deflect to slide past the mating edge — the engagement depth. This is the travel you're designing for; more undercut = stronger retention but more strain.">?</i> <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
+      <div class="duo">
+        <div class="fld"><label>Length L<i class="hint" tabindex="0" data-tip="Arm length from the wall to where the hook touches the mating edge. Your strongest lever: strain falls with L² and force with L³, so a slightly longer arm helps a lot.">?</i> <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
+        <div class="fld"><label>Width b<i class="hint" tabindex="0" data-tip="Beam width at the root (out of the bending plane). Width changes force in direct proportion but does NOT change strain — widen the arm for retention force, not for survivability.">?</i> <span>mm</span></label><input id="b" type="number" step="0.5" value="9.5"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>Thickness t<i class="hint" tabindex="0" data-tip="Beam thickness at the root, in the bending direction. Strain grows with t, force with t³ — a thinner arm is both safer and easier to push. Thin here before shortening L.">?</i> <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
+        <div class="fld"><label>Undercut y<i class="hint" tabindex="0" data-tip="How far the hook must deflect to slide past the mating edge — the engagement depth. This is the travel you're designing for; more undercut = stronger retention but more strain.">?</i> <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
+      </div>
       <div class="duo">
         <div class="fld"><label>Entry α<i class="hint" tabindex="0" data-tip="Ramp angle on the face the mating part pushes over during assembly. Shallower = easier insertion. Past 1−μ·tanα = 0 the wedge self-locks and no finite push assembles it.">?</i> <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
         <div class="fld"><label>Return α′<i class="hint" tabindex="0" data-tip="Ramp angle on the back face, which sets the removal force. Steeper = harder to pull apart; 90° means no sliding release — a permanent joint.">?</i> <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
@@ -206,18 +225,17 @@
       <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
     </div>
 
-    <!-- OUTPUTS -->
-    <div>
-      <div class="sfcard" id="sfcard">
-        <div class="sfhead">
-          <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
-          <span class="badge" id="badge">—</span>
-        </div>
-        <div class="sfval" id="sfval">—</div>
-        <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
+    <!-- VERDICT (grid-area: verdict) -->
+    <div class="sfcard" id="sfcard">
+      <div class="sfhead">
+        <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
+        <span class="badge" id="badge">—</span>
       </div>
-      <div id="readouts"></div>
+      <div class="sfval" id="sfval">—</div>
+      <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
     </div>
+    <!-- READOUTS (grid-area: readouts) -->
+    <div id="readouts"></div>
   </div>
 
   <!-- 3D BEAM + COMPARISON, tabbed -->
@@ -240,6 +258,18 @@
         <div id="beammsg">awaiting valid geometry…</div>
       </div>
       <div class="vizhint" id="vizhint">grab the arm to deflect it · drag empty space to rotate</div>
+      <div class="vizlegend">
+        <span><i class="tens"></i> tension (stretched)</span>
+        <span><i class="comp"></i> compression</span>
+        <span><i class="neut"></i> neutral axis · peaks at the root</span>
+      </div>
+      <div class="vizmodel">
+        <b>What the simulation shows.</b> The arm bends like an end-loaded cantilever built into the wall.
+        Inserting the hook deflects the tip <b>up</b>; the bending moment grows from zero at the tip to a
+        maximum at the root, so the surface colours are most intense where the arm meets the wall — the
+        stretched face warms toward red, the compressed face cools toward blue, and the neutral axis
+        between them stays green. That root is where a snap arm cracks first.
+      </div>
     </div>
 
     <div id="tab-compare" hidden>
@@ -365,17 +395,42 @@
   addGroup("3D-printed (educational)", (m) => m.printed);
   addGroup("—", (m) => m.id === "custom");
   matSel.value = "pa66-cond";
-  function applyMat() {
+  // note/meta text only — does NOT touch Es/ε_allow, so restored user edits survive
+  function updateMatNote() {
     const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
     $("matnote").textContent = m.printed ? "⚠ " + m.note : m.note;
     $("matnote").classList.toggle("warn", !!m.printed);
-    if (m.Es !== null) {
-      $("Es").value = m.Es; $("eAllow").value = (m.eAllow * 100).toFixed(1);
-      $("matmeta").innerHTML = `E<sub>s</sub> = ${m.Es} MPa · ε<sub>allow</sub> = ${(m.eAllow * 100).toFixed(1)}%`;
-    } else $("matmeta").textContent = "";
+    $("matmeta").innerHTML = m.Es !== null ? `E<sub>s</sub> = ${m.Es} MPa · ε<sub>allow</sub> = ${(m.eAllow * 100).toFixed(1)}%` : "";
+  }
+  // picking a material loads its preset values
+  function applyMat() {
+    updateMatNote();
+    const m = SnapFit.MATERIALS.find((x) => x.id === matSel.value);
+    if (m.Es !== null) { $("Es").value = m.Es; $("eAllow").value = (m.eAllow * 100).toFixed(1); }
   }
   applyMat();
   matSel.addEventListener("change", () => { applyMat(); onEdit(); });
+
+  /* ── persist inputs across navigation (theory page ↔ calculator) ── */
+  const STORE = "snaplab-e-v1";
+  const PERSIST = ["profile", "L", "b", "t", "y", "R", "alpha", "alphaP", "mu", "Es", "eAllow", "Kt"];
+  function saveState() {
+    try {
+      const s = { mat: matSel.value, ref: null };
+      PERSIST.forEach((k) => { s[k] = $(k).value; });
+      const rf = $("refmat"); if (rf) s.ref = rf.value;
+      localStorage.setItem(STORE, JSON.stringify(s));
+    } catch (e) { /* storage unavailable — no-op */ }
+  }
+  function restoreState() {
+    let s;
+    try { s = JSON.parse(localStorage.getItem(STORE) || "null"); } catch (e) { s = null; }
+    if (!s) return;
+    if (s.mat) matSel.value = s.mat;
+    PERSIST.forEach((k) => { if (s[k] != null && s[k] !== "") $(k).value = s[k]; });
+    if (s.ref) { const rf = $("refmat"); if (rf) rf.value = s.ref; }
+    updateMatNote(); // refresh the note without clobbering the restored Es/ε_allow
+  }
 
   /* ── equations table ────────────────────────────────────────── */
   const EQUATIONS = [
@@ -405,7 +460,7 @@
   const refSel = $("refmat");
   CLASSICAL_MATS.forEach((m) => { const o = document.createElement("option"); o.value = m.id; o.textContent = m.name; refSel.appendChild(o); });
   refSel.value = "spring";
-  refSel.addEventListener("change", drawCompare);
+  refSel.addEventListener("change", () => { drawCompare(); saveState(); });
 
   // large-deflection stiffening γ = 1/∫₀¹cosθ dp, matching the app's flexure calc
   function cosIntegral(c, steps) {
@@ -567,6 +622,13 @@
     const v = r.values;
     const hint = (tip) => `<i class='hint' tabindex='0' data-tip='${tip}'>?</i>`;
     const row = (k, tip, val) => ro.insertAdjacentHTML("beforeend", `<div class="readout"><span class="k">${k}${hint(tip)}</span><span class="v">${val}</span></div>`);
+    // Safety factor against the permissible strain (like the flexure calc's SF).
+    const nSF = v.U > 0 ? 1 / v.U : Infinity;
+    const sfCol = nSF >= 2 ? "var(--green)" : nSF >= 1 ? "var(--amber)" : "var(--red)";
+    const sfTag = nSF >= 2 ? "ample" : nSF >= 1 ? "slim" : "over limit";
+    row("Safety factor n",
+      "Margin against the permissible strain: n = ε_allow / (Kt·ε) = 1/U. n = 2 means you are using half the strain budget. Like the flexure calc: aim for n ≥ 2 on reused or living-hinge snaps, more where fatigue matters.",
+      `<span style="color:${sfCol}">${isFinite(nSF) ? nSF.toFixed(2) : "∞"}</span> <small>${sfTag}</small>`);
     row("Root strain · Kt",
       "How far the surface at the arm's root is stretched at full deflection, as a percent (2.39% = stretched by 2.39% of its length), times Kt. Compared against the permissible strain — pure geometry: ε = C·t·y/L².",
       `${(v.epsEff * 100).toFixed(2)} <small>% / ${(inp.eAllow * 100).toFixed(1)}%</small>`);
@@ -682,21 +744,22 @@
     const engineOK = Number.isFinite(inp.eAllow) && inp.eAllow > 0 && Number.isFinite(inp.Kt) && inp.Kt >= 1;
     const prof = SnapFit.PROFILES[inp.profile];
 
-    // deflection ratio, arc-length-preserving centerline (X right, Y up; +y bends down)
+    // deflection ratio, arc-length-preserving centerline (X right, Y up).
+    // Inserting the hook lifts the tip UP, so +y bends the arm upward.
     let c = (liveY || 0) / Math.max(G.Lmm, 1e-3);
     c = Math.max(-0.95, Math.min(0.95, c));
     const M = 64, dp = 1 / M, cx = [0], cyl = [0];
     for (let i = 1; i <= M; i++) {
       const phi = slope((i - 0.5) * dp, c);
       cx.push(cx[i - 1] + G.Ls * Math.cos(phi) * dp);
-      cyl.push(cyl[i - 1] - G.Ls * Math.sin(phi) * dp);
+      cyl.push(cyl[i - 1] + G.Ls * Math.sin(phi) * dp); // +sin → tip rises
     }
     const ringAt = (p) => { const fi = p * M, i0 = Math.min(M - 1, Math.floor(fi)), fr = fi - i0;
       return [cx[i0] + (cx[i0 + 1] - cx[i0]) * fr, cyl[i0] + (cyl[i0 + 1] - cyl[i0]) * fr]; };
 
     // root strain ratio drives color intensity (signed by face and bend direction)
     const ratioRoot = engineOK ? (inp.Kt * prof.strainCoef * inp.t * Math.abs(liveY)) / (G.Lmm * G.Lmm) / inp.eAllow : 0;
-    const dir = Math.sign(liveY) || 1; // +y (down) → top face in tension
+    const dir = -(Math.sign(liveY) || 1); // bending up → bottom face in tension, top compressed
 
     const x0 = -G.Ls / 2; // center the beam like the app
     // ring vertex helper: thickness offset a, width offset z
@@ -732,49 +795,59 @@
     quads.push({ pts: [vtx(SEG, G.halfT[SEG], -G.halfW[SEG]), vtx(SEG, G.halfT[SEG], G.halfW[SEG]),
                        vtx(SEG, -G.halfT[SEG], G.halfW[SEG]), vtx(SEG, -G.halfT[SEG], -G.halfW[SEG])], col: NEUTRAL_DIM });
 
-    // hook: wedge under the tip, riding with the tip's rotation
-    if (Number.isFinite(inp.y) && inp.y > 0 && Number.isFinite(inp.alphaRad)) {
-      const phi1 = slope(1, c), [TX, TY] = ringAt(1);
-      const hH = Math.min(G.Ls * 0.22, Math.max(0.12, inp.y * G.scale));
-      const runE = Math.min(G.Ls * 0.25, hH / Math.tan(Math.max(0.15, inp.alphaRad)));
-      const runR = inp.alphaPrimeRad >= Math.PI / 2 - 1e-9 ? 0.001 : Math.min(G.Ls * 0.25, hH / Math.tan(Math.max(0.15, inp.alphaPrimeRad || 0.15)));
-      const hWz = G.halfW[SEG] * 0.9;
-      // local frame at tip: e1 along the beam, e2 outward through the thickness
-      // (bottom face sits at −e2·halfT; the hook extends further along −e2)
-      const e1 = [Math.cos(phi1), -Math.sin(phi1)], e2 = [Math.sin(phi1), Math.cos(phi1)];
-      const base = [x0 + TX - e2[0] * G.halfT[SEG], TY - e2[1] * G.halfT[SEG]];
-      const loc = (u, d2) => [base[0] + e1[0] * u - e2[0] * d2, base[1] + e1[1] * u - e2[1] * d2];
-      const A = loc(-(runR + runE), 0), B = loc(-runE, hH), C = loc(0, 0);
-      const tri = [A, B, C];
-      const hookCol = [0.22, 0.29, 0.36];
-      // two caps + three side walls
-      quads.push({ pts: [[A[0], A[1], -hWz], [B[0], B[1], -hWz], [C[0], C[1], -hWz], [C[0], C[1], -hWz]], col: hookCol });
-      quads.push({ pts: [[A[0], A[1], hWz], [B[0], B[1], hWz], [C[0], C[1], hWz], [C[0], C[1], hWz]], col: hookCol });
-      for (let k = 0; k < 3; k++) {
-        const P1 = tri[k], P2 = tri[(k + 1) % 3];
-        quads.push({ pts: [[P1[0], P1[1], -hWz], [P2[0], P2[1], -hWz], [P2[0], P2[1], hWz], [P1[0], P1[1], hWz]], col: hookCol });
-      }
+    // hook: a barb on the arm's underside near the tip. Its top edge is pinned
+    // to two points ON the beam's bottom surface, so it never gaps or floats;
+    // the apex hangs below and the sloped faces read as the entry/return ramps.
+    if (Number.isFinite(inp.y) && inp.y > 0) {
+      const htP = (p) => Math.max(prof.thicknessAt(inp.t, p) * G.scale / 2, 0.02);
+      const vtxP = (p, a) => { const phi = slope(p, c), [X, Y] = ringAt(p); return [x0 + X + a * Math.sin(phi), Y + a * Math.cos(phi)]; };
+      const phi1 = slope(1, c);
+      const e2n = [Math.sin(phi1), Math.cos(phi1)]; // through-thickness, toward the top face
+      const hDrop = Math.min(G.Ls * 0.20, Math.max(0.14, inp.y * G.scale)); // barb depth below the arm
+      const foot = Math.min(0.30, (hDrop * 1.4) / G.Ls + 0.12);             // hook length (fraction of arc)
+      const pB = Math.max(0.5, 1 - foot);
+      const tb = vtxP(pB, -htP(pB)); // top-back, sitting on the beam's underside
+      const tf = vtxP(1, -htP(1));   // top-front, at the tip's underside
+      const apex = [0.35 * tb[0] + 0.65 * tf[0] - e2n[0] * hDrop, 0.35 * tb[1] + 0.65 * tf[1] - e2n[1] * hDrop];
+      const hWz = G.halfW[SEG] * 0.92;
+      const hookCol = [0.20, 0.27, 0.34];
+      const P3 = (p2, z) => [p2[0], p2[1], z];
+      // side caps (triangle tb-apex-tf on each z face)
+      for (const z of [-hWz, hWz]) quads.push({ pts: [P3(tb, z), P3(apex, z), P3(tf, z), P3(tf, z)], col: hookCol });
+      // front (entry) and back (return) sloped walls across the width; the
+      // tb–tf top edge is shared with the beam underside, so no wall is drawn there
+      quads.push({ pts: [P3(tf, -hWz), P3(apex, -hWz), P3(apex, hWz), P3(tf, hWz)], col: hookCol });
+      quads.push({ pts: [P3(tb, -hWz), P3(apex, -hWz), P3(apex, hWz), P3(tb, hWz)], col: hookCol });
     }
 
-    // root fillet: molded wedges blending the beam's top/bottom faces into
-    // the wall, sized by R (the root is at φ≈0, so no rotation is needed)
+    // root fillet: a true quarter-radius arc blending the beam's top/bottom
+    // face into the wall (the root is at φ≈0, so it needs no rotation)
     if (Number.isFinite(inp.R) && inp.R > 0) {
       const hT0 = G.halfT[0], hW0 = G.halfW[0] * 0.999;
-      const Rs = Math.min(inp.R * G.scale, G.Ls * 0.15, hT0 * 1.6); // stay inside the wall slab
-
+      const Rs = Math.min(inp.R * G.scale, G.Ls * 0.15, hT0 * 1.6);
+      const AN = 7; // arc segments
       for (const sgn of [1, -1]) {
         const col = stressColor(ratioRoot * dir * sgn * 0.85);
-        const yWall = sgn * (hT0 + Rs), yBeam = sgn * hT0;
-        // sloped face + two triangular end caps
-        quads.push({ pts: [[x0, yWall, -hW0], [x0, yWall, hW0], [x0 + Rs, yBeam, hW0], [x0 + Rs, yBeam, -hW0]], col });
-        for (const z of [-hW0, hW0]) {
-          quads.push({ pts: [[x0, yWall, z], [x0 + Rs, yBeam, z], [x0, yBeam, z], [x0, yBeam, z]], col });
+        const corner = [x0, sgn * hT0];
+        const arcPt = (k) => {
+          const th = Math.PI + (Math.PI / 2) * (k / AN);          // 180° → 270°
+          const px = (x0 + Rs) + Rs * Math.cos(th);
+          const py = (hT0 + Rs) + Rs * Math.sin(th);
+          return [px, sgn > 0 ? py : -py];
+        };
+        for (let k = 0; k < AN; k++) {
+          const p0 = arcPt(k), p1 = arcPt(k + 1);
+          // curved outer surface, extruded across the width
+          quads.push({ pts: [[p0[0], p0[1], -hW0], [p1[0], p1[1], -hW0], [p1[0], p1[1], hW0], [p0[0], p0[1], hW0]], col });
+          // side caps fill the corner so the fillet looks solid edge-on
+          for (const z of [-hW0, hW0])
+            quads.push({ pts: [[corner[0], corner[1], z], [p0[0], p0[1], z], [p1[0], p1[1], z], [corner[0], corner[1], z]], col });
         }
       }
     }
 
-    // anchor wall slab at the root
-    const wT = 0.22, wY = G.halfT[0] * 2.2 + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
+    // anchor wall slab at the root (tall enough to contain the fillet arc)
+    const wT = 0.22, wY = G.halfT[0] * 2.9 + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
     const wx1 = x0 - wT, wx2 = x0;
     const wallCol = [0.1, 0.14, 0.17];
     const wallFaces = [
@@ -835,7 +908,7 @@
     const M = 32, dp = 1 / M;
     const grabR = 42; // forgiving target, like the app's fat invisible proxy
     for (let i = 0; i <= M; i++) {
-      if (i > 0) { const phi = slope((i - 0.5) * dp, c); X += G.Ls * Math.cos(phi) * dp; Y -= G.Ls * Math.sin(phi) * dp; }
+      if (i > 0) { const phi = slope((i - 0.5) * dp, c); X += G.Ls * Math.cos(phi) * dp; Y += G.Ls * Math.sin(phi) * dp; }
       const pr = project([-G.Ls / 2 + X, Y, 0], W, H, f);
       if (pr[2] > 0.5 && Math.hypot(pr[0] - px, pr[1] - py) < grabR) return true;
     }
@@ -903,7 +976,8 @@
       e.preventDefault();
       const H = wrap.clientHeight || 320;
       const mmPerPx = (G.Lmm * 1.4) / H, lim = G.Lmm * 0.9;
-      liveY = Math.max(-lim, Math.min(lim, dragStartDelta + (e.clientY - dragStartY) * mmPerPx));
+      // drag up → tip rises (deflection grows), matching the upward bend
+      liveY = Math.max(-lim, Math.min(lim, dragStartDelta - (e.clientY - dragStartY) * mmPerPx));
       renderResults(liveY); updateLiveCaption(); updateFeel();
       return;
     }
@@ -979,6 +1053,7 @@
     renderResults(null);
     updateLiveCaption();
     drawCompare();
+    saveState();
   }
   ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
   window.addEventListener("resize", drawScene);
@@ -992,6 +1067,7 @@
     if (t === "compare") drawCompare();
   }));
 
+  restoreState(); // bring back the last session's inputs before the first render
   onEdit();
   tick();
 })();
