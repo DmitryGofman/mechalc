@@ -22,15 +22,14 @@
   .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
   h1 { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
   .eqcorner { text-align: right; font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.6; }
-  /* verdict top-right, readouts under it, inputs down the left. On phones the
-     order flips to verdict → inputs → readouts so the result sits up top. */
-  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px 22px;
-          align-items: start; grid-template-areas: "inputs verdict" "inputs readouts"; }
-  .inputs { grid-area: inputs; } #sfcard { grid-area: verdict; } #readouts { grid-area: readouts; }
-  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.1fr) minmax(0,.9fr); gap: 12px 12px; } }
-  @media (max-width: 520px) { .grid { grid-template-columns: 1fr; gap: 14px;
-          grid-template-areas: "verdict" "inputs" "readouts"; } }
-  .inputs { display: flex; flex-direction: column; gap: 9px; }
+  /* Two columns: parameters on the left, all results crammed on the right —
+     stays 2-up even on phones (like the basic cantilever). The 3D simulation
+     lives full-width BELOW the grid. */
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: start; }
+  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr); gap: 9px; } }
+  @media (max-width: 380px) { .grid { gap: 7px; } }
+  .inputs { display: flex; flex-direction: column; gap: 8px; }
+  .results { display: flex; flex-direction: column; gap: 10px; }
   .fld label { display: block; font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
                color: var(--mid); font-family: var(--mono); margin-bottom: 4px; }
   .fld label span { text-transform: none; letter-spacing: 0; color: var(--faint); float: right; }
@@ -54,6 +53,23 @@
   .readout .k { font-family: var(--mono); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mid); }
   .readout .v { font-family: var(--mono); font-size: 15px; font-weight: 600; white-space: nowrap; }
   .readout .v small { font-size: 10px; color: var(--faint); font-weight: 400; }
+  /* phone compaction — crams the fields and readouts so both columns fit. Placed
+     AFTER the base rules above so it wins (media queries don't add specificity). */
+  @media (max-width: 640px) {
+    .fld input, .fld select { padding: 6px 7px; font-size: 12px; }
+    .fld label { font-size: 9px; margin-bottom: 3px; }
+    .duo { gap: 6px; }
+    .sfcard { padding: 11px 12px; }
+    .sfval { font-size: 27px; margin-top: 4px; }
+    .sfhead .lab { font-size: 9px; letter-spacing: .05em; }
+    .sfsub { font-size: 8.5px; }
+    .readout { padding: 6px 1px; gap: 6px; }
+    .readout .k { font-size: 8.5px; letter-spacing: .03em; flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .readout .v { font-size: 12px; white-space: normal; text-align: right; }
+    .readout .v small { font-size: 8px; }
+    .readout .hint { display: none; } /* tooltips live on desktop; save width on phones */
+  }
   .warn { font-size: 11px; line-height: 1.55; padding: 8px 9px; border-left: 2px solid; border-radius: 2px;
           margin-top: 8px; background: #0d1319; color: var(--dim); }
   .warn.blocking { border-color: var(--amber); color: #e6c98a; }
@@ -72,6 +88,11 @@
   #beam { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
   #beammsg { position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
              font-family: var(--mono); font-size: 12px; color: var(--faint); }
+  /* live force/deflection readout drawn inside the simulation */
+  #vizhud { position: absolute; top: 8px; left: 10px; font-family: var(--mono); font-size: 10px;
+    color: var(--dim); line-height: 1.6; pointer-events: none; text-shadow: 0 1px 4px #000; }
+  #vizhud b { color: var(--ink); font-weight: 600; }
+  #vizhud .lo { color: var(--faint); }
   @media (max-width: 640px) { #beamwrap { height: 240px; } }
   .vizhint { font-family: var(--mono); font-size: 9.5px; color: var(--mid); margin-top: 6px; text-align: center; }
   /* stress colour legend under the sim — the "what am I looking at" strip */
@@ -82,9 +103,11 @@
   .vizlegend .tens { background: linear-gradient(90deg,#4fb477,#d98c38,#d64545); }
   .vizlegend .comp { background: linear-gradient(90deg,#4fb477,#349bb0,#456fe6); }
   .vizlegend .neut { background: #4fb477; }
-  .vizmodel { font-family: var(--sans); font-size: 11.5px; color: var(--dim); line-height: 1.6; margin-top: 12px;
-    padding-top: 10px; border-top: 1px solid var(--line2); }
+  .vizmodel { font-family: var(--sans); font-size: 12px; color: var(--dim); line-height: 1.7; margin-top: 22px;
+    padding-top: 14px; border-top: 1px solid var(--line); }
   .vizmodel b { color: #c2ccd4; }
+  .vizmodel .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
+    color: var(--blue); display: block; margin-bottom: 8px; }
   /* theory */
   .theory { margin-top: 24px; border-top: 1px solid var(--line); padding-top: 18px; }
   .theory .lab { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; text-transform: uppercase;
@@ -225,17 +248,18 @@
       <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
     </div>
 
-    <!-- VERDICT (grid-area: verdict) -->
-    <div class="sfcard" id="sfcard">
-      <div class="sfhead">
-        <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
-        <span class="badge" id="badge">—</span>
+    <!-- RESULTS: verdict + every readout, crammed on the right -->
+    <div class="results">
+      <div class="sfcard" id="sfcard">
+        <div class="sfhead">
+          <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
+          <span class="badge" id="badge">—</span>
+        </div>
+        <div class="sfval" id="sfval">—</div>
+        <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
       </div>
-      <div class="sfval" id="sfval">—</div>
-      <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
+      <div id="readouts"></div>
     </div>
-    <!-- READOUTS (grid-area: readouts) -->
-    <div id="readouts"></div>
   </div>
 
   <!-- 3D BEAM + COMPARISON, tabbed -->
@@ -256,19 +280,13 @@
       <div id="beamwrap">
         <canvas id="beam"></canvas>
         <div id="beammsg">awaiting valid geometry…</div>
+        <div id="vizhud"></div>
       </div>
       <div class="vizhint" id="vizhint">grab the arm to deflect it · drag empty space to rotate</div>
       <div class="vizlegend">
         <span><i class="tens"></i> tension (stretched)</span>
         <span><i class="comp"></i> compression</span>
         <span><i class="neut"></i> neutral axis · peaks at the root</span>
-      </div>
-      <div class="vizmodel">
-        <b>What the simulation shows.</b> The arm bends like an end-loaded cantilever built into the wall.
-        Inserting the hook deflects the tip <b>up</b>; the bending moment grows from zero at the tip to a
-        maximum at the root, so the surface colours are most intense where the arm meets the wall — the
-        stretched face warms toward red, the compressed face cools toward blue, and the neutral axis
-        between them stays green. That root is where a snap arm cracks first.
       </div>
     </div>
 
@@ -334,6 +352,17 @@
   <div id="warnsection" hidden>
     <div class="warns-lab">ENGINEERING NOTES</div>
     <div id="warns"></div>
+  </div>
+
+  <!-- model note lives down here so it doesn't crowd the simulation -->
+  <div class="vizmodel">
+    <span class="lab">What the simulation shows</span>
+    The arm bends like an end-loaded cantilever built into the wall. Inserting the hook deflects the tip
+    <b>up</b>; the bending moment grows from zero at the tip to a maximum at the root, so the surface
+    colours are most intense where the arm meets the wall — the stretched face warms toward red, the
+    compressed face cools toward blue, and the neutral axis between them stays green. That root is where a
+    snap arm cracks first. The shape is drawn exaggerated for clarity; the readouts above are the true
+    numbers.
   </div>
 
   <!-- THEORY -->
@@ -617,9 +646,14 @@
     if (!r.values) {
       r.errors.forEach((e) => warns.insertAdjacentHTML("beforeend", `<div class="warn error">${e.msg}</div>`));
       syncWarns();
+      $("vizhud").innerHTML = "";
       return r;
     }
     const v = r.values;
+    // live force/deflection HUD drawn inside the simulation
+    const yHud = Number.isFinite(inp.y) ? inp.y : 0;
+    $("vizhud").innerHTML = `<b>y</b> ${yHud.toFixed(1)} mm<br><b>P</b> ${fmt(v.P)} N<br>`
+      + (r.selfLock.insert ? `<span class="lo">W self-locks</span>` : `<b>W</b> ${fmt(v.W)} N`);
     const hint = (tip) => `<i class='hint' tabindex='0' data-tip='${tip}'>?</i>`;
     const row = (k, tip, val) => ro.insertAdjacentHTML("beforeend", `<div class="readout"><span class="k">${k}${hint(tip)}</span><span class="v">${val}</span></div>`);
     // Safety factor against the permissible strain (like the flexure calc's SF).
@@ -746,8 +780,10 @@
 
     // deflection ratio, arc-length-preserving centerline (X right, Y up).
     // Inserting the hook lifts the tip UP, so +y bends the arm upward.
+    // Clamp the DRAWN curvature to a physical-looking range — beyond ~0.45 the
+    // linear cantilever shape stops resembling a real beam (it curls into a J).
     let c = (liveY || 0) / Math.max(G.Lmm, 1e-3);
-    c = Math.max(-0.95, Math.min(0.95, c));
+    c = Math.max(-0.45, Math.min(0.45, c));
     const M = 64, dp = 1 / M, cx = [0], cyl = [0];
     for (let i = 1; i <= M; i++) {
       const phi = slope((i - 0.5) * dp, c);
@@ -778,10 +814,11 @@
                    col: stressColor(ratioRoot * s0 * dir) });
       quads.push({ pts: [vtx(i, -hT0, -hW0), vtx(i + 1, -hT1, -hW1), vtx(i + 1, -hT1, hW1), vtx(i, -hT0, hW0)],
                    col: stressColor(-ratioRoot * s0 * dir) });
-      // side faces in 3 strips for a through-thickness gradient
+      // side faces in strips for a smooth through-thickness gradient
+      const STR = 6;
       for (const zsign of [-1, 1]) {
-        for (let k = 0; k < 3; k++) {
-          const a0 = -1 + (2 * k) / 3, a1 = -1 + (2 * (k + 1)) / 3; // fractions of halfT
+        for (let k = 0; k < STR; k++) {
+          const a0 = -1 + (2 * k) / STR, a1 = -1 + (2 * (k + 1)) / STR; // fractions of halfT
           const amid = (a0 + a1) / 2;
           quads.push({
             pts: [vtx(i, a0 * hT0, zsign * hW0), vtx(i + 1, a0 * hT1, zsign * hW1),
@@ -810,7 +847,7 @@
       const tf = vtxP(1, -htP(1));   // top-front, at the tip's underside
       const apex = [0.35 * tb[0] + 0.65 * tf[0] - e2n[0] * hDrop, 0.35 * tb[1] + 0.65 * tf[1] - e2n[1] * hDrop];
       const hWz = G.halfW[SEG] * 0.92;
-      const hookCol = [0.20, 0.27, 0.34];
+      const hookCol = [0.34, 0.39, 0.46]; // light neutral so the barb reads as solid, not a shadow
       const P3 = (p2, z) => [p2[0], p2[1], z];
       // side caps (triangle tb-apex-tf on each z face)
       for (const z of [-hWz, hWz]) quads.push({ pts: [P3(tb, z), P3(apex, z), P3(tf, z), P3(tf, z)], col: hookCol });
@@ -903,7 +940,7 @@
     const W = wrap.clientWidth, H = wrap.clientHeight || 320;
     const f = (H / 2) / Math.tan((40 * Math.PI) / 360);
     let c = (liveY || 0) / Math.max(G.Lmm, 1e-3);
-    c = Math.max(-0.95, Math.min(0.95, c));
+    c = Math.max(-0.45, Math.min(0.45, c));
     let X = 0, Y = 0;
     const M = 32, dp = 1 / M;
     const grabR = 42; // forgiving target, like the app's fat invisible proxy
@@ -975,7 +1012,7 @@
     if (grabbing && G) {
       e.preventDefault();
       const H = wrap.clientHeight || 320;
-      const mmPerPx = (G.Lmm * 1.4) / H, lim = G.Lmm * 0.9;
+      const mmPerPx = (G.Lmm * 0.9) / H, lim = G.Lmm * 0.5; // cap travel so the bend stays physical
       // drag up → tip rises (deflection grows), matching the upward bend
       liveY = Math.max(-lim, Math.min(lim, dragStartDelta - (e.clientY - dragStartY) * mmPerPx));
       renderResults(liveY); updateLiveCaption(); updateFeel();
@@ -1021,7 +1058,7 @@
   function updateLiveCaption() {
     const bending = grabbing || springing;
     $("vizlive").textContent = bending
-      ? `● deflecting · y ${Math.abs(liveY).toFixed(1)} mm`
+      ? `● deflecting · y ${Math.abs(liveY).toFixed(1)} mm — release to spring back`
       : geomOK ? `L ${num("L")} · b ${num("b")} · t ${num("t")} mm · y ${num("y")} mm` : "—";
     $("vizlive").style.color = bending ? "var(--green)" : "var(--faint)";
   }
