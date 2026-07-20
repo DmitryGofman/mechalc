@@ -25,11 +25,15 @@
   /* Two columns: parameters on the left, all results crammed on the right —
      stays 2-up even on phones (like the basic cantilever). The 3D simulation
      lives full-width BELOW the grid. */
-  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: start; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: stretch; }
   @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr); gap: 9px; } }
   @media (max-width: 380px) { .grid { gap: 7px; } }
   .inputs { display: flex; flex-direction: column; gap: 8px; }
   .results { display: flex; flex-direction: column; gap: 10px; }
+  /* let the readouts spread to fill the column so it matches the taller inputs
+     side — no dead space, just airier rows */
+  .results #readouts { flex: 1 1 auto; display: flex; flex-direction: column; }
+  .results #readouts .readout { flex: 1 1 auto; align-items: center; min-height: 34px; }
   /* secondary inputs (contact & material) relocated under the readouts */
   .rgroup { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line2); }
   .rgroup-lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); }
@@ -212,6 +216,10 @@
       <div class="kicker">MECHCALC · COMPLIANT MECHANISMS</div>
       <h1>Cantilever Snap-Fit</h1>
     </div>
+    <div class="eqcorner">
+      <div>ε = 1.5·t·y / L²</div>
+      <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
+    </div>
   </div>
 
   <div class="grid">
@@ -243,9 +251,18 @@
         <div class="fld"><label>Entry α<i class="hint" tabindex="0" data-tip="Ramp angle on the face the mating part pushes over during assembly. Shallower = easier insertion. Past 1−μ·tanα = 0 the wedge self-locks and no finite push assembles it.">?</i> <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
         <div class="fld"><label>Return α′<i class="hint" tabindex="0" data-tip="Ramp angle on the back face, which sets the removal force. Steeper = harder to pull apart; 90° means no sliding release — a permanent joint.">?</i> <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
       </div>
+      <div class="duo">
+        <div class="fld"><label>Friction μ<i class="hint" tabindex="0" data-tip="Coulomb friction coefficient between the sliding faces. Plastic-on-plastic is typically 0.2–0.6 and shifts with texture, speed and wear — treat it as a range, not one number. It sets the insertion/removal force, not the strain.">?</i></label><input id="mu" type="number" step="0.02" value="0.30"></div>
+        <div class="fld"><label>Fillet R<i class="hint" tabindex="0" data-tip="Radius where the arm meets the wall. A sharp corner concentrates strain right where it already peaks — aim for R/t ≥ 0.5. Very large fillets create a thick molded section instead.">?</i> <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>ε allow<i class="hint" tabindex="0" data-tip="Permissible strain — the most the material may be stretched ONCE without damage, from the supplier's datasheet (often ~half the yield/break strain). Tough plastics: 3–8%. Use lower values for repeated use.">?</i> <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
+        <div class="fld"><label>Kt<i class="hint" tabindex="0" data-tip="Stress-concentration factor at the root — multiplies the calculated strain to account for the sharp corner. Use 1.00 when not included, or a traceable value from a chart/FEA. Never guess it.">?</i></label><input id="Kt" type="number" step="0.05" value="1.00"></div>
+      </div>
+      <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
     </div>
 
-    <!-- RESULTS: verdict, readouts, then contact/material inputs + equations -->
+    <!-- RESULTS: verdict card + all readouts, stacked on the right -->
     <div class="results">
       <div class="sfcard" id="sfcard">
         <div class="sfhead">
@@ -256,23 +273,6 @@
         <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
       </div>
       <div id="readouts"></div>
-      <div class="rgroup">
-        <div class="rgroup-lab">Contact &amp; material</div>
-        <div class="duo">
-          <div class="fld"><label>Friction μ<i class="hint" tabindex="0" data-tip="Coulomb friction coefficient between the sliding faces. Plastic-on-plastic is typically 0.2–0.6 and shifts with texture, speed and wear — treat it as a range, not one number. It sets the insertion/removal force, not the strain.">?</i></label><input id="mu" type="number" step="0.02" value="0.30"></div>
-          <div class="fld"><label>Fillet R<i class="hint" tabindex="0" data-tip="Radius where the arm meets the wall. A sharp corner concentrates strain right where it already peaks — aim for R/t ≥ 0.5. Very large fillets create a thick molded section instead.">?</i> <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
-        </div>
-        <div class="duo">
-          <div class="fld"><label>ε allow<i class="hint" tabindex="0" data-tip="Permissible strain — the most the material may be stretched ONCE without damage, from the supplier's datasheet (often ~half the yield/break strain). Tough plastics: 3–8%. Use lower values for repeated use.">?</i> <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
-          <div class="fld"><label>Kt<i class="hint" tabindex="0" data-tip="Stress-concentration factor at the root — multiplies the calculated strain to account for the sharp corner. Use 1.00 when not included, or a traceable value from a chart/FEA. Never guess it.">?</i></label><input id="Kt" type="number" step="0.05" value="1.00"></div>
-        </div>
-        <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
-      </div>
-      <div class="eqblock">
-        <span class="lab">Governing equations</span>
-        <div>ε = 1.5·t·y / L²</div>
-        <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
-      </div>
     </div>
   </div>
 
