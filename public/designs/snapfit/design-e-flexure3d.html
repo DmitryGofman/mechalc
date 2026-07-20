@@ -25,15 +25,12 @@
   /* Two columns: parameters on the left, all results crammed on the right —
      stays 2-up even on phones (like the basic cantilever). The 3D simulation
      lives full-width BELOW the grid. */
-  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: stretch; }
+  .grid { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 14px; align-items: start; }
   @media (max-width: 640px) { .grid { grid-template-columns: minmax(0,1.05fr) minmax(0,.95fr); gap: 9px; } }
   @media (max-width: 380px) { .grid { gap: 7px; } }
   .inputs { display: flex; flex-direction: column; gap: 8px; }
-  .results { display: flex; flex-direction: column; gap: 10px; }
-  /* let the readouts spread to fill the column so it matches the taller inputs
-     side — no dead space, just airier rows */
-  .results #readouts { flex: 1 1 auto; display: flex; flex-direction: column; }
-  .results #readouts .readout { flex: 1 1 auto; align-items: center; min-height: 34px; }
+  .results { display: flex; flex-direction: column; gap: 8px; }
+  #readouts { margin-top: 4px; }
   /* secondary inputs (contact & material) relocated under the readouts */
   .rgroup { display: flex; flex-direction: column; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line2); }
   .rgroup-lab { font-family: var(--mono); font-size: 9.5px; letter-spacing: .2em; text-transform: uppercase; color: var(--faint); }
@@ -47,12 +44,14 @@
   .fld label { display: flex; align-items: baseline; white-space: nowrap; font-size: 10px; letter-spacing: .12em;
                text-transform: uppercase; color: var(--mid); font-family: var(--mono); margin-bottom: 4px; }
   .fld label span { text-transform: none; letter-spacing: 0; color: var(--faint); margin-left: auto; padding-left: 6px; }
-  .fld input, .fld select { width: 100%; background: #0e1419; border: 1px solid var(--line); border-radius: 2px;
+  .fld { min-width: 0; }
+  .fld input, .fld select { width: 100%; min-width: 0; background: #0e1419; border: 1px solid var(--line); border-radius: 2px;
     color: var(--ink); padding: 8px 10px; font-family: var(--mono); font-size: 13.5px; outline: none; }
   .fld input:focus, .fld select:focus { border-color: var(--blue); }
   .fld input.bad { border-color: var(--red); }
   .fld .note { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
   .fld .note.warn { color: var(--amber); }
+  #taperNote { color: var(--blue); }
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   /* status card + readouts (flexure style) */
   .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; }
@@ -223,7 +222,7 @@
   </div>
 
   <div class="grid">
-    <!-- INPUTS -->
+    <!-- LEFT: the part (material, section, size) + the verdict -->
     <div class="inputs">
       <div class="fld">
         <label>Material<i class="hint" tabindex="0" data-tip="Educational presets that fill the secant modulus and permissible strain below. They are generic teaching values — for a real part use your exact grade's datasheet, at the right temperature and moisture state.">?</i></label>
@@ -232,12 +231,17 @@
         <div class="note warn" id="matnote"></div>
       </div>
       <div class="fld">
-        <label>Beam profile<i class="hint" tabindex="0" data-tip="How the cross-section changes from root to tip. Tapering sheds root strain for the same undercut: a thickness taper to t/2 allows ~63% more deflection, a width taper to b/4 ~28% more.">?</i></label>
+        <label>Beam profile<i class="hint" tabindex="0" data-tip="How the cross-section changes from root to tip. Tapering sheds root strain for the same undercut — set the ratio below. The force divisor and strain coefficient are integrated numerically for whatever ratio you pick.">?</i></label>
         <select id="profile">
           <option value="uniform">Uniform section</option>
-          <option value="taperThickness">Thickness taper t → t/2</option>
-          <option value="taperWidth">Width taper b → b/4</option>
+          <option value="thickness">Thickness taper (t → t/N)</option>
+          <option value="width">Width taper (b → b/N)</option>
         </select>
+      </div>
+      <div class="fld" id="taperRow" hidden>
+        <label id="taperLab">Taper N — tip = root ÷ N<i class="hint" tabindex="0" data-tip="How far the section narrows from root to tip: the tip dimension is the root ÷ N. N = 2 is the classic t→t/2; N = 3 gives t→t/3, etc. Any real N ≥ 1 works — the beam integral is recomputed for it.">?</i></label>
+        <input id="taperN" type="number" step="0.5" min="1" value="2">
+        <div class="note" id="taperNote"></div>
       </div>
       <div class="duo">
         <div class="fld"><label>Length L<i class="hint" tabindex="0" data-tip="Arm length from the wall to where the hook touches the mating edge. Your strongest lever: strain falls with L² and force with L³, so a slightly longer arm helps a lot.">?</i> <span>mm</span></label><input id="L" type="number" step="0.5" value="19"></div>
@@ -247,23 +251,6 @@
         <div class="fld"><label>Thickness t<i class="hint" tabindex="0" data-tip="Beam thickness at the root, in the bending direction. Strain grows with t, force with t³ — a thinner arm is both safer and easier to push. Thin here before shortening L.">?</i> <span>mm</span></label><input id="t" type="number" step="0.1" value="2.4"></div>
         <div class="fld"><label>Undercut y<i class="hint" tabindex="0" data-tip="How far the hook must deflect to slide past the mating edge — the engagement depth. This is the travel you're designing for; more undercut = stronger retention but more strain.">?</i> <span>mm</span></label><input id="y" type="number" step="0.1" value="2.4"></div>
       </div>
-      <div class="duo">
-        <div class="fld"><label>Entry α<i class="hint" tabindex="0" data-tip="Ramp angle on the face the mating part pushes over during assembly. Shallower = easier insertion. Past 1−μ·tanα = 0 the wedge self-locks and no finite push assembles it.">?</i> <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
-        <div class="fld"><label>Return α′<i class="hint" tabindex="0" data-tip="Ramp angle on the back face, which sets the removal force. Steeper = harder to pull apart; 90° means no sliding release — a permanent joint.">?</i> <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
-      </div>
-      <div class="duo">
-        <div class="fld"><label>Friction μ<i class="hint" tabindex="0" data-tip="Coulomb friction coefficient between the sliding faces. Plastic-on-plastic is typically 0.2–0.6 and shifts with texture, speed and wear — treat it as a range, not one number. It sets the insertion/removal force, not the strain.">?</i></label><input id="mu" type="number" step="0.02" value="0.30"></div>
-        <div class="fld"><label>Fillet R<i class="hint" tabindex="0" data-tip="Radius where the arm meets the wall. A sharp corner concentrates strain right where it already peaks — aim for R/t ≥ 0.5. Very large fillets create a thick molded section instead.">?</i> <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
-      </div>
-      <div class="duo">
-        <div class="fld"><label>ε allow<i class="hint" tabindex="0" data-tip="Permissible strain — the most the material may be stretched ONCE without damage, from the supplier's datasheet (often ~half the yield/break strain). Tough plastics: 3–8%. Use lower values for repeated use.">?</i> <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
-        <div class="fld"><label>Kt<i class="hint" tabindex="0" data-tip="Stress-concentration factor at the root — multiplies the calculated strain to account for the sharp corner. Use 1.00 when not included, or a traceable value from a chart/FEA. Never guess it.">?</i></label><input id="Kt" type="number" step="0.05" value="1.00"></div>
-      </div>
-      <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
-    </div>
-
-    <!-- RESULTS: verdict card + all readouts, stacked on the right -->
-    <div class="results">
       <div class="sfcard" id="sfcard">
         <div class="sfhead">
           <span class="lab">STRAIN UTILIZATION<i class="hint" tabindex="0" data-tip="How much of the material's strain budget this design spends: U = Kt·ε / ε_allow. U = 0.40 means the assembly event uses 40% of the permissible strain — comfortable. U = 1 is the limit; above it the arm may be damaged the first time it clicks.">?</i></span>
@@ -272,6 +259,23 @@
         <div class="sfval" id="sfval">—</div>
         <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
       </div>
+    </div>
+
+    <!-- RIGHT: contact & material characteristics + the numeric readouts -->
+    <div class="results">
+      <div class="duo">
+        <div class="fld"><label>Entry α<i class="hint" tabindex="0" data-tip="Ramp angle on the face the mating part pushes over during assembly. Shallower = easier insertion. Past 1−μ·tanα = 0 the wedge self-locks and no finite push assembles it.">?</i> <span>deg</span></label><input id="alpha" type="number" step="1" value="30"></div>
+        <div class="fld"><label>Return α′<i class="hint" tabindex="0" data-tip="Ramp angle on the back face, which sets the removal force. Steeper = harder to pull apart; 90° means no sliding release — a permanent joint.">?</i> <span>deg</span></label><input id="alphaP" type="number" step="1" value="45"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>Friction μ<i class="hint" tabindex="0" data-tip="Coulomb friction coefficient between the sliding faces. Plastic-on-plastic is typically 0.2–0.6 and shifts with texture, speed and wear — treat it as a range, not one number. It sets the insertion/removal force, not the strain.">?</i></label><input id="mu" type="number" step="0.02" value="0.30"></div>
+        <div class="fld"><label>Fillet R<i class="hint" tabindex="0" data-tip="Radius where the arm meets the wall. A sharp corner concentrates strain right where it already peaks — aim for R/t ≥ 0.5. R does not change the nominal beam force/strain in this model — it drives the R/t check and the concentration you enter as Kt.">?</i> <span>mm</span></label><input id="R" type="number" step="0.05" value="0.6"></div>
+      </div>
+      <div class="duo">
+        <div class="fld"><label>ε allow<i class="hint" tabindex="0" data-tip="Permissible strain — the most the material may be stretched ONCE without damage, from the supplier's datasheet (often ~half the yield/break strain). Tough plastics: 3–8%. Use lower values for repeated use.">?</i> <span>%</span></label><input id="eAllow" type="number" step="0.1" value="6.0"></div>
+        <div class="fld"><label>Kt<i class="hint" tabindex="0" data-tip="Stress-concentration factor at the root — multiplies the calculated strain to account for the sharp corner. Use 1.00 when not included, or a traceable value from a chart/FEA. Never guess it.">?</i></label><input id="Kt" type="number" step="0.05" value="1.00"></div>
+      </div>
+      <div class="fld"><label>Secant modulus E<sub>s</sub><i class="hint" tabindex="0" data-tip="Stiffness of the plastic AT the working strain: the slope of a straight line from zero to your point on the stress–strain curve. Lower than the datasheet Young's modulus because plastic curves soften — using E would overestimate the forces.">?</i> <span>MPa</span></label><input id="Es" type="number" step="10" value="1200"></div>
       <div id="readouts"></div>
     </div>
   </div>
@@ -456,7 +460,7 @@
 
   /* ── persist inputs across navigation (theory page ↔ calculator) ── */
   const STORE = "snaplab-e-v1";
-  const PERSIST = ["profile", "L", "b", "t", "y", "R", "alpha", "alphaP", "mu", "Es", "eAllow", "Kt"];
+  const PERSIST = ["profile", "taperN", "L", "b", "t", "y", "R", "alpha", "alphaP", "mu", "Es", "eAllow", "Kt"];
   function saveState() {
     try {
       const s = { mat: matSel.value, ref: null };
@@ -576,7 +580,9 @@
     for (let i = 0; i <= N; i++) xs.push(xmax * i / N);
     const CE = { uniform: 1.5, taperThickness: 0.92, taperWidth: 1.17 };
     const CP = { uniform: 4, taperThickness: 6.528, taperWidth: 5.136 };
-    const activeCoef = CE[prof], activeDiv = CP[prof];
+    // active profile may be a custom taper ratio — take its integrated coefficient
+    const activeProf = SnapFit.resolveProfile(inp);
+    const activeCoef = activeProf.strainCoef;
     const strain = (coef, d) => (coef * t * d) / (L * L);
     const wOf = (prf) => (prf === prof ? 2.4 : 1.3);
 
@@ -629,8 +635,12 @@
 
   /* ── engine glue ────────────────────────────────────────────── */
   function collect(yOverride) {
+    const sel = $("profile").value; // "uniform" | "thickness" | "width"
+    const taperType = sel === "thickness" ? "thickness" : sel === "width" ? "width" : "none";
+    // legacy string kept for the comparison tab's reference curves
+    const profile = sel === "thickness" ? "taperThickness" : sel === "width" ? "taperWidth" : "uniform";
     return {
-      profile: $("profile").value,
+      profile, taperType, taperN: num("taperN"),
       L: num("L"), b: num("b"), t: num("t"), R: num("R"),
       y: yOverride !== undefined ? yOverride : num("y"),
       Es: num("Es"), eAllow: num("eAllow") / 100, mu: num("mu"), Kt: num("Kt"),
@@ -735,10 +745,10 @@
   let G = null; // { Ls, halfT[], halfW[], shape[], scale, Lmm }
   function rebuildGeom() {
     const inp = collect();
-    geomOK = [inp.L, inp.b, inp.t].every((v) => Number.isFinite(v) && v > 0) && SnapFit.PROFILES[inp.profile];
+    geomOK = [inp.L, inp.b, inp.t].every((v) => Number.isFinite(v) && v > 0) && !!SnapFit.resolveProfile(inp);
     msg.style.display = geomOK ? "none" : "flex";
     if (!geomOK) { G = null; return; }
-    const prof = SnapFit.PROFILES[inp.profile];
+    const prof = SnapFit.resolveProfile(inp);
     const maxd = Math.max(inp.L, inp.b, inp.t);
     const s = 3.2 / maxd;
     const halfT = [], halfW = [], shape = [];
@@ -790,7 +800,7 @@
     const f = (H / 2) / Math.tan((40 * Math.PI) / 360);
     const inp = collect();
     const engineOK = Number.isFinite(inp.eAllow) && inp.eAllow > 0 && Number.isFinite(inp.Kt) && inp.Kt >= 1;
-    const prof = SnapFit.PROFILES[inp.profile];
+    const prof = SnapFit.resolveProfile(inp);
 
     // deflection ratio, arc-length-preserving centerline (X right, Y up).
     // Inserting the hook lifts the tip UP, so +y bends the arm upward.
@@ -877,7 +887,9 @@
     // face into the wall (the root is at φ≈0, so it needs no rotation)
     if (Number.isFinite(inp.R) && inp.R > 0) {
       const hT0 = G.halfT[0], hW0 = G.halfW[0] * 0.999;
-      const Rs = Math.min(inp.R * G.scale, G.Ls * 0.15, hT0 * 1.6);
+      // scale with R (so it visibly grows, even on a thin arm) but cap so a huge
+      // R/t doesn't swallow the beam or poke past the wall slab
+      const Rs = Math.min(inp.R * G.scale, G.Ls * 0.22, hT0 * 3);
       const AN = 7; // arc segments
       for (const sgn of [1, -1]) {
         const col = stressColor(ratioRoot * dir * sgn * 0.85);
@@ -900,7 +912,8 @@
     }
 
     // anchor wall slab at the root (tall enough to contain the fillet arc)
-    const wT = 0.22, wY = G.halfT[0] * 2.9 + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
+    const filletRs = Number.isFinite(inp.R) && inp.R > 0 ? Math.min(inp.R * G.scale, G.Ls * 0.22, G.halfT[0] * 3) : 0;
+    const wT = 0.22, wY = Math.max(G.halfT[0] * 2.9, G.halfT[0] + filletRs + 0.1) + 0.15, wZ = G.halfW[0] * 1.6 + 0.15;
     const wx1 = x0 - wT, wx2 = x0;
     const wallCol = [0.1, 0.14, 0.17];
     const wallFaces = [
@@ -984,7 +997,7 @@
   function updateFeel() {
     const inp = collect();
     const ok = Number.isFinite(inp.eAllow) && inp.eAllow > 0;
-    const prof = SnapFit.PROFILES[inp.profile];
+    const prof = SnapFit.resolveProfile(inp);
     const ratio = ok && G ? ((inp.Kt || 1) * prof.strainCoef * inp.t * Math.abs(liveY)) / (G.Lmm * G.Lmm) / inp.eAllow : 0;
     if (audio) {
       audio.gain.gain.setTargetAtTime(Math.min(0.14, ratio * 0.12), audio.ctx.currentTime, 0.02);
@@ -1099,16 +1112,40 @@
   }
 
   /* input wiring */
+  // Show/hide the taper-ratio field and describe the resulting section.
+  function updateTaperUI() {
+    const sel = $("profile").value;
+    const tapered = sel === "thickness" || sel === "width";
+    $("taperRow").hidden = !tapered;
+    $("taperLab").firstChild.nodeValue = sel === "width" ? "Width taper N — tip = root ÷ N" : "Thickness taper N — tip = root ÷ N";
+    if (tapered) {
+      const inp = collect();
+      const prof = SnapFit.resolveProfile(inp);
+      const dim = sel === "width" ? "b" : "t";
+      const N = num("taperN");
+      $("taperNote").textContent = Number.isFinite(N) && N >= 1
+        ? `tip = ${dim}/${N} · integrated: force ÷${prof.forceDivisor.toFixed(2)}, ε = ${prof.strainCoef.toFixed(2)}·t·y/L²`
+        : "N must be ≥ 1";
+    }
+  }
   function onEdit() {
     designY = num("y");
     if (!grabbing && !springing) liveY = Number.isFinite(designY) ? designY : 0;
+    updateTaperUI();
     rebuildGeom();
     renderResults(null);
     updateLiveCaption();
     drawCompare();
     saveState();
   }
-  ["profile","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
+  ["profile","taperN","L","b","t","y","R","alpha","alphaP","mu","Es","eAllow","Kt"].forEach((f) => $(f).addEventListener("input", onEdit));
+  // picking a taper type sets a sensible default N the first time
+  $("profile").addEventListener("change", () => {
+    const sel = $("profile").value;
+    if (sel === "thickness" && !(num("taperN") >= 1)) $("taperN").value = "2";
+    if (sel === "width" && !(num("taperN") >= 1)) $("taperN").value = "4";
+    onEdit();
+  });
   window.addEventListener("resize", drawScene);
 
   // tab switching between the 3D view and the comparison charts

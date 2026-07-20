@@ -53,6 +53,66 @@
   };
 
   /*
+   * Arbitrary linear taper: the tip dimension is root ÷ N (N ≥ 1). The force
+   * divisor D and the root-relative strain coefficient are computed by
+   * numerical integration, so ANY taper ratio works — not only the tabulated
+   * t/2 and b/4:
+   *   D   = 12·∫₀¹ (1−u)² / (β·τ³) du               (β,τ = width/thickness shape)
+   *   Cε  = (6/D)·maxᵤ (1−u)/(β·τ²)                  (peak surface strain along x)
+   * Cross-checks against the manuals: thickness t→t/2 → D≈6.528 (Cε≈0.92),
+   * width b→b/4 → D≈5.136 (Cε≈1.17), uniform → D=4 (Cε=1.5).
+   */
+  const _fmtN = (n) => (Math.abs(n - Math.round(n)) < 0.05 ? String(Math.round(n)) : n.toFixed(1));
+  const _taperCache = {};
+  function makeTaper(type, r) {
+    r = Math.max(0.05, Math.min(1, r));
+    const key = type + ":" + r.toFixed(4);
+    if (_taperCache[key]) return _taperCache[key];
+    const tShape = (u) => (type === "thickness" ? 1 - (1 - r) * u : 1);
+    const bShape = (u) => (type === "width" ? 1 - (1 - r) * u : 1);
+    const N = 2000;
+    let D = 0,
+      maxG = 0;
+    for (let i = 0; i <= N; i++) {
+      const u = i / N,
+        tau = tShape(u),
+        beta = bShape(u);
+      const w = i === 0 || i === N ? 0.5 : 1; // trapezoid
+      D += (w * ((1 - u) * (1 - u))) / (beta * tau * tau * tau);
+      const g = (1 - u) / (beta * tau * tau);
+      if (g > maxG) maxG = g;
+    }
+    D = (12 * D) / N;
+    const prof = {
+      label:
+        type === "thickness"
+          ? "Thickness taper t→t/" + _fmtN(1 / r)
+          : "Width taper b→b/" + _fmtN(1 / r),
+      forceDivisor: D,
+      strainCoef: (6 / D) * maxG,
+      thicknessAt: type === "thickness" ? (t, u) => t * (1 - (1 - r) * u) : (t) => t,
+      widthAt: type === "width" ? (b, u) => b * (1 - (1 - r) * u) : (b) => b,
+      volumeFactor: (1 + r) / 2,
+      taperType: type,
+      taperR: r,
+    };
+    _taperCache[key] = prof;
+    return prof;
+  }
+
+  // Resolve the effective section from an input: a dynamic {taperType, taperN}
+  // spec if present, otherwise a legacy named profile string.
+  function resolveProfile(inp) {
+    const type = inp && inp.taperType;
+    if (type === "thickness" || type === "width") {
+      const N = inp.taperN;
+      const r = Number.isFinite(N) && N >= 1 ? 1 / N : type === "thickness" ? 0.5 : 0.25;
+      return makeTaper(type, r);
+    }
+    return PROFILES[(inp && inp.profile) || "uniform"] || PROFILES.uniform;
+  }
+
+  /*
    * Engineering policy, not physical constants (§6.1): thresholds are
    * deliberately centralized and overridable so a reviewer can see and
    * change them in one place.
@@ -124,7 +184,13 @@
     if (inp.R !== undefined && inp.R !== null) {
       need(isNonNeg(inp.R), "R", "Root fillet radius R must be zero or positive (mm).");
     }
-    if (!PROFILES[inp.profile]) {
+    if (inp.taperType === "thickness" || inp.taperType === "width") {
+      need(
+        Number.isFinite(inp.taperN) && inp.taperN >= 1,
+        "taperN",
+        "Taper factor N must be ≥ 1 (tip = root ÷ N; N = 1 is uniform)."
+      );
+    } else if (!PROFILES[inp.profile] && !inp.taperType) {
       errors.push({ field: "profile", msg: "Unknown beam profile: " + inp.profile });
     }
     return errors;
@@ -143,7 +209,7 @@
       return { status: "invalid", errors, warnings: [], values: null, selfLock: null };
     }
 
-    const prof = PROFILES[inp.profile];
+    const prof = resolveProfile(inp);
     const Kt = inp.Kt === undefined || inp.Kt === null ? 1 : inp.Kt;
     const warnings = [];
     let indeterminate = false;
@@ -279,6 +345,8 @@
         deflectionRatio, // y/L
         RoverT: inp.R !== undefined && inp.R !== null ? inp.R / inp.t : null,
         profileLabel: prof.label,
+        forceDivisor: prof.forceDivisor, // effective D (dynamic for custom tapers)
+        strainCoef: prof.strainCoef, // effective Cε
       },
     };
   }
@@ -289,7 +357,7 @@
    * NOT use the handbook divisors, so it can catch a wrong constant.
    */
   function numericCompliance(profile, L, b, t, Es, n) {
-    const prof = PROFILES[profile];
+    const prof = typeof profile === "string" ? PROFILES[profile] : profile;
     const N = Math.max(2, Math.ceil((n || 400) / 2) * 2); // even for Simpson
     const h = L / N;
     let sum = 0;
@@ -307,16 +375,16 @@
 
   /* Closed-form vs numeric-integral force for the same deflection. */
   function crossCheck(inp, n) {
-    const prof = PROFILES[inp.profile];
+    const prof = resolveProfile(inp);
     const ratio = inp.t / inp.L;
     const closedP = (inp.Es * inp.b * ratio * ratio * ratio * inp.y) / prof.forceDivisor;
-    const numericP = inp.y / numericCompliance(inp.profile, inp.L, inp.b, inp.t, inp.Es, n);
+    const numericP = inp.y / numericCompliance(prof, inp.L, inp.b, inp.t, inp.Es, n);
     return { closedP, numericP, diffPct: (100 * (closedP - numericP)) / numericP };
   }
 
   /* Bending strain-energy integral ∫ M²/(2EsI) dx — must equal P·y/2. */
   function numericStrainEnergy(profile, L, b, t, Es, P, n) {
-    const prof = PROFILES[profile];
+    const prof = typeof profile === "string" ? PROFILES[profile] : profile;
     const N = Math.max(2, Math.ceil((n || 400) / 2) * 2);
     const h = L / N;
     let sum = 0;
@@ -338,7 +406,7 @@
    * ε(x) = P·(L−x)·(t(x)/2) / (Es·I(x)). Returns n+1 points {u, eps}.
    */
   function strainProfile(inp, P, n) {
-    const prof = PROFILES[inp.profile];
+    const prof = resolveProfile(inp);
     const N = n || 40;
     const pts = [];
     for (let i = 0; i <= N; i++) {
@@ -386,7 +454,7 @@
       !(isPos(EsLo) && isPos(yLo) && isPos(eaLo) && isNonNeg(muLo)) || EsLo > EsHi || yLo > yHi || muLo > muHi || eaLo > eaHi;
     if (bad) return { ok: false, msg: "Ranges must be ordered [low, high] with positive lower bounds." };
 
-    const prof = PROFILES[inp.profile];
+    const prof = resolveProfile(inp);
     if (!prof || !isPos(inp.L) || !isPos(inp.b) || !isPos(inp.t)) {
       return { ok: false, msg: "Interval evaluation needs a valid nominal design first." };
     }
@@ -457,5 +525,7 @@
     crossCheck,
     strainProfile,
     deflectionShape,
+    makeTaper,
+    resolveProfile,
   };
 });
