@@ -52,6 +52,12 @@
   .fld .note { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
   .fld .note.warn { color: var(--amber); }
   #taperNote { color: var(--blue); }
+  /* governing equations tucked under the verdict box on the left */
+  .eqfoot { font-family: var(--mono); font-size: 10.5px; color: var(--faint); line-height: 1.95;
+    padding-top: 10px; border-top: 1px solid var(--line2); margin-top: 2px; }
+  .eqfoot .lab { display: block; letter-spacing: .16em; text-transform: uppercase; color: var(--mid);
+    font-size: 9px; margin-bottom: 4px; }
+  @media (max-width: 640px) { .eqfoot { font-size: 9.5px; } }
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   /* status card + readouts (flexure style) */
   .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; }
@@ -215,10 +221,6 @@
       <div class="kicker">MECHCALC · COMPLIANT MECHANISMS</div>
       <h1>Cantilever Snap-Fit</h1>
     </div>
-    <div class="eqcorner">
-      <div>ε = 1.5·t·y / L²</div>
-      <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
-    </div>
   </div>
 
   <div class="grid">
@@ -258,6 +260,11 @@
         </div>
         <div class="sfval" id="sfval">—</div>
         <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
+      </div>
+      <div class="eqfoot">
+        <span class="lab">Governing equations</span>
+        <div>ε = 1.5·t·y / L²</div>
+        <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
       </div>
     </div>
 
