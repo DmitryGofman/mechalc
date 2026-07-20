@@ -132,6 +132,48 @@ describe("Level 5: independent numerical model reproduces handbook constants", (
   });
 });
 
+describe("Arbitrary taper ratio (numerically integrated)", () => {
+  it("reproduces the handbook divisors from the dynamic taper spec", () => {
+    // thickness t → t/2 is N = 2; width b → b/4 is N = 4
+    const th = SnapFit.makeTaper("thickness", 1 / 2);
+    expect(th.forceDivisor).toBeCloseTo(6.528, 1);
+    expect(th.strainCoef).toBeCloseTo(0.92, 1);
+    const wd = SnapFit.makeTaper("width", 1 / 4);
+    expect(wd.forceDivisor).toBeCloseTo(5.136, 1);
+    expect(wd.strainCoef).toBeCloseTo(1.17, 1);
+    const uni = SnapFit.makeTaper("thickness", 1); // N = 1 → uniform
+    expect(uni.forceDivisor).toBeCloseTo(4, 3);
+    expect(uni.strainCoef).toBeCloseTo(1.5, 3);
+  });
+
+  it("evaluate() honours {taperType, taperN} and stays cross-check consistent", () => {
+    for (const [type, N] of [["thickness", 3], ["thickness", 2.5], ["width", 6], ["width", 3]] as const) {
+      const inp = { ...base, profile: undefined, taperType: type, taperN: N };
+      const r = SnapFit.evaluate(inp);
+      expect(r.status).not.toBe("invalid");
+      // closed form (using the dynamic divisor) agrees with the raw integral
+      const xc = SnapFit.crossCheck(inp, 4000);
+      expect(Math.abs(xc.diffPct)).toBeLessThan(0.2);
+      // a deeper taper (bigger N) sheds root strain vs the uniform beam
+      const uniform = SnapFit.evaluate({ ...base }).values;
+      if (type === "thickness") expect(r.values.eps).toBeLessThan(uniform.eps);
+    }
+  });
+
+  it("a stronger thickness taper allows more deflection for the same strain", () => {
+    const t2 = SnapFit.evaluate({ ...base, profile: undefined, taperType: "thickness", taperN: 2 }).values;
+    const t3 = SnapFit.evaluate({ ...base, profile: undefined, taperType: "thickness", taperN: 3 }).values;
+    expect(t3.eps).toBeLessThan(t2.eps); // t/3 root strain < t/2 root strain
+    expect(t3.P).toBeLessThan(t2.P); // and it's a softer spring
+  });
+
+  it("rejects a taper factor below 1", () => {
+    const r = SnapFit.evaluate({ ...base, profile: undefined, taperType: "thickness", taperN: 0.5 });
+    expect(r.status).toBe("invalid");
+    expect(r.errors.some((e: { field: string }) => e.field === "taperN")).toBe(true);
+  });
+});
+
 describe("Guards: self-locking, applicability, invalid input", () => {
   it("self-locking entry (1 − μ·tanα ≤ 0) yields no finite force and blocks the verdict", () => {
     const r = SnapFit.evaluate({ ...base, mu: 0.7, alphaRad: deg(60) }); // 1 − 0.7·1.732 < 0
