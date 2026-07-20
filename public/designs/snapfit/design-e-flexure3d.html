@@ -798,10 +798,12 @@
     const dir = -(Math.sign(liveY) || 1); // bending up → bottom face in tension, top compressed
 
     const x0 = -G.Ls / 2; // center the beam like the app
-    // ring vertex helper: thickness offset a, width offset z
+    // ring vertex helper: offset a point by `a` along the cross-section normal
+    // (perpendicular to the tangent). For the upward-bending centerline the
+    // tangent is (cosφ, sinφ), so the through-thickness normal is (−sinφ, cosφ).
     const vtx = (i, a, z) => {
       const p = i / SEG, phi = slope(p, c), [X, Y] = ringAt(p);
-      return [x0 + X + a * Math.sin(phi), Y + a * Math.cos(phi), z];
+      return [x0 + X - a * Math.sin(phi), Y + a * Math.cos(phi), z];
     };
 
     const quads = []; // {pts:[[x,y,z]×4], col:[r,g,b]}
@@ -837,9 +839,9 @@
     // the apex hangs below and the sloped faces read as the entry/return ramps.
     if (Number.isFinite(inp.y) && inp.y > 0) {
       const htP = (p) => Math.max(prof.thicknessAt(inp.t, p) * G.scale / 2, 0.02);
-      const vtxP = (p, a) => { const phi = slope(p, c), [X, Y] = ringAt(p); return [x0 + X + a * Math.sin(phi), Y + a * Math.cos(phi)]; };
+      const vtxP = (p, a) => { const phi = slope(p, c), [X, Y] = ringAt(p); return [x0 + X - a * Math.sin(phi), Y + a * Math.cos(phi)]; };
       const phi1 = slope(1, c);
-      const e2n = [Math.sin(phi1), Math.cos(phi1)]; // through-thickness, toward the top face
+      const e2n = [-Math.sin(phi1), Math.cos(phi1)]; // through-thickness normal, toward the top face
       const hDrop = Math.min(G.Ls * 0.20, Math.max(0.14, inp.y * G.scale)); // barb depth below the arm
       const foot = Math.min(0.30, (hDrop * 1.4) / G.Ls + 0.12);             // hook length (fraction of arc)
       const pB = Math.max(0.5, 1 - foot);
