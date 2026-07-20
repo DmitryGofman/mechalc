@@ -17,11 +17,13 @@
   .shell { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
   a.back { font-family: var(--mono); font-size: 10px; letter-spacing: .2em; color: var(--faint); text-decoration: none; }
   a.back:hover { color: var(--blue); }
-  .header { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px;
-            border-bottom: 1px solid var(--line); padding-bottom: 14px; margin: 10px 0 22px; }
+  .header { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin: 10px 0 22px; }
+  .header-row { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 10px 12px; }
   .kicker { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
   h1 { margin: 6px 0 0; font-size: 22px; font-weight: 600; letter-spacing: -.01em; }
   .eqcorner { text-align: right; font-family: var(--mono); font-size: 10px; color: var(--faint); line-height: 1.6; }
+  /* on phones shrink the title + equations so they still sit side-by-side */
+  @media (max-width: 560px) { h1 { font-size: 17px; } .eqcorner { font-size: 8px; line-height: 1.6; } }
   /* Two columns: parameters on the left, all results crammed on the right —
      stays 2-up even on phones (like the basic cantilever). The 3D simulation
      lives full-width BELOW the grid. */
@@ -52,12 +54,6 @@
   .fld .note { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-top: 3px; line-height: 1.5; }
   .fld .note.warn { color: var(--amber); }
   #taperNote { color: var(--blue); }
-  /* governing equations tucked under the verdict box on the left */
-  .eqfoot { font-family: var(--mono); font-size: 10.5px; color: var(--faint); line-height: 1.95;
-    padding-top: 10px; border-top: 1px solid var(--line2); margin-top: 2px; }
-  .eqfoot .lab { display: block; letter-spacing: .16em; text-transform: uppercase; color: var(--mid);
-    font-size: 9px; margin-bottom: 4px; }
-  @media (max-width: 640px) { .eqfoot { font-size: 9.5px; } }
   .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
   /* status card + readouts (flexure style) */
   .sfcard { background: var(--panel); border: 1px solid; border-radius: 3px; padding: 14px 16px; }
@@ -217,9 +213,13 @@
 <div class="shell">
   <a class="back" href="../../">← MECHCALC</a>
   <div class="header">
-    <div>
-      <div class="kicker">MECHCALC · COMPLIANT MECHANISMS</div>
+    <div class="kicker">MECHCALC · COMPLIANT MECHANISMS</div>
+    <div class="header-row">
       <h1>Cantilever Snap-Fit</h1>
+      <div class="eqcorner">
+        <div>ε = 1.5·t·y / L²</div>
+        <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
+      </div>
     </div>
   </div>
 
@@ -260,11 +260,6 @@
         </div>
         <div class="sfval" id="sfval">—</div>
         <div class="sfsub" id="sfsub">U = K<sub>t</sub>·ε / ε<sub>allow</sub> · <span id="sfplain">fraction of the strain budget used — below 1 passes</span></div>
-      </div>
-      <div class="eqfoot">
-        <span class="lab">Governing equations</span>
-        <div>ε = 1.5·t·y / L²</div>
-        <div>W = P·(μ+tanα) / (1−μ·tanα)</div>
       </div>
     </div>
 
