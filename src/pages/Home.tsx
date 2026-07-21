@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "../router";
 
 // The toolkit's catalog. Ready calculators link to their route; planned ones
@@ -12,31 +13,19 @@ type CalcCard = {
   desc: string;
   eq: string;
   ready: boolean;
+  wip?: boolean; // clickable, but still being refined — amber status chip
 };
 
-const CALCS: CalcCard[] = [
+// Three tiers: the refined flagships we stand behind, the ones still in
+// active development, and the roadmap. Order within the file is the order
+// on the page.
+const REFINED: CalcCard[] = [
   {
     route: "/flexure-calculator",
     tag: "Compliant mechanisms",
     title: "Cantilever Flexure",
     desc: "Stiffness, force, peak bending stress and yield safety factor for a rectangular flexure blade — bend the 3D beam and feel the stress.",
     eq: "σ = 3Etδ / 2L²",
-    ready: true,
-  },
-  {
-    route: "/bolt-calculator",
-    tag: "Fasteners",
-    title: "Bolted Joint — Screw Strength",
-    desc: "Torque → preload, VDI-style reduced stress, and the clamped sandwich: two plate materials, load sharing, separation & crushing checks — tighten the 3D nut and watch the pressure cones.",
-    eq: "Fb = Fi + C·P",
-    ready: true,
-  },
-  {
-    route: "/beam-calculator",
-    tag: "Structures",
-    title: "Beam on Two Supports",
-    desc: "Center-load stiffness, force and peak stress for a beam held at both ends — pinned or built-in — press the middle of the 3D beam and watch the moment diagram light up.",
-    eq: "k = 48EI / L³",
     ready: true,
   },
   {
@@ -48,12 +37,16 @@ const CALCS: CalcCard[] = [
     ready: true,
   },
   {
-    tag: "Drivetrain",
-    title: "Shaft in Torsion",
-    desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",
-    eq: "τ = 16T / πd³",
-    ready: false,
+    route: "/bolt-calculator",
+    tag: "Fasteners",
+    title: "Bolted Joint — Screw Strength",
+    desc: "Torque → preload, VDI-style reduced stress, and the clamped sandwich: two plate materials, load sharing, separation & crushing checks — tighten the 3D nut and watch the pressure cones.",
+    eq: "Fb = Fi + C·P",
+    ready: true,
   },
+];
+
+const IN_PROGRESS: CalcCard[] = [
   {
     route: "/buckling-calculator",
     tag: "Structures",
@@ -61,6 +54,26 @@ const CALCS: CalcCard[] = [
     desc: "Critical load for all four classical buckling modes, Euler and Johnson regimes — push the 3D column's load platen and watch the bow run away at Pcr.",
     eq: "Pcr = π²EI / (KL)²",
     ready: true,
+    wip: true,
+  },
+  {
+    route: "/beam-calculator",
+    tag: "Structures",
+    title: "Beam on Two Supports",
+    desc: "Center-load stiffness, force and peak stress for a beam held at both ends — pinned or built-in — press the middle of the 3D beam and watch the moment diagram light up.",
+    eq: "k = 48EI / L³",
+    ready: true,
+    wip: true,
+  },
+];
+
+const PLANNED: CalcCard[] = [
+  {
+    tag: "Drivetrain",
+    title: "Shaft in Torsion",
+    desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",
+    eq: "τ = 16T / πd³",
+    ready: false,
   },
   {
     tag: "Springs",
@@ -93,6 +106,12 @@ const CALCS: CalcCard[] = [
 ];
 
 function Card({ c }: { c: CalcCard }) {
+  // Three visual states: refined (green), in-progress (amber, still clickable),
+  // planned (muted gray, not clickable).
+  const accent = c.wip ? "#cf9f52" : c.ready ? "#4fb477" : "#6b7884";
+  const tagColor = c.wip ? "#b98a3e" : c.ready ? "#3a78c2" : "#46515c";
+  const badgeBorder = c.wip ? "#5a4a2a" : c.ready ? "#4fb477" : "#2a3540";
+  const badgeText = c.badge ?? (c.wip ? "IN PROGRESS" : c.ready ? "READY" : "PLANNED");
   const body = (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -102,7 +121,7 @@ function Card({ c }: { c: CalcCard }) {
             fontSize: 9.5,
             letterSpacing: "0.18em",
             textTransform: "uppercase",
-            color: c.ready ? "#3a78c2" : "#46515c",
+            color: tagColor,
           }}
         >
           {c.tag}
@@ -113,14 +132,14 @@ function Card({ c }: { c: CalcCard }) {
             fontSize: 9,
             fontWeight: 700,
             letterSpacing: "0.15em",
-            color: c.ready ? "#4fb477" : "#6b7884",
-            border: `1px solid ${c.ready ? "#4fb477" : "#2a3540"}`,
+            color: accent,
+            border: `1px solid ${badgeBorder}`,
             borderRadius: 2,
             padding: "2px 6px",
             whiteSpace: "nowrap",
           }}
         >
-          {c.badge ?? (c.ready ? "READY" : "PLANNED")}
+          {badgeText}
         </span>
       </div>
       <div style={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.01em", color: "#e8edf1", marginTop: 10 }}>
@@ -144,7 +163,7 @@ function Card({ c }: { c: CalcCard }) {
         }}
       >
         <span>{c.eq}</span>
-        {c.ready && <span style={{ color: "#3a78c2", fontSize: 10 }}>OPEN →</span>}
+        {c.ready && <span style={{ color: c.wip ? "#b98a3e" : "#3a78c2", fontSize: 10 }}>OPEN →</span>}
       </div>
     </>
   );
@@ -164,6 +183,37 @@ function Card({ c }: { c: CalcCard }) {
     );
   }
   return <div className="home-card home-card-planned">{body}</div>;
+}
+
+function Section({ label, note, children }: { label: string; note: string; children: ReactNode }) {
+  return (
+    <div style={{ marginBottom: 26 }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "baseline",
+          gap: 10,
+          marginBottom: 12,
+          flexWrap: "wrap",
+        }}
+      >
+        <span
+          style={{
+            fontFamily: "var(--mono)",
+            fontSize: 11,
+            fontWeight: 700,
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#c2ccd4",
+          }}
+        >
+          {label}
+        </span>
+        <span style={{ fontFamily: "var(--sans)", fontSize: 11.5, color: "#6b7884" }}>{note}</span>
+      </div>
+      <div className="home-grid">{children}</div>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -209,12 +259,30 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Calculator cards */}
-        <div className="home-grid">
-          {CALCS.map((c) => (
+        {/* Calculator cards, grouped by how finished they are */}
+        <Section
+          label="Refined"
+          note="Polished tools — full validation, scope notes and a grabbable 3D animation."
+        >
+          {REFINED.map((c) => (
             <Card key={c.title} c={c} />
           ))}
-        </div>
+        </Section>
+
+        <Section
+          label="In progress"
+          note="Working calculators still being refined — usable today, expect changes."
+        >
+          {IN_PROGRESS.map((c) => (
+            <Card key={c.title} c={c} />
+          ))}
+        </Section>
+
+        <Section label="Planned" note="On the roadmap, landing in the same style.">
+          {PLANNED.map((c) => (
+            <Card key={c.title} c={c} />
+          ))}
+        </Section>
 
         <div
           style={{
