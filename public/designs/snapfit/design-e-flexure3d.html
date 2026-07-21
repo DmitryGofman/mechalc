@@ -862,18 +862,31 @@
 
     // hook: a barb on the arm's underside near the tip. Its top edge is pinned
     // to two points ON the beam's bottom surface, so it never gaps or floats;
-    // the apex hangs below and the sloped faces read as the entry/return ramps.
+    // the apex hangs below. The two sloped faces ARE the entry (α) and return
+    // (α′) ramps: a face at angle θ to the beam axis has horizontal run
+    // hDrop/tan θ, so a shallow entry angle draws a long lead-in and a steep
+    // return angle draws a near-vertical retention face — change either input
+    // and the barb reshapes.
     if (Number.isFinite(inp.y) && inp.y > 0) {
       const htP = (p) => Math.max(prof.thicknessAt(inp.t, p) * G.scale / 2, 0.02);
       const vtxP = (p, a) => { const phi = slope(p, c), [X, Y] = ringAt(p); return [x0 + X - a * Math.sin(phi), Y + a * Math.cos(phi)]; };
       const phi1 = slope(1, c);
       const e2n = [-Math.sin(phi1), Math.cos(phi1)]; // through-thickness normal, toward the top face
+      const tanv = [Math.cos(phi1), Math.sin(phi1)]; // beam axis unit tangent, toward the tip (+p)
       const hDrop = Math.min(G.Ls * 0.20, Math.max(0.14, inp.y * G.scale)); // barb depth below the arm
-      const foot = Math.min(0.30, (hDrop * 1.4) / G.Ls + 0.12);             // hook length (fraction of arc)
-      const pB = Math.max(0.5, 1 - foot);
-      const tb = vtxP(pB, -htP(pB)); // top-back, sitting on the beam's underside
-      const tf = vtxP(1, -htP(1));   // top-front, at the tip's underside
-      const apex = [0.35 * tb[0] + 0.65 * tf[0] - e2n[0] * hDrop, 0.35 * tb[1] + 0.65 * tf[1] - e2n[1] * hDrop];
+      // horizontal run of each ramp face = hDrop / tan(angle); clamp the drawn
+      // angle to [10°,90°] so a wild/blank input still yields a sane barb.
+      const drawAng = (rad) => Math.max(0.1745, Math.min(1.5708, Number.isFinite(rad) && rad > 0 ? rad : 0.7854));
+      const runOf = (rad) => Math.min(G.Ls * 0.34, hDrop / Math.tan(drawAng(rad)));
+      const runE = runOf(inp.alphaRad);       // entry ramp  → tip-side (front) face
+      const runR = runOf(inp.alphaPrimeRad);   // return ramp → root-side (back) face
+      const tf = vtxP(1, -htP(1));             // top-front, at the tip's underside
+      const footFrac = Math.max(0.05, Math.min(0.42, (runE + runR) / G.Ls));
+      const pB = Math.max(0.42, 1 - footFrac);
+      const tb = vtxP(pB, -htP(pB));           // top-back, sitting on the beam's underside
+      // apex: hDrop below the underside, offset toward the root from the tip by
+      // the entry run — so the front face carries α and the back face carries α′.
+      const apex = [tf[0] - tanv[0] * runE - e2n[0] * hDrop, tf[1] - tanv[1] * runE - e2n[1] * hDrop];
       const hWz = G.halfW[SEG] * 0.92;
       const hookCol = [0.34, 0.39, 0.46]; // light neutral so the barb reads as solid, not a shadow
       const P3 = (p2, z) => [p2[0], p2[1], z];
