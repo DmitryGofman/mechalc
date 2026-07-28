@@ -201,7 +201,7 @@
     <div class="fld"><label>Width W<span>mm along axis</span></label><input id="W" type="number" step="1" value="40"></div>
     <div class="fld"><label>Body height H<span>mm above split</span></label><input id="H" type="number" step="0.5" value="26"></div>
     <div class="fld"><label>Bolt offset e<span>mm from bore</span></label><input id="e" type="number" step="0.5" value="9"></div>
-    <div class="fld"><label>Gap<span>mm total</span></label><input id="gap" type="number" step="0.1" value="1"></div>
+    <div class="fld"><label>Gap<span>mm total</span></label><input id="gap" type="number" step="0.1" value="2"></div>
     <div class="fld"><label>Derived crown tc<span>mm over bore</span></label><input id="tcOut" type="text" readonly tabindex="-1"></div>
     <div class="fld wide"><label>Clamp material</label><select id="mat"></select></div>
     <div class="fld"><label>Bolts</label><select id="N"><option>2</option><option selected>4</option><option>6</option></select></div>
@@ -380,7 +380,9 @@ function buildScene(inp,res,ex){
   const spacing=W/nSide, unev=Math.max(0,Math.min((spacing-4*H)/(6*H),0.55));
   const xMult=(x)=>{ let d=Infinity; for(const bx of bolts) d=Math.min(d,Math.abs(x-bx));
     return 1-unev*Math.min(d/(spacing/2||1),1); };
-  const zShape=(az)=>{ if(az<=R)return 0; const u=Math.min((az-R)/(half-R||1),1); return u*u*(3-u)/2; };
+  // real normalised deflection curve δ(z)/δ(tip) from the engine's beam
+  // integration — the body starts bending at the bore centre, not the bore wall
+  const zShape=(az)=>res.dfShape(az);
 
   const tone=hex2rgb(CLAMP.CLAMP_MATS[inp.mat].tone);
   const earC=hex2rgb(col(res.SFflange)), crownC=hex2rgb(col(res.SFcrown));
@@ -715,27 +717,50 @@ const sfCls=(sf)=>sf>=2?"":sf>=1.2?"warn":"bad";
 
 function renderDeflection(inp,res){
   const f=CLAMP.fmt, n3=(v)=>v.toFixed(3), R=inp.D/2;
-  const cm=CLAMP.CLAMP_MATS[inp.mat], cy=CLAMP.CYL_MATS[inp.cyl];
-  const I=res.b*Math.pow(res.H,3)/12, Rm=(inp.D-Math.min(inp.tw,R))/2, tw=Math.min(inp.tw,R);
+  const cm=CLAMP.CLAMP_MATS[inp.mat];
+  const a=res.aBolt, Ithin=res.b*Math.pow(res.tc,3)/12, Ifull=res.b*Math.pow(res.H,3)/12;
+  const dThin=res.Fb*Math.pow(a,3)/(3*cm.E*Ithin), dFull=res.Fb*Math.pow(a,3)/(3*cm.E*Ifull);
+  const tw=Math.min(inp.tw,R), Rm=(inp.D-tw)/2;
   $("defl").innerHTML=
-    eqn("Second moment of the ear section",
-      `${V("I")} = ${FR(`${V("b")}·${V("H")}³`,"12")}`,
-      FR(`${f(res.b,1)} × ${f(res.H,1)}³`,"12"), `${f(I,0)} mm⁴`)+
-    eqn("Ear tip deflection — a cantilever of length e",
-      `δ<sub>ear</sub> = ${FR(`${V("F")}·${V("e")}³`,`3·${V("E")}·${V("I")}`)}`,
-      FR(`${Math.round(res.Fb)} × ${f(inp.e,1)}³`,`3 × ${f(cm.E,0)} × ${f(I,0)}`), `${n3(res.dFl)} mm`,"",
-      "Each ear bends like a little cantilever built in at the bore wall, loaded at the bolt. Both halves do it, so the two faces approach each other by twice this.")+
+    `<p style="margin-top:0"><b>The half is one beam, not two parts.</b> Symmetry fixes it at the bore
+     <em>centre</em> — the two bolts pull down either side of it, so the section at ${V("z")} = 0 cannot rotate.
+     The span is therefore ${V("a")} = ${V("R")} + ${V("e")} = <b>${f(a,1)} mm</b>, and the beam's depth
+     <em>varies</em> along it: only ${f(res.tc,1)} mm over the bore, opening out to the full ${f(res.H,1)} mm
+     once past it. The thin part sits at the root, where curvature does the most work — which is why the crown
+     dominates the deflection just as it dominates the stress.</p>`+
+    eqn("Bending moment along the half",
+      `${V("M")}(${V("z")}) = ${V("F")}·(${V("a")}−${V("z")}) − ${FR(`${V("F")}·(${V("R")}−${V("z")})²`,`2${V("R")}`)}`,
+      `inside the bore span; ${V("F")}·(${V("a")}−${V("z")}) beyond it; 0 past the bolt`,
+      `${f(res.Mcrown,0)} N·mm at the centre`,"",
+      "The second term is the bore reaction, spread over ±R, relieving the moment as you approach the centre.")+
+    eqn("Depth, and second moment, at each station",
+      `${V("h")}(${V("z")}) = ${V("H")} − (√(${V("R")}²−${V("z")}²) − ${FR("gap","2")})`,
+      `${V("I")}(${V("z")}) = ${V("b")}·${V("h")}³/12`,
+      `${f(Ithin,0)} → ${f(Ifull,0)} mm⁴`,"",
+      "Depth grows from the crown out to the full block height; I follows the cube of it.")+
+    eqn("Deflection — curvature integrated twice",
+      `δ(${V("z")}) = ∫∫ ${FR(`${V("M")}(${V("z")})`,`${V("E")}·${V("I")}(${V("z")})`)} d${V("z")}²`,
+      `θ(0) = 0 by symmetry · integrated numerically over ${f(res.halfW,1)} mm`,
+      `${n3(res.dFl)} mm at the ear tip`,"",
+      `No closed form exists for a varying depth, so this is integrated stepwise. Both halves move, so the
+       faces approach each other by twice this.`)+
+    `<p><b>Sanity check — the answer has to sit between two bounds.</b> A uniform cantilever of the same span
+      made entirely of the thin crown section would give
+      <b style="color:var(--amber)">${n3(dThin)} mm</b>; one made entirely of the full-height section would give
+      <b style="color:var(--amber)">${n3(dFull)} mm</b>. The real varying-depth beam must land between them, and
+      it does: <b style="color:var(--green)">${n3(res.dFl)} mm</b> — near the thin bound, as expected when the
+      flexible part is at the root.</p>`+
     (inp.hollow?eqn("Tube ovalization — a ring under a diametral pinch",
       `δ<sub>oval</sub> = ${FR(`0.149·λ·${V("q")}·${V("R")}<sub>m</sub>³`,`${V("E")}<sub>cyl</sub>·${V("I")}<sub>ring</sub>`)}`,
-      `λ = 0.20 · R<sub>m</sub> = ${f(Rm,1)} mm · I<sub>ring</sub> = t³/12 = ${f(Math.pow(tw,3)/12,3)} mm⁴/mm`,
-      `${n3(res.dOval)} mm`,"",
-      "Roark's thin-ring result. Only the non-uniform share λ of the clamp load bends the ring — uniform pressure is pure hoop compression and squashes nothing.")
+      `λ = 0.20 · R<sub>m</sub> = ${f(Rm,1)} mm · I<sub>ring</sub> = t³/12`, `${n3(res.dOval)} mm`,"",
+      "Roark's thin-ring result. Only the non-uniform share λ bends the ring; uniform pressure is pure hoop and squashes nothing.")
       :`<div class="eqn"><span class="lead">Tube ovalization</span><span class="mth">solid rod — none</span></div>`)+
     eqn("Gap consumed, and what is left",
-      `${V("g")}<sub>left</sub> = gap − (2δ<sub>ear</sub> + δ<sub>oval</sub>)`,
+      `${V("g")}<sub>left</sub> = gap − (2δ + δ<sub>oval</sub>)`,
       `${f(inp.gap,2)} − (2×${n3(res.dFl)} + ${n3(res.dOval)})`,
       res.bottomed?"0 — SHUT":`${f(res.gapRemain,2)} mm`,res.bottomed?"bad":"",
-      `These are the real numbers — hundredths of a millimetre. In the 3D view the split and every deflection are magnified by the same SPLIT × factor, which is why the halves still meet exactly when this reaches zero.`);
+      `The gap shuts at ${res.Tclose.toFixed(2)} N·m per bolt. In the 3D view the split and every deflection are
+       magnified by the same SPLIT × factor, so the halves still meet exactly when this reaches zero.`);
 }
 
 function renderWhyGreen(inp,res){

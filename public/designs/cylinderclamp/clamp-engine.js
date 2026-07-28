@@ -95,7 +95,7 @@
       // cylinder
       D: 25, hollow: true, tw: 2, cyl: "Steel tube (S235 / DOM)",
       // clamp body — ONE height dimension; the ear and crown sections follow
-      mat: "PC-ABS (FDM)", W: 40, H: 26, e: 9, gap: 1.0, washer: true,
+      mat: "PC-ABS (FDM)", W: 40, H: 26, e: 9, gap: 2.0, washer: true,
       // bolts
       N: 4, thread: "M5", cls: "8.8 (Q&T steel)", Kname: "Dry, plain (K≈0.20)", T: 1.2,
       // duty
@@ -146,15 +146,51 @@
     const SFbolt = vm > 0 ? cl.sp / vm : Infinity;
     const Trec = (K * d * As * TARGET_PRELOAD_FRACTION * cl.sp) / 1000; // N·m to hit 65% proof
 
-    // 3) Flange (ear) bending: each ear is a short cantilever from the bore
-    //    wall to the bolt line. Per-bolt slice of the clamp width:
+    // 3) Flange (ear) bending stress: the ear alone, as a short cantilever from
+    //    the bore wall out to the bolt line. Per-bolt slice of the clamp width:
     const b = W / (N / 2);
     const Zf = (b * tf * tf) / 6;
-    const If = (b * tf ** 3) / 12;
     const sigmaF = Zf > 0 ? (Fb * e) / Zf : Infinity;
     const SFflange = sigmaF > 0 ? cm.sy / sigmaF : Infinity;
-    const cFl = If > 0 ? e ** 3 / (3 * cm.E * If) : Infinity; // mm per N of bolt force
-    const dFl = cFl * Fb;
+
+    // 3a) DEFLECTION — this is NOT the ear cantilever. Treating it as one
+    //     understates the movement by ~80x, for two reasons: symmetry fixes the
+    //     half at the bore CENTRE (span a = R + e, not e), and the section over
+    //     the bore is only tc deep, not H — and that thin part sits right at the
+    //     root where curvature does the most work.
+    //     So integrate the real varying-depth beam: curvature M/EI twice over,
+    //     θ(0) = 0 by symmetry, free overhang past the bolt.
+    const aBolt = D / 2 + e;
+    const halfW = D / 2 + e + 1.7 * d;
+    const NSEG = 240;
+    const shapeZ = [0], shapeD = [0];
+    {
+      const dz = halfW / NSEG;
+      let th = 0, dd = 0;
+      for (let i = 0; i < NSEG; i++) {
+        const z = (i + 0.5) * dz;
+        const yLo = z < D / 2 ? Math.max(Math.sqrt(Math.max((D / 2) ** 2 - z * z, 0)) - g2, 0) : 0;
+        const hSec = Math.max(H - yLo, 0.05);
+        const Iz = (b * hSec ** 3) / 12;
+        let M = z < aBolt ? Fb * (aBolt - z) : 0;
+        if (z < D / 2) M -= (Fb * Math.pow(D / 2 - z, 2)) / (2 * (D / 2));
+        const kappa = Iz > 0 ? M / (cm.E * Iz) : 0;
+        dd += (th + (kappa * dz) / 2) * dz;
+        th += kappa * dz;
+        shapeZ.push((i + 1) * dz);
+        shapeD.push(dd);
+      }
+    }
+    const dFl = shapeD[NSEG];                       // ear-tip deflection, mm
+    const cFl = Fb > 0 ? dFl / Fb : 0;              // mm per N of bolt force
+    // normalised bending shape δ(z)/δ(tip), for the 3D view
+    const dfShape = (z) => {
+      const az = Math.min(Math.abs(z), halfW);
+      const i = Math.min(Math.floor((az / halfW) * NSEG), NSEG - 1);
+      const t = (az / halfW) * NSEG - i;
+      const v = shapeD[i] + (shapeD[i + 1] - shapeD[i]) * t;
+      return dFl > 0 ? v / dFl : 0;
+    };
 
     // 3b) Cap crown bending — the "see-saw" statics model: the cap is a beam
     //     resting on the cylinder (pin support), bolt forces F at ±(R+e) pull
@@ -268,7 +304,7 @@
     return {
       d, As, Fb, Ftot, sigma, tau, vm, SFbolt, Trec,
       b, Zf, sigmaF, SFflange, cFl, dFl,
-      H, tf, tc, tcRaw, g2, Zc, Mcrown, sigmaCrown, SFcrown,
+      H, tf, tc, tcRaw, g2, Zc, Mcrown, sigmaCrown, SFcrown, aBolt, halfW, dfShape,
       Rm, cOval, dOval, cClose, Fclose, Tclose, bottomed, Fcl, closure, gapRemain,
       p, hoop, bend, sigmaCyl, SFcyl,
       dw, Abear, pHead, SFbear,
