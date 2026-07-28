@@ -159,6 +159,17 @@
      colours, and page breaks that fall between sections rather than through
      an equation. */
   .printhead{display:none}
+  #summaryDoc{display:none}
+  .expbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);
+          border:1px solid var(--line2);border-radius:3px;padding:9px 12px;margin-bottom:4px}
+  .expbar .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;color:var(--mid)}
+  .expbar .hint{font-family:var(--mono);font-size:8.5px;color:var(--faint);flex:1;min-width:120px}
+  #summaryDoc h2{font-size:12px;margin:14px 0 5px;color:#111;border-bottom:1px solid #999;padding-bottom:3px}
+  #summaryDoc .headline{border:2px solid #0a6b3d;border-radius:3px;padding:9px 12px;margin-bottom:10px;
+                        display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  #summaryDoc .headline .n{font-family:var(--mono);font-size:20px;font-weight:700;color:#0a6b3d}
+  #summaryDoc .headline .w{font-family:var(--mono);font-size:9.5px;color:#333}
+  #summaryDoc .eqs{font-family:var(--mono);font-size:9px;color:#333;line-height:1.9}
   @media print{
     @page{margin:16mm 14mm}
     :root{--ink:#111;--dim:#333;--faint:#666;--mid:#444;--line:#bbb;--line2:#ddd;--panel:#fff;--bg:#fff;
@@ -189,6 +200,14 @@
     table.rep{page-break-inside:avoid}
     .tabpane[data-t="theory"],.tabpane[data-t="preload"]{page-break-before:always}
     #dims{border-color:#bbb}
+    .expbar{display:none !important}
+    /* full report: every tab unfolded, summary suppressed */
+    body.pf-full #summaryDoc{display:none !important}
+    /* one-pager: only the header and the summary sheet */
+    body.pf-brief .tabpane{display:none !important}
+    body.pf-brief .header{display:none !important}
+    body.pf-brief #summaryDoc{display:block !important}
+    body.pf-brief #summaryDoc table.rep{page-break-inside:avoid}
   }
 </style>
 </head>
@@ -213,7 +232,6 @@
     <button class="tabbtn on" id="tabModel" data-t="model" role="tab" aria-selected="true">Model</button>
     <button class="tabbtn" id="tabTheory" data-t="theory" role="tab" aria-selected="false">Theory &amp; report</button>
     <button class="tabbtn" id="tabPreload" data-t="preload" role="tab" aria-selected="false">Preload &amp; torque</button>
-    <button class="btn" id="pdf" style="margin-left:auto;align-self:center">⇩ PDF</button>
   </div>
 
   <div class="tabpane on" data-t="model">
@@ -302,6 +320,12 @@
   </div><!-- /model pane -->
 
   <div class="tabpane" data-t="theory">
+  <div class="expbar">
+    <span class="lab">EXPORT</span>
+    <button class="btn" id="pdfBrief">⇩ One-page summary</button>
+    <button class="btn" id="pdfFull">⇩ Full report</button>
+    <span class="hint">opens your browser's print dialog — choose “Save as PDF”</span>
+  </div>
   <div class="theory" style="margin-top:6px;border-top:none;padding-top:4px">
     <div class="lab">HOW IT WORKS — THE DIMENSIONS</div>
     <svg id="dims" viewBox="0 0 400 250" role="img" aria-label="Dimensioned cross-section of the clamp"></svg>
@@ -360,6 +384,8 @@
     <div id="preloadBody"></div>
   </div>
   </div><!-- /preload pane -->
+
+  <div id="summaryDoc"></div>
 
   <div class="note"><strong>What you're watching:</strong> deflections are real but tiny — <b>SPLIT ×</b> magnifies the flange gap and every
   deflection by the same factor, so the halves close in true proportion and meet exactly when the joint bottoms out. Ears rotate down toward the split plane, the tube squashes vertically and bulges sideways, and the
@@ -1181,16 +1207,89 @@ document.querySelectorAll(".tabbtn").forEach(t=>t.addEventListener("click",()=>{
   document.querySelectorAll(".tabpane").forEach(x=>x.classList.toggle("on",x.dataset.t===t.dataset.t));
   lastSig="";   // force the report/drawing to refresh when Theory is revealed
 }));
-$("pdf").addEventListener("click",()=>{
+function stampMeta(){
   const f=CLAMP.fmt, i=inp, r=res;
   $("printMeta").innerHTML=
     `Ø${f(i.D,1)} ${i.hollow?`× ${f(i.tw,1)} wall tube`:"solid rod"} · ${i.cyl}<br>`+
     `body ${i.mat} · H ${f(r.H,1)} · W ${f(i.W,1)} · e ${f(i.e,1)} · gap ${f(i.gap,2)} mm (crown tc ${f(r.tc,1)})<br>`+
     `${i.N} × ${i.thread} grade ${i.cls.split(" ")[0]} · ${i.Kname} · applied ${torque.toFixed(2)} N·m/bolt<br>`+
     `generated ${new Date().toLocaleString()} · typical reference values, verify before production`;
-  // make sure both document tabs have rendered before the print dialog opens
-  lastSig=""; requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
-});
+}
+
+// ── one-page summary: the numbers you would actually carry to the bench ────
+function buildSummary(){
+  const f=CLAMP.fmt, i=inp, r=res, rec=CLAMP.recommend(i), spec=CLAMP.boltSpec(i);
+  const row=(k,v)=>`<tr><td>${k}</td><td class="v">${v}</td></tr>`;
+  const chk=(k,sig,sf)=>`<tr${sf===r.SFstruct?' class="hi"':''}><td>${k}</td><td class="v">${sig}</td>`+
+    `<td class="v" style="color:${CLAMP.sfColor(sf)}">${isFinite(sf)?sf.toFixed(2):"∞"}</td></tr>`;
+  $("summaryDoc").innerHTML=
+    `<div class="headline"><span class="n">${rec.T.toFixed(2)} N·m</span>
+       <span class="w">recommended per bolt · ${i.N} bolts · limited by ${rec.governing}<br>
+       keeps safety factor ${rec.margin.toFixed(1)} below first yield (${rec.Tyield.toFixed(2)} N·m)`+
+       (rec.ok?"":" · <b>duty not met — see full report</b>")+`</span></div>
+
+     <h2>Geometry</h2><table class="rep">
+       ${row("Cylinder",`Ø${f(i.D,1)} mm ${i.hollow?`× ${f(i.tw,1)} wall`:"solid"} · ${i.cyl}`)}
+       ${row("Clamp body",`${i.mat}`)}
+       ${row("Height above split H · width W",`${f(r.H,1)} · ${f(i.W,1)} mm`)}
+       ${row("Crown over bore tc (derived)",`${f(r.tc,2)} mm`)}
+       ${row("Bolt offset e · total gap",`${f(i.e,1)} · ${f(i.gap,2)} mm`)}
+       ${row("Fasteners",`${i.N} × ${i.thread} grade ${i.cls.split(" ")[0]} · ${i.Kname}`)}
+     </table>
+
+     <h2>Torque</h2><table class="rep">
+       ${row("<b>Use — joint-side recommendation</b>",`<b>${rec.T.toFixed(2)} N·m</b>`)}
+       ${row("Fastener alone, 65% of proof",`${spec.T65.toFixed(2)} N·m`)}
+       ${row(`Capped by bearing on ${i.mat}`,`${spec.Tbear.toFixed(2)} N·m`)}
+       ${row("First yield anywhere in the joint",`${rec.Tyield.toFixed(2)} N·m`)}
+       ${row("Flange gap shuts (grip stops growing)",`${r.Tclose.toFixed(2)} N·m`)}
+       ${row("Duty demands",`${isFinite(rec.Tneed)?rec.Tneed.toFixed(2)+" N·m":"—"}`)}
+     </table>
+
+     <h2>Checks at ${torque.toFixed(2)} N·m per bolt</h2><table class="rep">
+       <tr><th>Check</th><th style="text-align:right">Stress</th><th style="text-align:right">SF</th></tr>
+       ${chk("Crown bending (over the bore)",f(r.sigmaCrown,1)+" MPa",r.SFcrown)}
+       ${chk("Ear bending",f(r.sigmaF,1)+" MPa",r.SFflange)}
+       ${chk("Bearing under head",f(r.pHead,1)+" MPa",r.SFbear)}
+       ${chk(i.hollow?"Tube wall":"Bore pressure",f(r.sigmaCyl,1)+" MPa",r.SFcyl)}
+       ${chk("Bolt (von Mises vs proof)",f(r.vm,0)+" MPa",r.SFbolt)}
+       ${chk("Grip, long-term",'—',r.SFslipLT)}
+     </table>
+
+     <h2>What it holds before slipping</h2><table class="rep">
+       <tr><th></th><th style="text-align:right">fresh</th><th style="text-align:right">after creep</th></tr>
+       ${`<tr><td>Pull along axis</td><td class="v">${f(r.Fax,0)} N</td><td class="v">${f(r.FaxLT,0)} N</td></tr>`}
+       ${`<tr><td>Twist around axis</td><td class="v">${f(r.Thold,1)} N·m</td><td class="v">${f(r.TholdLT,1)} N·m</td></tr>`}
+       ${row("Clamp force · bore pressure",`${f(r.Fcl,0)} N · ${r.p.toFixed(2)} MPa`)}
+       ${row("Deflection per half · gap left",`${r.dFl.toFixed(3)} mm · ${r.bottomed?"SHUT":r.gapRemain.toFixed(2)+" mm"}`)}
+     </table>
+
+     <h2>Governing relations</h2>
+     <div class="eqs">
+       F = T/(K·d) = ${f(r.Fb,0)} N per bolt &nbsp;·&nbsp; ΣF = ${f(r.Fcl,0)} N<br>
+       tc = gap/2 + H − D/2 = ${f(r.tc,2)} mm &nbsp;·&nbsp; b = W/(N/2) = ${f(r.b,1)} mm<br>
+       σ_crown = 6·F·(e + D/4)/(b·tc²) = ${f(r.sigmaCrown,1)} MPa &nbsp;·&nbsp; σ_ear = 6·F·e/(b·H²) = ${f(r.sigmaF,1)} MPa<br>
+       F_ax = η·μ·π·ΣF, η 0.75, μ ${f(r.mu,2)} &nbsp;·&nbsp; T_hold = F_ax·D/2<br>
+       long-term = × ${f(r.creep,2)} creep retention
+     </div>
+     ${r.warns.filter(w=>w.level!=="info").length?`<h2>Warnings</h2><table class="rep">`+
+       r.warns.filter(w=>w.level!=="info").map(w=>`<tr><td>${w.text}</td></tr>`).join("")+`</table>`:""}
+     <p style="font-size:9px;color:#666;margin-top:12px">Typical reference values (ISO 898-1, Shigley, VDI 2230,
+     Roark). Beam theory on a stubby section runs slightly stiff; friction figures scatter ±25%. Verify against a
+     bench test before production.</p>`;
+}
+
+function exportPDF(brief){
+  stampMeta(); if(brief) buildSummary();
+  document.body.classList.add(brief?"pf-brief":"pf-full");
+  lastSig="";   // force both document tabs to render before the dialog opens
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    window.print();
+    setTimeout(()=>document.body.classList.remove("pf-brief","pf-full"),300);
+  }));
+}
+$("pdfFull").addEventListener("click",()=>exportPDF(false));
+$("pdfBrief").addEventListener("click",()=>exportPDF(true));
 $("useRec").addEventListener("click",()=>{ if(+$("T").max<recT) $("T").max=Math.ceil(recT*1.4); $("T").value=recT; target=recT; playing=false; });
 for(const id of ["fx","cut","spin","smode","ascale"]) $(id).addEventListener("click",()=>{
   $(id).classList.toggle("on"); if(id==="spin") spinning=$("spin").classList.contains("on");
