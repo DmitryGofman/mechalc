@@ -48,6 +48,15 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
+    route: "/impact-calculator",
+    tag: "Impact",
+    title: "Sheet Impact & Penetration",
+    desc: "Throw a sphere or cube of any metal, ceramic or plastic at a clamped sheet and watch the microseconds in 3D slow motion — dent, plug, petals or shatter, with ballistic limit, residual velocity and energy split. Slingshot the projectile to find the limit by feel.",
+    eq: "F = A(σr + ρv²)",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/buckling-calculator",
     tag: "Structures",
     title: "Column Buckling",
