@@ -94,8 +94,8 @@
     return {
       // cylinder
       D: 25, hollow: true, tw: 2, cyl: "Steel tube (S235 / DOM)",
-      // clamp body
-      mat: "PC-ABS (FDM)", W: 30, tf: 12, tc: 16, e: 10, gap: 1.5, washer: true,
+      // clamp body — ONE height dimension; the ear and crown sections follow
+      mat: "PC-ABS (FDM)", W: 40, H: 26, e: 9, gap: 1.0, washer: true,
       // bolts
       N: 4, thread: "M5", cls: "8.8 (Q&T steel)", Kname: "Dry, plain (K≈0.20)", T: 1.2,
       // duty
@@ -117,7 +117,19 @@
     const th = THREADS[inp.thread], cl = CLASSES[inp.cls];
     const cm = CLAMP_MATS[inp.mat], cy = CYL_MATS[inp.cyl];
     const K = KFACT[inp.Kname], mu = inp.mu ?? MU[inp.muName];
-    const { D, W, tf, e, gap, N, T } = inp;
+    const { D, W, e, gap, N, T } = inp;
+
+    // ── Body geometry: a FLAT rectangular block, one height dimension ────────
+    // H = height of the body above the split face. Everything else follows, so
+    // the two bending sections can never contradict each other:
+    //   ear section   tf = H                (flange face → top of the block)
+    //   crown section tc = g2 + H − R       (top of the bore → top of the block)
+    // Older callers may still pass tf; treat it as H.
+    const g2 = Math.max(gap, 0) / 2;
+    const H = Math.max(inp.H != null ? inp.H : inp.tf != null ? inp.tf : 12, 0.2);
+    const tf = H;
+    const tcRaw = g2 + H - D / 2;
+    const tc = Math.max(tcRaw, 0.05); // guard: no material over the bore
     const tw = Math.min(inp.tw, D / 2);
     const d = th.d, As = th.As;
 
@@ -147,9 +159,9 @@
     // 3b) Cap crown bending — the "see-saw" statics model: the cap is a beam
     //     resting on the cylinder (pin support), bolt forces F at ±(R+e) pull
     //     the ends down, the bore reaction pushes up distributed over ±R.
-    //     Peak moment at mid-span: M = F·(e + R/2), section = b × tc (crown
-    //     wall over the bore, usually thicker than the ears).
-    const tc = inp.tc || tf;
+    //     Peak moment at mid-span: M = F·(e + R/2) on the crown section b × tc.
+    //     tc is always thinner than the ear on a flat block, which is exactly
+    //     why these clamps crack over the bore rather than at the bolts.
     const Zc = (b * tc * tc) / 6;
     const Mcrown = Fb * (e + D / 4); // e + R/2
     const sigmaCrown = Zc > 0 ? Mcrown / Zc : Infinity;
@@ -243,6 +255,12 @@
       warns.push({ level: "bad", text: "Cap crown is at/over yield — the cap bends over the cylinder like a see-saw. Thicken the crown wall (tc) or shorten the bolt offset (e)." });
     warns.push({ level: "info", text: "K (nut factor) and μ each scatter ±25% between real joints — treat grip numbers as a band, not a line." });
 
+    if (tcRaw < 0.5)
+      warns.push({
+        level: "bad",
+        text: `Only ${fmt(Math.max(tcRaw, 0), 2)} mm of material sits over the bore (crown). The body height H must exceed the bore radius ${fmt(D / 2, 1)} mm by a useful margin — raise H or shrink the bore.`,
+      });
+
     const SFstruct = Math.min(SFbolt, SFflange, SFcrown, SFbear, SFcyl);
     const governing =
       SFstruct === SFflange ? "flange bending" : SFstruct === SFcrown ? "cap crown bending" : SFstruct === SFbear ? "head bearing" : SFstruct === SFcyl ? (inp.hollow ? "tube wall" : "bore pressure") : "bolt proof";
@@ -250,13 +268,66 @@
     return {
       d, As, Fb, Ftot, sigma, tau, vm, SFbolt, Trec,
       b, Zf, sigmaF, SFflange, cFl, dFl,
-      tc, Zc, Mcrown, sigmaCrown, SFcrown,
+      H, tf, tc, tcRaw, g2, Zc, Mcrown, sigmaCrown, SFcrown,
       Rm, cOval, dOval, cClose, Fclose, Tclose, bottomed, Fcl, closure, gapRemain,
       p, hoop, bend, sigmaCyl, SFcyl,
       dw, Abear, pHead, SFbear,
       Fax, Thold, FaxLT, TholdLT, U, ULT, SFslip, SFslipLT,
       events, warns, SFstruct, governing,
       creep: cm.creep, printed: !!cm.printed, mu, K,
+    };
+  }
+
+  // ── Recommended tightening torque ──────────────────────────────────────────
+  // Answers "how tight?" from all three sides at once: the BOLT (proof stress),
+  // the MATERIALS (whichever of ear / crown / bearing / cylinder yields first)
+  // and the GEOMETRY (no point tightening past the torque that shuts the gap,
+  // because grip stops growing there).
+  //
+  // Every stress is linear in torque, so one probe solve gives every limit by
+  // proportion. The recommendation sits a design margin below the first limit.
+  const DESIGN_MARGIN = 1.5; // keep the governing structural check at SF ≥ 1.5
+
+  function recommend(inp, margin = DESIGN_MARGIN) {
+    const probe = solve({ ...inp, T: 1 }); // stresses per 1 N·m
+    const cm = CLAMP_MATS[inp.mat], cy = CYL_MATS[inp.cyl], cl = CLASSES[inp.cls];
+    const at = (allow, per) => (per > 0 ? allow / per : Infinity);
+
+    const limits = [
+      { key: "crown bending", T: at(cm.sy, probe.sigmaCrown) },
+      { key: "ear bending", T: at(cm.sy, probe.sigmaF) },
+      { key: inp.washer ? "bearing under washer" : "bearing under bolt head", T: at(cm.pG, probe.pHead) },
+      { key: inp.hollow ? "tube wall" : "bore pressure", T: at(cy.sy, probe.sigmaCyl) },
+      { key: "bolt proof", T: at(cl.sp, probe.vm) },
+    ].sort((a, b) => a.T - b.T);
+
+    const first = limits[0];
+    const Tyield = first.T; // torque at which something first reaches yield/proof
+    const Tclose = probe.Tclose; // torque that shuts the flange gap
+    const Tbolt65 = probe.Trec; // classic 65%-of-proof bolt target
+
+    // The recommendation: a margin below first yield, never past gap closure,
+    // never past the bolt's own 65%-proof target.
+    let T = Math.min(Tyield / margin, Tbolt65, Tclose);
+    let governing = T === Tclose ? "flange gap closes" : T === Tbolt65 ? "bolt preload target (65% proof)" : first.key;
+
+    // What the duty actually demands (long-term, after creep).
+    const demand = Math.max(0, inp.Freq) + (2000 * Math.max(0, inp.Treq)) / inp.D;
+    const FclReq = (inp.SFt * demand) / (ETA * (inp.mu ?? MU[inp.muName]) * Math.PI * cm.creep);
+    const Tneed = probe.Fb > 0 ? FclReq / (inp.N * probe.Fb) : Infinity;
+
+    const ok = T >= Tneed;
+    return {
+      T: Math.max(T, 0),
+      Tyield,
+      Tclose,
+      Tbolt65,
+      Tneed,
+      governing,
+      limits,
+      ok,
+      margin,
+      SFat: solve({ ...inp, T }).SFstruct,
     };
   }
 
@@ -280,7 +351,7 @@
       // Pressure uniformity along the clamp width: with few bolts on a wide
       // clamp the ends lift — rule of thumb: bolt "tributary" width ≤ ~4·tf.
       const spacing = inp.W / (n / 2);
-      const spacingOk = spacing <= 4 * inp.tf;
+      const spacingOk = spacing <= 4 * r.H;
       return { n, Fb, T, r, checks, worst, worstKey, ok: ok && spacingOk, structOk: ok, spacing, spacingOk, bottomed: r.bottomed };
     });
     const rec = out.find((o) => o.ok && o.worst >= 1.2) || out.find((o) => o.ok) || null;
@@ -293,11 +364,12 @@
   // Parts carry data-part attributes; opts.onPick(part) wires click handling.
   function renderSection(svg, inp, res, opts = {}) {
     const ex = opts.exagg ?? 20;
-    const { D, tf, e, gap } = inp;
+    const { D, e, gap } = inp;
     const R = D / 2;
     const dB = res.d;
+    const tf = res.tf; // flat body: ear section = body height above the split
     const eW = e + 1.7 * dB; // ear reach past the bore wall
-    const Ro = R + (inp.tc || tf); // crown / body outer radius
+    const Ro = R + res.tc; // top of the block, measured from the bore centre
     const half = R + eW; // half overall width
     const yTopEar = -(gap / 2 + tf);
     const yBotEar = gap / 2 + tf;
@@ -378,5 +450,6 @@
     }
   }
 
-  return { THREADS, CLASSES, KFACT, CLAMP_MATS, CYL_MATS, MU, ETA, LAMBDA, defaults, solve, advise, renderSection, fmt, sfStatus, sfColor };
+  return { THREADS, CLASSES, KFACT, CLAMP_MATS, CYL_MATS, MU, ETA, LAMBDA, DESIGN_MARGIN,
+    defaults, solve, recommend, advise, renderSection, fmt, sfStatus, sfColor };
 })();

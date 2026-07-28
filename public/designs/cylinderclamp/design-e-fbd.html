@@ -85,10 +85,9 @@
   <div class="form">
     <div class="fld"><label>Cylinder Ø<span>mm</span></label><input id="D" type="number" step="0.5" value="25"></div>
     <div class="fld"><label>Width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
-    <div class="fld"><label>Crown tc<span>mm</span></label><input id="tc" type="number" step="0.5" value="16"></div>
-    <div class="fld"><label>Ear tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+    <div class="fld"><label>Body height H<span>mm above split</span></label><input id="H" type="number" step="0.5" value="26"></div>
     <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
-    <div class="fld"><label>Gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
+    <div class="fld"><label>Gap<span>mm total</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
     <div class="fld wide"><label>Clamp material</label><select id="mat"></select></div>
     <div class="fld"><label>Bolts</label><select id="N"><option>2</option><option selected>4</option><option>6</option></select></div>
     <div class="fld"><label>Thread</label><select id="thread"></select></div>
@@ -128,7 +127,7 @@ const f=CLAMP.fmt, col=CLAMP.sfColor;
 
 function read(){return{
   D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
-  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, tc:+$("tc").value||1, e:+$("e").value||1,
+  mat:$("mat").value, W:+$("W").value||1, H:+$("H").value||1, e:+$("e").value||1,
   gap:+$("gap").value||0, washer:$("washer").checked,
   N:+$("N").value, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:+$("T").value,
   muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,
@@ -140,7 +139,7 @@ function drawFBD(inp,r){
   const VW=360, margin=42;
   const s=(VW/2-margin)/a;               // mm → px
   const X=(mm)=>180+mm*s;
-  const beamT=Math.max(inp.tc*s,9);      // crown thickness, scaled
+  const beamT=Math.max(r.tc*s,9);        // crown section (derived from H), scaled
   const yB=64, yBot=yB+beamT;            // beam top/bottom
   const crownC=col(r.SFcrown), earC=col(r.SFflange), cylC=col(r.SFcyl);
 
