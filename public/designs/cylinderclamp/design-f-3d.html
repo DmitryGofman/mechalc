@@ -108,6 +108,19 @@
   .cap .foot{font-family:var(--mono);font-size:9px;color:var(--faint);line-height:1.7;margin-top:8px;
              padding-top:7px;border-top:1px solid var(--line2)}
   .cap .foot b{color:var(--dim)}
+  .tip{border-left:2px solid var(--line);padding:2px 0 2px 12px;margin:14px 0}
+  .tip h4{font-size:12px;margin:0 0 5px;color:#c2ccd4;font-weight:600}
+  .tip p{font-size:11px;color:var(--dim);line-height:1.75;margin:0 0 7px}
+  .tip p b{color:#c2ccd4}
+  .tip.key{border-left-color:var(--green)} .tip.warn{border-left-color:var(--amber)}
+  .tip.bad{border-left-color:var(--red)}
+  .tipfig{width:100%;height:auto;display:block;background:#0d1319;border:1px solid var(--line2);
+          border-radius:3px;margin:8px 0}
+  .tipnum{font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.9;background:#0d1319;
+          border-left:2px solid var(--line);border-radius:2px;padding:7px 10px;margin:7px 0}
+  .tipnum b{color:var(--dim)}
+  .src{font-family:var(--mono);font-size:8.5px;color:var(--faint);line-height:1.8;margin-top:6px}
+  .src a{color:var(--blue);text-decoration:none} .src a:hover{text-decoration:underline}
   .cmpgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
   @media(max-width:420px){.cmpgrid{grid-template-columns:1fr 1fr}}
   /* theory */
@@ -232,6 +245,7 @@
     <button class="tabbtn on" id="tabModel" data-t="model" role="tab" aria-selected="true">Model</button>
     <button class="tabbtn" id="tabTheory" data-t="theory" role="tab" aria-selected="false">Theory &amp; report</button>
     <button class="tabbtn" id="tabPreload" data-t="preload" role="tab" aria-selected="false">Preload &amp; torque</button>
+    <button class="tabbtn" id="tabTips" data-t="tips" role="tab" aria-selected="false">Design tips</button>
   </div>
 
   <div class="tabpane on" data-t="model">
@@ -384,6 +398,13 @@
     <div id="preloadBody"></div>
   </div>
   </div><!-- /preload pane -->
+
+  <div class="tabpane" data-t="tips">
+  <div class="theory" style="margin-top:6px;border-top:none;padding-top:4px">
+    <div class="lab">DESIGNING A TWO-PIECE CLAMP — WHAT ACTUALLY MATTERS</div>
+    <div id="tipsBody"></div>
+  </div>
+  </div><!-- /tips pane -->
 
   <div id="summaryDoc"></div>
 
@@ -885,6 +906,165 @@ function renderDeflection(inp,res){
        magnified by the same SPLIT × factor, so the halves still meet exactly when this reaches zero.`);
 }
 
+/* ── Design tips: practice that the equations do not capture ──────────────
+   Diagrams are inline SVG rather than images — the CSP blocks remote assets,
+   and a drawn figure carries the point better than a photo anyway.        */
+function renderTips(inp,res){
+  const f=CLAMP.fmt, rec=CLAMP.recommend(inp), spec=CLAMP.boltSpec(inp);
+  const used=(inp.gap-res.gapRemain)/Math.max(inp.gap,1e-6)*100;
+
+  // three gap states, drawn to the same scale
+  const gapFig=()=>{
+    const cell=(x,lbl,g,col,note)=>`
+      <g transform="translate(${x},0)">
+        <rect x="6" y="14" width="88" height="26" rx="2" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+        <rect x="6" y="${44+g}" width="88" height="26" rx="2" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+        <path d="M50 40 a14 14 0 0 1 0 0" fill="none"/>
+        <circle cx="50" cy="${42+g/2}" r="12" fill="none" stroke="#4fb477" stroke-width="1.1"/>
+        <line x1="100" y1="40" x2="100" y2="${44+g}" stroke="${col}" stroke-width="1"/>
+        <text x="104" y="${44+g/2}" font-size="7.5" fill="${col}" font-family="monospace">${lbl}</text>
+        <text x="50" y="84" font-size="7.5" fill="${col}" text-anchor="middle" font-family="monospace">${note}</text>
+      </g>`;
+    return `<svg class="tipfig" viewBox="0 0 420 96">
+      ${cell(6,"wide",16,"#d9a441","barely closes")}
+      ${cell(148,"right",7,"#4fb477","~60% consumed")}
+      ${cell(290,"0",0,"#d65c5c","BOTTOMED")}
+    </svg>`;
+  };
+
+  // relief hole where the split meets the bore
+  const reliefFig=()=>`<svg class="tipfig" viewBox="0 0 420 110">
+    <g transform="translate(30,10)">
+      <path d="M0 42 L60 42 M120 42 L170 42 M0 42 L0 8 L170 8 L170 42" fill="none" stroke="#8b97a3" stroke-width="1.2"/>
+      <path d="M60 42 A30 30 0 0 1 120 42" fill="none" stroke="#4fb477" stroke-width="1.2"/>
+      <circle cx="60" cy="42" r="3.5" fill="none" stroke="#d65c5c" stroke-width="1.4"/>
+      <text x="85" y="66" font-size="8" fill="#d65c5c" text-anchor="middle" font-family="monospace">sharp corner = crack starts here</text>
+      <text x="85" y="-1" font-size="8" fill="#6b7884" text-anchor="middle" font-family="monospace">WITHOUT RELIEF</text>
+    </g>
+    <g transform="translate(230,10)">
+      <path d="M0 42 L54 42 M126 42 L170 42 M0 42 L0 8 L170 8 L170 42" fill="none" stroke="#8b97a3" stroke-width="1.2"/>
+      <path d="M62 38 A30 30 0 0 1 118 38" fill="none" stroke="#4fb477" stroke-width="1.2"/>
+      <circle cx="58" cy="40" r="5" fill="#0d1319" stroke="#4fb477" stroke-width="1.4"/>
+      <circle cx="122" cy="40" r="5" fill="#0d1319" stroke="#4fb477" stroke-width="1.4"/>
+      <text x="85" y="66" font-size="8" fill="#4fb477" text-anchor="middle" font-family="monospace">relief hole spreads the stress</text>
+      <text x="85" y="-1" font-size="8" fill="#6b7884" text-anchor="middle" font-family="monospace">WITH RELIEF</text>
+    </g></svg>`;
+
+  // print orientation
+  const printFig=()=>`<svg class="tipfig" viewBox="0 0 420 120">
+    <g transform="translate(24,12)">
+      <text x="80" y="0" font-size="8" fill="#d65c5c" text-anchor="middle" font-family="monospace">LYING FLAT — WRONG</text>
+      <rect x="20" y="10" width="120" height="34" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+      <rect x="20" y="50" width="120" height="34" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+      <circle cx="80" cy="47" r="15" fill="none" stroke="#4fb477" stroke-width="1.1"/>
+      ${Array.from({length:9},(_,i)=>`<line x1="20" y1="${14+i*8}" x2="140" y2="${14+i*8}" stroke="#46515c" stroke-width=".5"/>`).join("")}
+      <path d="M44 6 L44 -2 M44 88 L44 96" stroke="#d65c5c" stroke-width="1.2"/>
+      <text x="80" y="106" font-size="7.5" fill="#d65c5c" text-anchor="middle" font-family="monospace">bolt pulls across layers → delaminates</text>
+    </g>
+    <g transform="translate(230,12)">
+      <text x="80" y="0" font-size="8" fill="#4fb477" text-anchor="middle" font-family="monospace">BORE AXIS VERTICAL — RIGHT</text>
+      <rect x="30" y="10" width="100" height="34" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+      <rect x="30" y="50" width="100" height="34" fill="none" stroke="#8b97a3" stroke-width="1.1"/>
+      <circle cx="80" cy="47" r="15" fill="none" stroke="#4fb477" stroke-width="1.1"/>
+      ${Array.from({length:11},(_,i)=>`<line x1="${32+i*9.6}" y1="10" x2="${32+i*9.6}" y2="84" stroke="#46515c" stroke-width=".5"/>`).join("")}
+      <text x="80" y="106" font-size="7.5" fill="#4fb477" text-anchor="middle" font-family="monospace">bolt tension &amp; crown bending both in-plane</text>
+    </g></svg>`;
+
+  $("tipsBody").innerHTML=`
+  <div class="tip key"><h4>1 · The flange gap is the design, not a leftover</h4>
+    <p>Everything else follows from it. Too small and the halves meet before you reach working torque — grip
+    flatlines and every further turn of the wrench just squeezes flange against flange. Too large and the ears
+    have to swing further to close it, which loads the crown harder for the same grip.</p>
+    ${gapFig()}
+    <p><b>Aim for roughly half to two-thirds of the gap consumed at your working torque.</b> That leaves room for
+    creep, bore tolerance and re-torquing without ever bottoming.</p>
+    <div class="tipnum">Your clamp right now: gap <b>${f(inp.gap,2)} mm</b>, <b>${f(used,0)}%</b> consumed at
+      ${torque.toFixed(2)} N·m · shuts at <b>${res.Tclose.toFixed(2)} N·m</b> · recommended
+      <b>${rec.T.toFixed(2)} N·m</b></div></div>
+
+  <div class="tip"><h4>2 · Bore fit and finish beat torque</h4>
+    <p>A clamp grips through millions of small contact points; anything that reduces real contact area costs you
+    grip that no amount of torque recovers. Commercial practice runs the bore at <b>h8/h9</b>, with roughly
+    <b>0.02–0.08 mm radial clearance</b> for dynamic use. A mismatch as small as 0.05 mm clamps eccentrically,
+    which invites vibration loosening and local stress risers. A rough shaft can cost up to <b>30%</b> of holding
+    torque.</p>
+    <p><b>Printed bores need a test coupon.</b> Print a 10 mm slice of the bore, measure it, and offset your CAD
+    by the difference — typically 0.2–0.4 mm. Don't chamfer more than you must: every millimetre of chamfer is a
+    millimetre of clamp width <em>W</em> you paid for and aren't using.</p></div>
+
+  <div class="tip"><h4>3 · Uniform squeeze, never a point</h4>
+    <p>Distributed clamping is roughly <b>twice</b> the holding power of a set screw on the same shaft, because
+    the load spreads around the bore instead of denting one spot. Never add a set screw "for insurance": it marks
+    the shaft, destroys the uniform contact the clamp depends on, and makes the part hard to reposition.</p>
+    <p><b>Keep the bolts close to the bore.</b> Bolt offset <em>e</em> is the lever arm on the ear <em>and</em>
+    it sets the crown moment F·(e + R/2). Pulling the bolts in is the single cheapest strength improvement — the
+    limit is socket clearance for the wrench.</p></div>
+
+  <div class="tip warn"><h4>4 · Put material over the bore first</h4>
+    <p>On a flat block the crown is always thinner than the ear — it is the same block minus the bore — so it
+    carries more moment on less section and it is what cracks. Raising <b>H</b> by a millimetre buys crown section
+    directly; widening the ears buys almost nothing.</p>
+    <p><b>Relieve the corner where the split meets the bore.</b> Split-hub practice is a stress-relief hole or a
+    generous fillet at the root of the slot; a sharp internal corner there is where the crack starts.</p>
+    ${reliefFig()}</div>
+
+  <div class="tip"><h4>5 · Printed parts: orientation decides the strength</h4>
+    <p>Printed material is far weaker between layers than along them, and the numbers in this tool are in-plane
+    (XY) values. Lay the part flat and the bolt tension pulls the ears apart along a layer boundary, while the
+    crown's tension face is also a layer boundary — both failures are interlaminar and land well below the
+    figures shown here. <b>Stand the part on end, bore axis vertical</b>, and bolt tension and crown bending are
+    both in-plane.</p>
+    ${printFig()}
+    <p><b>Perimeters over infill.</b> Use 4–6 walls; a clamp is a bending part and bending lives in the skin.
+    Model bolt holes in CAD rather than drilling them, so the perimeters wrap the hole instead of being cut
+    through.</p></div>
+
+  <div class="tip"><h4>6 · Fasteners and the plastic under them</h4>
+    <p><b>Always washers on a printed or soft body.</b> Head bearing is one of the first limits this tool hits —
+    a washer roughly triples the bearing area. Better still, a steel top plate or a metal strap spreads the load
+    into the ear instead of crushing one spot.</p>
+    <p><b>Heat-set inserts, if you thread the plastic:</b> boss diameter about <b>2× the insert OD</b>, hole
+    <b>1–2 mm deeper</b> than the insert so displaced plastic has somewhere to go, 4–6 perimeters around it,
+    modelled not drilled, iron set 10–20 °C above print temperature. Otherwise use a through-bolt and a nut —
+    simpler and stronger.</p>
+    <p><b>Don't over-grade the bolt.</b> A stronger class only helps if the bolt is the limit, and on a plastic
+    body it never is.</p>
+    <div class="tipnum">Yours: ${inp.thread} grade ${inp.cls.split(" ")[0]} could take
+      <b>${spec.T.toFixed(2)} N·m</b>, the body allows <b>${rec.T.toFixed(2)} N·m</b> —
+      ${rec.T<spec.T?`the fastener is <b>${(spec.T/Math.max(rec.T,1e-6)).toFixed(1)}×</b> stronger than it needs to be`
+        :`the fastener is the tighter limit here`}</div></div>
+
+  <div class="tip"><h4>7 · Assembly and service</h4>
+    <p>Tighten <b>alternately and in stages</b> — a third, two-thirds, full — so the halves stay parallel; pulling
+    one side home first cocks the bore and clamps on two edges. Leave the clamp loose on the cylinder while you
+    align it, then snug both sides before final torque.</p>
+    <p><b>Re-torque printed parts after 24 hours.</b> Polymers relax; this tool already derates long-term grip
+    for it, but a re-torque puts the preload back. Add thread locker or a nylon-insert nut — creep plus vibration
+    is exactly the condition that walks a fastener loose. Re-check after any thermal cycling.</p></div>
+
+  <div class="tip bad"><h4>8 · Reality check on what a clamp like this holds</h4>
+    <p>Vendor figures for a <b>steel</b> two-piece collar on a 25 mm shaft run around <b>98 N·m</b> holding torque
+    and comfortably over 2000 N axial. Your printed clamp at its recommended torque is currently at
+    <b>${f(res.TholdLT,1)} N·m</b> and <b>${f(res.FaxLT,0)} N</b> long-term — the right order of magnitude for a
+    polymer part, but do not expect steel-collar numbers from a printed one.</p>
+    <p>And the standing rule: <b>friction is never the sole safeguard where slipping is dangerous.</b> If letting
+    go causes injury or wrecks the machine, add a key, a pin, a shoulder or a positive stop. The clamp then only
+    has to hold position, not carry the consequence.</p></div>
+
+  <div class="src">Sources —
+    <a href="https://www.ruland.com/technical-article-correct-shaft-collar">Ruland, choosing a shaft collar</a> ·
+    <a href="https://www.ruland.com/technical-article-selecting-a-shaft-collar">Ruland, how to choose</a> ·
+    <a href="https://www.staffordmfg.com/blog/shaft-collar-types/">Stafford, collar types</a> ·
+    <a href="https://www.staffordmfg.com/fits-and-tolerances/">Stafford, fits and tolerances</a> ·
+    <a href="https://www.machinedesign.com/archive/article/21826863/putting-the-squeeze-on">Machine Design, "Putting the squeeze on"</a> ·
+    <a href="https://www.designworldonline.com/split-hub-clamps/">Design World, split hub clamps</a> ·
+    <a href="https://www.cnckitchen.com/blog/tipps-amp-tricks-fr-gewindeeinstze-im-3d-druck-3awey">CNC Kitchen, heat-set inserts</a> ·
+    <a href="https://markforged.com/resources/blog/heat-set-inserts">Markforged, heat-set inserts</a> ·
+    <a href="https://ultimaker.com/learn/how-to-use-heat-set-inserts-to-securely-fasten-3d-printed-parts/">UltiMaker, heat-set inserts</a> ·
+    <a href="https://climaxmetal.com/blog/what-is-a-shaft-tolerance/">Climax, shaft tolerance</a>
+  </div>`;
+}
+
 function renderPreload(inp,res,spec){
   const f=CLAMP.fmt, cl=CLAMP.CLASSES[inp.cls], Sp=cl.sp, Sy=cl.sy, As=spec.As;
   // what the bolt is really at when tension alone is 65% of proof
@@ -1170,7 +1350,7 @@ function tick(){
   // pure churn. Refresh only when an input or the torque actually changes.
   const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
   if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
-    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); renderPreload(inp,res,spec); }
+    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); renderPreload(inp,res,spec); renderTips(inp,res); }
 
   requestAnimationFrame(tick);
 }
