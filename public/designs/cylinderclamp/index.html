@@ -30,6 +30,13 @@
   .theory .lab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
   .theory p{font-size:12.5px;color:var(--dim);line-height:1.8;margin:0 0 10px}
   .theory strong{color:#c2ccd4}
+  @media(max-width:520px){
+    .shell{padding:16px 10px 40px}
+    h1{font-size:18px} .sub{font-size:9.5px}
+    .card p{font-size:11px} .card h2{font-size:14px}
+    .chain{font-size:7.8px;padding:9px 10px}
+    .theory p{font-size:11px}
+  }
   .chain{font-family:var(--mono);font-size:10.5px;color:var(--mid);line-height:2;background:var(--panel);
          border:1px solid var(--line2);border-radius:3px;padding:12px 14px;overflow-x:auto;white-space:pre}
 </style>
@@ -60,6 +67,12 @@
       <p>Inverted flow: state the job (axial load, torque, safety factor) and it works backwards to required torque for
       2 vs 4 vs 6 bolts, side by side, with each configuration's failure checks. Answers "do I need two or four?"</p>
       <div class="for">for: the first minutes of a new design</div>
+    </a>
+    <a class="card" href="design-e-fbd.html">
+      <div class="tag">DESIGN E</div><h2>Statics View · phone-first</h2>
+      <p>The whole clamp reduced to the statics-course free-body diagram: cap as a beam, cylinder as the pin support
+      (triangle), bolts as two closing forces — with the live bending-moment diagram. The most compact of the five.</p>
+      <div class="for">for: quick checks on a phone, thinking in first principles</div>
     </a>
     <a class="card" href="design-d-section.html">
       <div class="tag">DESIGN D</div><h2>Live Section</h2>

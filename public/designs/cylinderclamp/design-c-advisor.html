@@ -57,6 +57,16 @@
   .cnote{font-family:var(--mono);font-size:9.5px;line-height:1.6;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2);color:var(--dim)}
   .lesson{font-size:12.5px;color:var(--dim);line-height:1.75;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
   .lesson strong{color:#c2ccd4}
+  @media(max-width:520px){
+    .shell{padding:12px 9px 40px}
+    h1{font-size:16px} .sub{font-size:8.5px}
+    .form{grid-template-columns:1fr 1fr;gap:7px}
+    .fld input,.fld select{padding:6px 7px;font-size:12px} .fld label{font-size:8.5px}
+    .banner{padding:10px 12px} .banner .big{font-size:14px} .banner .why{font-size:9.5px}
+    .torq{font-size:20px} .chead .n{font-size:14px}
+    .crow .v{font-size:11.5px} .crow .k{font-size:8.5px}
+    .lesson{font-size:11px}
+  }
 </style>
 </head>
 <body>
@@ -85,6 +95,7 @@
     <div class="fld"><label>Clamp material</label><select id="mat"></select></div>
     <div class="fld"><label>Width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
     <div class="fld"><label>Ear thickness tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+    <div class="fld"><label>Crown tc<span>mm</span></label><input id="tc" type="number" step="0.5" value="16"></div>
     <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
     <div class="fld"><label>Flange gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
     <div class="fld"><label>Thread</label><select id="thread"></select></div>
@@ -115,7 +126,7 @@ const f=CLAMP.fmt, col=CLAMP.sfColor;
 
 function read(){return{
   D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
-  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, e:+$("e").value||1,
+  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, tc:+$("tc").value||1, e:+$("e").value||1,
   gap:+$("gap").value||0, washer:$("washer").checked,
   N:4, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:1,
   muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,

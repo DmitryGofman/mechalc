@@ -95,7 +95,7 @@
       // cylinder
       D: 25, hollow: true, tw: 2, cyl: "Steel tube (S235 / DOM)",
       // clamp body
-      mat: "PC-ABS (FDM)", W: 30, tf: 12, e: 10, gap: 1.5, washer: true,
+      mat: "PC-ABS (FDM)", W: 30, tf: 12, tc: 16, e: 10, gap: 1.5, washer: true,
       // bolts
       N: 4, thread: "M5", cls: "8.8 (Q&T steel)", Kname: "Dry, plain (K≈0.20)", T: 1.2,
       // duty
@@ -143,6 +143,17 @@
     const SFflange = sigmaF > 0 ? cm.sy / sigmaF : Infinity;
     const cFl = If > 0 ? e ** 3 / (3 * cm.E * If) : Infinity; // mm per N of bolt force
     const dFl = cFl * Fb;
+
+    // 3b) Cap crown bending — the "see-saw" statics model: the cap is a beam
+    //     resting on the cylinder (pin support), bolt forces F at ±(R+e) pull
+    //     the ends down, the bore reaction pushes up distributed over ±R.
+    //     Peak moment at mid-span: M = F·(e + R/2), section = b × tc (crown
+    //     wall over the bore, usually thicker than the ears).
+    const tc = inp.tc || tf;
+    const Zc = (b * tc * tc) / 6;
+    const Mcrown = Fb * (e + D / 4); // e + R/2
+    const sigmaCrown = Zc > 0 ? Mcrown / Zc : Infinity;
+    const SFcrown = sigmaCrown > 0 ? cm.sy / sigmaCrown : Infinity;
 
     // 4) Cylinder compliance: hollow tubes ovalize under the diametral pinch.
     //    Ring model (per mm of width, I = tw³/12), only the non-uniform share
@@ -207,6 +218,7 @@
       { key: "gap", label: "Flange gap closes — grip stops growing", T: Tclose, type: "info", capped: false },
       { key: "bear", label: inp.washer ? "Bearing limit under washer" : "Head crushes clamp surface", T: lin(cm.pG, pHead), type: "limit", capped: false },
       { key: "flange", label: "Flange bending hits clamp yield", T: lin(cm.sy, sigmaF), type: "limit", capped: false },
+      { key: "crown", label: "Cap crown yields over the bore (see-saw bending)", T: lin(cm.sy, sigmaCrown), type: "limit", capped: false },
       { key: "cyl", label: inp.hollow ? "Tube wall yields (crush/ovalization)" : "Bore pressure hits cylinder yield", T: lin(cy.sy, sigmaCyl), type: "limit", capped: capped(lin(cy.sy, sigmaCyl)) },
       { key: "bolt", label: "Bolt hits proof (von Mises)", T: lin(cl.sp, vm), type: "limit", capped: false },
     ].sort((a, b) => a.T - b.T);
@@ -227,15 +239,18 @@
       warns.push({ level: "warn", text: `Thin wall (t = ${fmt(tw, 2)} mm on Ø${fmt(D, 1)}): tube dents/ovalizes easily — the cylinder, not the clamp, may be the limit. A snug bore fit and full-width contact matter more than torque.` });
     if (SFflange < 1.2)
       warns.push({ level: "bad", text: "Flange (ear) bending is at/over yield — thicken the ears (tf), shorten the bolt-to-bore distance (e), or add bolts to split the load." });
+    if (SFcrown < 1.2)
+      warns.push({ level: "bad", text: "Cap crown is at/over yield — the cap bends over the cylinder like a see-saw. Thicken the crown wall (tc) or shorten the bolt offset (e)." });
     warns.push({ level: "info", text: "K (nut factor) and μ each scatter ±25% between real joints — treat grip numbers as a band, not a line." });
 
-    const SFstruct = Math.min(SFbolt, SFflange, SFbear, SFcyl);
+    const SFstruct = Math.min(SFbolt, SFflange, SFcrown, SFbear, SFcyl);
     const governing =
-      SFstruct === SFflange ? "flange bending" : SFstruct === SFbear ? "head bearing" : SFstruct === SFcyl ? (inp.hollow ? "tube wall" : "bore pressure") : "bolt proof";
+      SFstruct === SFflange ? "flange bending" : SFstruct === SFcrown ? "cap crown bending" : SFstruct === SFbear ? "head bearing" : SFstruct === SFcyl ? (inp.hollow ? "tube wall" : "bore pressure") : "bolt proof";
 
     return {
       d, As, Fb, Ftot, sigma, tau, vm, SFbolt, Trec,
       b, Zf, sigmaF, SFflange, cFl, dFl,
+      tc, Zc, Mcrown, sigmaCrown, SFcrown,
       Rm, cOval, dOval, cClose, Fclose, Tclose, bottomed, Fcl, closure, gapRemain,
       p, hoop, bend, sigmaCyl, SFcyl,
       dw, Abear, pHead, SFbear,
@@ -258,7 +273,7 @@
       const Fb = FclReq / n;
       const T = (K * th.d * Fb) / 1000;
       const r = solve({ ...inp, N: n, T });
-      const checks = { flange: r.SFflange, bearing: r.SFbear, bolt: r.SFbolt, cylinder: r.SFcyl };
+      const checks = { flange: r.SFflange, crown: r.SFcrown, bearing: r.SFbear, bolt: r.SFbolt, cylinder: r.SFcyl };
       const worst = Math.min(...Object.values(checks));
       const ok = worst >= 1 && !r.bottomed;
       const worstKey = Object.keys(checks).find((k) => checks[k] === worst);
@@ -282,7 +297,7 @@
     const R = D / 2;
     const dB = res.d;
     const eW = e + 1.7 * dB; // ear reach past the bore wall
-    const Ro = R + tf; // crown / body outer radius
+    const Ro = R + (inp.tc || tf); // crown / body outer radius
     const half = R + eW; // half overall width
     const yTopEar = -(gap / 2 + tf);
     const yBotEar = gap / 2 + tf;

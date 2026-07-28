@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cylinder Clamp — Design E: Statics View</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:480px;margin:0 auto;padding:14px 10px 40px}
+  a.back{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:10px;margin:8px 0 12px}
+  .kicker{font-family:var(--mono);font-size:9px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:5px 0 0;font-size:17px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;line-height:1.7}
+
+  .stage{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:8px 6px 4px}
+  #fbd{width:100%;display:block}
+  .stagefoot{font-family:var(--mono);font-size:8.5px;color:var(--faint);text-align:center;padding:2px 0 4px}
+
+  .tqrow{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line2);
+         border-radius:3px;padding:9px 12px;margin-top:8px}
+  .tqrow .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mid);white-space:nowrap}
+  .tqrow input[type=range]{flex:1;accent-color:var(--blue);min-width:0}
+  .tqrow .val{font-family:var(--mono);font-size:13px;font-weight:600;min-width:78px;text-align:right;font-variant-numeric:tabular-nums}
+
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .s{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:7px 8px;min-width:0}
+  .s .k{font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .s .n{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .s .u{font-family:var(--mono);font-size:8px;color:var(--faint);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:10px}
+  .form .wide{grid-column:1/-1}
+  .fld label{display:flex;align-items:baseline;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:3px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:5px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 8px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .chk{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;color:var(--dim);cursor:pointer;padding:4px 0;align-self:end}
+  .chk input{accent-color:var(--blue)}
+  details{border:1px solid var(--line2);border-radius:3px;background:var(--panel);margin-top:8px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);padding:8px 11px;user-select:none}
+  details .form{padding:0 11px 11px;margin-top:0}
+  #warns .warn{font-size:10px;line-height:1.5;padding:7px 8px;border-left:2px solid;border-radius:2px;margin-top:6px;background:#0d1319;color:var(--dim)}
+  .warn.bad{border-color:var(--red);color:#e0a3a3} .warn.warn{border-color:var(--amber);color:#e6c98a} .warn.info{border-color:var(--faint);color:var(--faint)}
+  .note{font-size:10.5px;color:var(--dim);line-height:1.65;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  .note strong{color:#c2ccd4}
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">← CYLINDER CLAMP DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN E · STATICS VIEW</div>
+    <h1>The see-saw: cap as a beam on a pin</h1>
+    <div class="sub">The whole clamp reduced to the statics-course free-body diagram: the cap is a beam, the
+    cylinder is the support triangle under its middle, the bolts are two forces closing it. Same engine as A–D,
+    drawn the way you'd sketch it on paper. Built phone-first.</div>
+  </div>
+
+  <div class="stage">
+    <svg id="fbd"></svg>
+    <div class="stagefoot">bolt forces ↓ red · bore reaction ↑ green · bending-moment diagram below, peak = crown section</div>
+  </div>
+
+  <div class="tqrow">
+    <span class="lab">TORQUE/BOLT</span>
+    <input id="T" type="range" min="0" max="6" step="0.05" value="1.2">
+    <span class="val" id="Tval"></span>
+  </div>
+
+  <div class="strip" id="strip"></div>
+  <div id="warns"></div>
+
+  <div class="form">
+    <div class="fld"><label>Cylinder Ø<span>mm</span></label><input id="D" type="number" step="0.5" value="25"></div>
+    <div class="fld"><label>Width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
+    <div class="fld"><label>Crown tc<span>mm</span></label><input id="tc" type="number" step="0.5" value="16"></div>
+    <div class="fld"><label>Ear tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+    <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
+    <div class="fld"><label>Gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
+    <div class="fld wide"><label>Clamp material</label><select id="mat"></select></div>
+    <div class="fld"><label>Bolts</label><select id="N"><option>2</option><option selected>4</option><option>6</option></select></div>
+    <div class="fld"><label>Thread</label><select id="thread"></select></div>
+  </div>
+
+  <details>
+    <summary>Cylinder · bolts · duty</summary>
+    <div class="form">
+      <div class="fld"><label>Wall<span>mm</span></label><input id="tw" type="number" step="0.1" value="2"></div>
+      <label class="chk"><input id="hollow" type="checkbox" checked> hollow tube</label>
+      <div class="fld wide"><label>Cylinder material</label><select id="cyl"></select></div>
+      <div class="fld"><label>Class</label><select id="cls"></select></div>
+      <div class="fld"><label>Threads</label><select id="Kname"></select></div>
+      <label class="chk wide"><input id="washer" type="checkbox" checked> washers</label>
+      <div class="fld wide"><label>Bore friction</label><select id="muName"></select></div>
+      <div class="fld"><label>Axial load<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
+      <div class="fld"><label>Torque load<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
+      <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+    </div>
+  </details>
+
+  <div class="note"><strong>The model in one line:</strong> each bolt force F sits at a = R+e from the middle; the bore pushes
+  back spread over ±R; so the crown carries M = F·(e + R/2), and the crown section b·tc²/6 must take it. The ears carry their own
+  cantilever moment F·e on tf. Everything else — grip, gap, tube crush, creep — is inherited from the same shared engine.
+  Typical reference values; verify before production.</div>
+</div>
+
+<script src="clamp-engine.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=CLAMP.defaults();
+fill("cyl",CLAMP.CYL_MATS,DEF.cyl); fill("mat",CLAMP.CLAMP_MATS,DEF.mat);
+fill("thread",CLAMP.THREADS,DEF.thread); fill("cls",CLAMP.CLASSES,DEF.cls);
+fill("Kname",CLAMP.KFACT,DEF.Kname); fill("muName",CLAMP.MU,DEF.muName);
+const f=CLAMP.fmt, col=CLAMP.sfColor;
+
+function read(){return{
+  D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
+  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, tc:+$("tc").value||1, e:+$("e").value||1,
+  gap:+$("gap").value||0, washer:$("washer").checked,
+  N:+$("N").value, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:+$("T").value,
+  muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,
+}}
+
+// ── the free-body diagram ──────────────────────────────────────────────────
+function drawFBD(inp,r){
+  const R=inp.D/2, a=R+inp.e;
+  const VW=360, margin=42;
+  const s=(VW/2-margin)/a;               // mm → px
+  const X=(mm)=>180+mm*s;
+  const beamT=Math.max(inp.tc*s,9);      // crown thickness, scaled
+  const yB=64, yBot=yB+beamT;            // beam top/bottom
+  const crownC=col(r.SFcrown), earC=col(r.SFflange), cylC=col(r.SFcyl);
+
+  // bending moment diagram M(x): F(a-|x|) − F(R-|x|)²/(2R) inside the bore
+  const Mmax=r.Fb*(inp.e+R/2);
+  const rCyl=R*s*0.42+14;
+  const bmdH=44, yM0=yBot+2*rCyl+bmdH+26; // baseline fully below the support circle + label room
+  let bmd=`M ${X(-a)} ${yM0}`;
+  for(let i=-40;i<=40;i++){
+    const x=a*i/40, ax=Math.abs(x);
+    let M=r.Fb*(a-ax); if(ax<R) M-=r.Fb*(R-ax)**2/(2*R);
+    bmd+=` L ${X(x)} ${yM0-(M/Mmax)*bmdH}`;
+  }
+  bmd+=` L ${X(a)} ${yM0} Z`;
+
+  const arrow=(x,y1,y2,c,w=2)=>{const dir=y2>y1?1:-1;return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2-6*dir}" stroke="${c}" stroke-width="${w}"/><path d="M ${x-4} ${y2-7*dir} L ${x} ${y2} L ${x+4} ${y2-7*dir} Z" fill="${c}"/>`};
+
+  // distributed bore reaction: arrows up over ±R
+  let reac=""; for(let i=-2;i<=2;i++){const x=X(R*i/2.5); reac+=arrow(x,yBot+26,yBot+2,"#4fb477",1.4);}
+
+  const H=yM0+16;
+  const svg=$("fbd");
+  svg.setAttribute("viewBox",`0 0 ${VW} ${H}`);
+  svg.style.height=Math.min(H*1.15,340)+"px";
+  svg.innerHTML=`
+    <g font-family="var(--mono),monospace">
+    <!-- dimension line: e and a -->
+    <line x1="${X(0)}" y1="40" x2="${X(a)}" y2="40" stroke="#46515c" stroke-width="0.7"/>
+    <line x1="${X(0)}" y1="36" x2="${X(0)}" y2="44" stroke="#46515c" stroke-width="0.7"/>
+    <line x1="${X(R)}" y1="36" x2="${X(R)}" y2="44" stroke="#46515c" stroke-width="0.7"/>
+    <line x1="${X(a)}" y1="36" x2="${X(a)}" y2="44" stroke="#46515c" stroke-width="0.7"/>
+    <text x="${X(R/2)}" y="34" font-size="8.5" fill="#6b7884" text-anchor="middle">R</text>
+    <text x="${X(R+inp.e/2)}" y="34" font-size="8.5" fill="#6b7884" text-anchor="middle">e</text>
+
+    <!-- bolt forces -->
+    ${arrow(X(-a),yB-34,yB,"#d65c5c")}${arrow(X(a),yB-34,yB,"#d65c5c")}
+    <text x="${X(-a)}" y="${yB-38}" font-size="9" fill="#d65c5c" text-anchor="middle">F=${f(r.Fb,0)} N</text>
+    <text x="${X(a)}" y="${yB-38}" font-size="9" fill="#d65c5c" text-anchor="middle">F=${f(r.Fb,0)} N</text>
+
+    <!-- the beam (cap crown) -->
+    <rect x="${X(-a)-8}" y="${yB}" width="${2*a*s+16}" height="${beamT}" rx="1.5"
+      fill="${crownC}" fill-opacity="0.28" stroke="${crownC}" stroke-width="1.2"/>
+    <text x="${X(0)}" y="${yB+beamT/2+3}" font-size="8.5" fill="#c2ccd4" text-anchor="middle">crown b·tc² — σ ${f(r.sigmaCrown,1)} MPa</text>
+
+    <!-- ears marker -->
+    <circle cx="${X(-a)}" cy="${yB+beamT/2}" r="2.4" fill="${earC}"/>
+    <circle cx="${X(a)}" cy="${yB+beamT/2}" r="2.4" fill="${earC}"/>
+
+    ${reac}
+    <!-- cylinder + pin support -->
+    <circle cx="${X(0)}" cy="${yBot+rCyl}" r="${rCyl}" fill="none" stroke="${cylC}" stroke-width="1"
+      stroke-dasharray="${inp.hollow?"3 3":"none"}" opacity="0.85"/>
+    <path d="M ${X(0)} ${yBot} L ${X(0)-13} ${yBot+22} L ${X(0)+13} ${yBot+22} Z"
+      fill="none" stroke="#8b97a3" stroke-width="1.3"/>
+    ${[-9,-3,3,9].map(o=>`<line x1="${X(0)+o-5}" y1="${yBot+29}" x2="${X(0)+o+1}" y2="${yBot+22}" stroke="#46515c" stroke-width="1"/>`).join("")}
+    <text x="${X(0)}" y="${yBot+rCyl+4}" font-size="8.5" fill="${cylC}" text-anchor="middle">Ø${f(inp.D,0)}${inp.hollow?" tube":""} · 2F↑</text>
+
+    <!-- BMD -->
+    <line x1="${X(-a)-8}" y1="${yM0}" x2="${X(a)+8}" y2="${yM0}" stroke="#1f2a33" stroke-width="1"/>
+    <path d="${bmd}" fill="#3a78c2" fill-opacity="0.28" stroke="#3a78c2" stroke-width="1.2"/>
+    <text x="${X(0)}" y="${yM0-bmdH-5}" font-size="9" fill="#3a78c2" text-anchor="middle">M = F·(e+R/2) = ${f(Mmax/1000,2)} N·m</text>
+    </g>`;
+}
+
+const cell=(k,n,u,c)=>`<div class="s"><div class="k">${k}</div><div class="n" style="color:${c||"var(--ink)"}">${n}</div><div class="u">${u}</div></div>`;
+
+function update(){
+  const inp=read(), r=CLAMP.solve(inp);
+  $("Tval").textContent=f(inp.T,2)+" N·m";
+  drawFBD(inp,r);
+  $("strip").innerHTML=
+    cell("crown SF",f(r.SFcrown,2),`σ ${f(r.sigmaCrown,1)} MPa`,col(r.SFcrown))+
+    cell("ear SF",f(r.SFflange,2),`σ ${f(r.sigmaF,1)} MPa`,col(r.SFflange))+
+    cell("grip LT",isFinite(r.SFslipLT)?f(r.SFslipLT,2):"∞",`${f(r.FaxLT,0)} N ax`,col(r.SFslipLT*(2/Math.max(inp.SFt,.5))))+
+    cell("gap left",r.bottomed?"0":f(r.gapRemain,2),r.bottomed?"BOTTOMED":`of ${f(inp.gap,1)} mm`,r.bottomed?"var(--red)":r.gapRemain<0.25*inp.gap?"var(--amber)":"var(--green)");
+  const worst=r.warns.filter(w=>w.level!=="info").slice(0,2);
+  $("warns").innerHTML=worst.map(w=>`<div class="warn ${w.level}">${w.text}</div>`).join("");
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",update));
+update();
+</script>
+</body>
+</html>
