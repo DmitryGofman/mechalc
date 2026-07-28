@@ -108,6 +108,8 @@
   .cap .foot{font-family:var(--mono);font-size:9px;color:var(--faint);line-height:1.7;margin-top:8px;
              padding-top:7px;border-top:1px solid var(--line2)}
   .cap .foot b{color:var(--dim)}
+  .cmpgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+  @media(max-width:420px){.cmpgrid{grid-template-columns:1fr 1fr}}
   /* theory */
   .theory{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
   .theory .lab{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
@@ -149,6 +151,45 @@
   .repnote{font-size:10.5px;color:var(--dim);line-height:1.7;margin:8px 0 0}
   .repnote b{color:#c2ccd4}
   @media (prefers-reduced-motion: reduce){ #flash{transition:none} }
+
+  /* ── PDF export ───────────────────────────────────────────────────────
+     No PDF library can be loaded (CSP blocks CDNs), so export goes through
+     the browser's own print-to-PDF. This stylesheet turns the app into a
+     document: every tab unfolded, interactive furniture gone, ink-friendly
+     colours, and page breaks that fall between sections rather than through
+     an equation. */
+  .printhead{display:none}
+  @media print{
+    @page{margin:16mm 14mm}
+    :root{--ink:#111;--dim:#333;--faint:#666;--mid:#444;--line:#bbb;--line2:#ddd;--panel:#fff;--bg:#fff;
+          --blue:#14459b;--green:#0a6b3d;--amber:#8a5a00;--red:#a01d1d}
+    body{background:#fff;color:#111}
+    .shell{max-width:none;padding:0}
+    /* unfold every tab into one continuous document */
+    .tabpane{display:block !important}
+    /* drop everything you cannot use on paper */
+    .tabbar,#wrap,.bar,.btnrow,.legend,#useRec,#pdf,.back,a.back,#nojs,
+    .form,details,.note,#warns{display:none !important}
+    .printhead{display:block;border-bottom:2px solid #111;padding-bottom:8px;margin-bottom:14px}
+    .printhead h1{font-size:17px;margin:0 0 3px}
+    .printhead .meta{font-family:var(--mono);font-size:9px;color:#555;line-height:1.6}
+    .header{border-color:#bbb} .header .sub{color:#555}
+    .rec,.refrow,.cap,.theory,.deriv,table.rep td,table.rep th{background:#fff}
+    .rec{border-color:#0a6b3d} .rec .big{color:#0a6b3d}
+    .refrow,.cap{border-color:#ccc}
+    .theory .lab,.eqn .lead{color:#14459b}
+    .eqn .res{color:#0a6b3d} .eqn .res.bad{color:#a01d1d} .eqn .res.warn{color:#8a5a00}
+    .mth,.eqn .sub{color:#111} .eqn .cmt,.deriv{color:#444}
+    .deriv{background:#f4f4f4;border-left-color:#999}
+    table.rep td{color:#333;border-bottom-color:#ddd} table.rep th{color:#555;border-bottom-color:#999}
+    table.rep td.v,table.rep tr.hi td{color:#111} table.rep tr.hi{background:#f0f0f0}
+    .cap td{color:#333} .cap td:first-child{color:#555} .cap td b{color:#111}
+    .strip{page-break-inside:avoid}
+    .theory h3{page-break-after:avoid} .eqn{page-break-inside:avoid}
+    table.rep{page-break-inside:avoid}
+    .tabpane[data-t="theory"],.tabpane[data-t="preload"]{page-break-before:always}
+    #dims{border-color:#bbb}
+  }
 </style>
 </head>
 <body>
@@ -163,9 +204,16 @@
     for real. Drag anywhere else to orbit.</div>
   </div>
 
+  <div class="printhead">
+    <h1>Cylinder Clamp — design calculation</h1>
+    <div class="meta" id="printMeta"></div>
+  </div>
+
   <div class="tabbar" role="tablist">
     <button class="tabbtn on" id="tabModel" data-t="model" role="tab" aria-selected="true">Model</button>
     <button class="tabbtn" id="tabTheory" data-t="theory" role="tab" aria-selected="false">Theory &amp; report</button>
+    <button class="tabbtn" id="tabPreload" data-t="preload" role="tab" aria-selected="false">Preload &amp; torque</button>
+    <button class="btn" id="pdf" style="margin-left:auto;align-self:center">⇩ PDF</button>
   </div>
 
   <div class="tabpane on" data-t="model">
@@ -227,7 +275,7 @@
   </div>
 
   <details>
-    <summary>Cylinder · bolt grade · duty</summary>
+    <summary>Cylinder · bolt grade</summary>
     <div class="form">
       <div class="fld"><label>Wall<span>mm</span></label><input id="tw" type="number" step="0.1" value="2"></div>
       <label class="chk"><input id="hollow" type="checkbox" checked> hollow tube</label>
@@ -236,17 +284,21 @@
       <div class="fld"><label>Bolt thread condition</label><select id="Kname"></select></div>
       <label class="chk wide"><input id="washer" type="checkbox" checked> washers</label>
       <div class="fld wide"><label>Bore friction</label><select id="muName"></select></div>
-      <div class="dutyhead"><b style="color:var(--dim)">Optional — your duty, for comparison.</b> The capacity
-        itself is computed for you and shown below; these are the service loads you want to check it against, and
-        they set the "duty needs" figure in the recommendation. Nothing here is bolt torque.</div>
-      <div class="fld"><label>Slides along axis<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
-      <div class="fld"><label>Twists around axis<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
-      <div class="fld"><label>Grip safety factor<span>× the duty</span></label><input id="SFt" type="number" step="0.5" value="2"></div>
+
     </div>
   </details>
 
   <div class="refrow" id="refRow"></div>
   <div class="cap" id="capPanel"></div>
+  <div class="cap" id="cmpPanel">
+    <div class="hdr">OPTIONAL — CHECK IT AGAINST YOUR LOAD</div>
+    <div class="cmpgrid">
+      <div class="fld"><label>Pull along axis<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
+      <div class="fld"><label>Twist around axis<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
+      <div class="fld"><label>Safety factor<span>× your load</span></label><input id="SFt" type="number" step="0.5" value="2"></div>
+    </div>
+    <div class="foot" id="cmpOut"></div>
+  </div>
   </div><!-- /model pane -->
 
   <div class="tabpane" data-t="theory">
@@ -301,6 +353,13 @@
   </div>
 
   </div><!-- /theory pane -->
+
+  <div class="tabpane" data-t="preload">
+  <div class="theory" style="margin-top:6px;border-top:none;padding-top:4px">
+    <div class="lab">PROOF STRENGTH, PRELOAD AND WHERE THE 65% COMES FROM</div>
+    <div id="preloadBody"></div>
+  </div>
+  </div><!-- /preload pane -->
 
   <div class="note"><strong>What you're watching:</strong> deflections are real but tiny — <b>SPLIT ×</b> magnifies the flange gap and every
   deflection by the same factor, so the halves close in true proportion and meet exactly when the joint bottoms out. Ears rotate down toward the split plane, the tube squashes vertically and bulges sideways, and the
@@ -800,6 +859,88 @@ function renderDeflection(inp,res){
        magnified by the same SPLIT × factor, so the halves still meet exactly when this reaches zero.`);
 }
 
+function renderPreload(inp,res,spec){
+  const f=CLAMP.fmt, cl=CLAMP.CLASSES[inp.cls], Sp=cl.sp, Sy=cl.sy, As=spec.As;
+  // what the bolt is really at when tension alone is 65% of proof
+  const at65=CLAMP.solve({...inp,T:spec.T65});
+  const vmR=at65.vm/Sp, loK=0.65/0.75, hiK=0.65/1.25, vmLo=vmR*(loK/0.65);
+  $("preloadBody").innerHTML=
+    `<h3 style="margin-top:0">What proof strength actually is</h3>
+     <p><b>ISO 898-1</b> defines a <em>proof load</em>: the tensile load a bolt must carry and release with no
+     measurable permanent set — the standard's acceptance limit is 12.5 µm of residual elongation. Proof
+     strength is that load over the tensile stress area, <span class="mth">${V("S")}<sub>p</sub> =
+     ${V("F")}<sub>p</sub>/${V("A")}<sub>s</sub></span>. It is a <em>tabulated</em> column in the standard, not
+     something derived from yield, and it sits deliberately below the 0.2% offset yield.</p>
+     <p>For your <b>${inp.cls}</b>: ${V("S")}<sub>p</sub> = <b>${Sp} MPa</b> against
+     ${V("R")}<sub>p0.2</sub> = <b>${Sy} MPa</b> — a ratio of <b>${(Sp/Sy).toFixed(2)}</b>. Across the classes it
+     runs 0.88–0.91. (The often-quoted <em>S<sub>p</sub> ≈ 0.85·S<sub>y</sub></em> is Shigley's fallback for when
+     only yield is known; it is deliberately conservative and a few percent under the tabulated values.) Proof is
+     the practical do-not-exceed line: past it the bolt takes a permanent set and simply loses the preload you
+     just put in.</p>
+
+     <h3>Why preload is set as a fraction of proof</h3>
+     <p>Preload has to be high enough to keep the joint clamped — and in fatigue, high enough that the bolt sees
+     almost none of the load cycle — yet low enough to survive assembly scatter and the torsion locked into the
+     shank while the wrench is still turning. So it is specified as a fraction of proof, and the fraction is where
+     the judgement lives.</p>
+     <table class="rep"><tr><th>Source</th><th>Recommends</th></tr>
+       <tr><td><b>Shigley</b> — reused connections</td><td class="v">0.75 · F<sub>p</sub></td></tr>
+       <tr><td><b>Shigley</b> — permanent connections</td><td class="v">0.90 · F<sub>p</sub></td></tr>
+       <tr><td><b>VDI 2230</b></td><td class="v">≈0.90 of yield utilisation ÷ α<sub>A</sub></td></tr>
+       <tr class="hi"><td><b>This calculator</b></td><td class="v">0.65 · F<sub>p</sub></td></tr></table>
+     <p style="color:#e6c98a"><b>Note the discrepancy, and do not cite this as Shigley.</b> Shigley's figure is
+     0.75 (reused) or 0.90 (permanent); VDI 2230 does not work in "% of proof" at all — it sizes preload to a
+     utilisation of yield using the reduced von Mises stress, then divides by a tightening factor
+     α<sub>A</sub> ≈ 1.4–1.8 for a torque wrench. <b>0.65 is this tool's own conservative choice</b>, sitting at
+     the middle of the common 60–75% workshop band. Here is the arithmetic behind picking the low end.</p>
+
+     <h3>Reason 1 — tightening torsion is not in the headline number</h3>
+     <p>"65% of proof" is <em>tension alone</em>. While the wrench is still on the bolt, thread friction leaves
+     torsion in the shank, and the combined stress is what the material actually sees.</p>`+
+    eqn("Combined stress while tightening",
+      `σ<sub>red</sub> = √(σ² + 3τ²)`,
+      `σ = 0.65·${Sp} = ${f(0.65*Sp,0)} MPa, τ from the ~50% thread-torque share`,
+      `${f(at65.vm,0)} MPa = ${(vmR*100).toFixed(0)}% of proof`, vmR>1?"bad":"warn",
+      `So a "65% preload" is really <b>${(vmR*100).toFixed(0)}% utilisation</b> mid-wrench, at K = ${res.K}. Shigley's
+       0.90 would put the reduced stress past proof before the wrench let go. The torsion relaxes afterwards,
+       which is why the service check is run on tension alone.`)+
+    `<h3>Reason 2 — the nut factor scatters, and it lands straight on preload</h3>
+     <p>Torque control is an indirect measurement. <span class="mth">${V("F")} = ${V("T")}/(${V("K")}·${V("d")})</span>
+     — and K scatters roughly ±25% between nominally identical joints, so the preload you actually get is a band,
+     not a value:</p>
+     <table class="rep"><tr><th>Nut factor lands at</th><th>Preload, as fraction of proof</th></tr>
+       <tr><td>25% low — grabbier than assumed</td><td class="v" style="color:var(--red)">${loK.toFixed(2)}</td></tr>
+       <tr><td>as assumed</td><td class="v">0.65</td></tr>
+       <tr><td>25% high — slipperier</td><td class="v">${hiK.toFixed(2)}</td></tr></table>
+     <p style="color:#e0a3a3"><b>Be clear-eyed about this:</b> at the unlucky end, ${loK.toFixed(2)} of proof in
+     tension <em>plus</em> tightening torsion reaches roughly <b>${(vmLo*100).toFixed(0)}% of proof</b> — the bolt
+     yields. Dropping the target from 0.90 to 0.65 buys margin; it does not buy certainty. That is the well-known
+     weakness of torque control, and it is why joints that genuinely matter use angle control past snug, or
+     measure bolt stretch directly. Treat every preload figure in this tool as a band of about ±25%.</p>
+
+     <h3>Where it lands for your joint</h3>`+
+    eqn("Fastener-side torque at the 0.65 target",
+      `${V("T")} = ${V("K")}·${V("d")}·(0.65·${V("S")}<sub>p</sub>·${V("A")}<sub>s</sub>)`,
+      `${res.K} × ${f(spec.d,0)} × (0.65 × ${Sp} × ${f(As,1)})`,
+      `${spec.T65.toFixed(2)} N·m`,"",
+      `Capped by bearing on ${inp.mat} to <b>${spec.Tbear.toFixed(2)} N·m</b>; the fastener-side spec is the lower,
+       <b>${spec.T.toFixed(2)} N·m</b>. On this clamp the body governs at
+       <b>${CLAMP.recommend(inp).T.toFixed(2)} N·m</b> anyway, so the preload fraction is rarely the binding
+       constraint — it only takes over with a metal body.`)+
+    `<div class="lab" style="margin-top:18px">REFERENCES</div>
+     <table class="rep">
+       <tr><td>Budynas &amp; Nisbett, <b>Shigley's Mechanical Engineering Design</b>, ch. 8 — preload
+           recommendations, nut-factor torque relation, joint stiffness</td></tr>
+       <tr><td><b>ISO 898-1</b> — mechanical properties of carbon and alloy steel fasteners: proof load,
+           R<sub>p0.2</sub>, R<sub>m</sub> by property class</td></tr>
+       <tr><td><b>VDI 2230 Part 1</b> — systematic calculation of highly stressed bolted joints: reduced stress,
+           tightening factor α<sub>A</sub>, surface pressure limits p<sub>G</sub></td></tr>
+       <tr><td>Roark's <b>Formulas for Stress and Strain</b> — thin-ring pinch used for tube ovalization</td></tr>
+     </table>
+     <p style="color:var(--faint)">Values in this tool are typical reference figures assembled from the above,
+     not certified data. Verify against your own fasteners and a bench test before production.</p>`;
+}
+
 function renderWhyGreen(inp,res){
   const f=CLAMP.fmt, R=inp.D/2, a=R+inp.e;
   const ratio=res.sigmaF>0?res.sigmaCrown/res.sigmaF:Infinity;
@@ -980,9 +1121,21 @@ function tick(){
     `<div class="foot">Friction only: <b>F<sub>ax</sub> = η·μ·π·ΣF</b> with η 0.75 and μ ${f(res.mu,2)}; the twist
       capacity is that force acting at the bore radius, <b>T = F<sub>ax</sub>·D/2</b>. Either one alone will do it —
       applied together they share the same friction, so check the combination.`+
-      (dutyEq>0?` Your duty (${f(dutyF,0)} N + ${f(dutyT,1)} N·m) is equivalent to <b>${f(dutyEq,0)} N</b> axial,
-      leaving <b style="color:${col(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">SF ${isFinite(res.SFslipLT)?f(res.SFslipLT,2):"∞"}</b> long-term.`:"")+
       ` Never rely on friction alone where slipping is dangerous — add a key, pin or shoulder.</div>`;
+
+  // The comparison is purely a read-out against the capacity above: these three
+  // numbers change nothing about the part, which is why they sit here and not
+  // among the parameters.
+  $("cmpOut").innerHTML = dutyEq>0
+    ? `Your ${f(dutyF,0)} N pull and ${f(dutyT,1)} N·m twist come to <b>${f(dutyEq,0)} N</b> equivalent axial
+       (the twist converts as 2T/D = ${f(dutyT>0?2000*dutyT/inp.D:0,0)} N). Against the
+       <b>${f(res.FaxLT,0)} N</b> long-term capacity that is
+       <b style="color:${col(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">SF ${isFinite(res.SFslipLT)?f(res.SFslipLT,2):"∞"}</b>
+       — you asked for ${f(inp.SFt,1)}. <span style="color:var(--faint)">These three inputs change nothing about the
+       part or its stresses: they only compare your load with the capacity above, and set the “duty needs” figure
+       in the recommendation.</span>`
+    : `<span style="color:var(--faint)">Leave these empty and the tool just reports capacity. Fill them in and it
+       compares your load against it, and tells the recommendation what torque your duty demands.</span>`;
 
   $("recWhy").innerHTML= rec.ok
     ? `recommended per bolt · limited by <b>${rec.governing}</b><br>keeps SF ${rec.margin.toFixed(1)} below first yield (${rec.Tyield.toFixed(2)} N·m) · duty needs ${rec.Tneed.toFixed(2)} N·m`
@@ -991,7 +1144,7 @@ function tick(){
   // pure churn. Refresh only when an input or the torque actually changes.
   const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
   if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
-    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); }
+    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); renderPreload(inp,res,spec); }
 
   requestAnimationFrame(tick);
 }
@@ -1028,6 +1181,16 @@ document.querySelectorAll(".tabbtn").forEach(t=>t.addEventListener("click",()=>{
   document.querySelectorAll(".tabpane").forEach(x=>x.classList.toggle("on",x.dataset.t===t.dataset.t));
   lastSig="";   // force the report/drawing to refresh when Theory is revealed
 }));
+$("pdf").addEventListener("click",()=>{
+  const f=CLAMP.fmt, i=inp, r=res;
+  $("printMeta").innerHTML=
+    `Ø${f(i.D,1)} ${i.hollow?`× ${f(i.tw,1)} wall tube`:"solid rod"} · ${i.cyl}<br>`+
+    `body ${i.mat} · H ${f(r.H,1)} · W ${f(i.W,1)} · e ${f(i.e,1)} · gap ${f(i.gap,2)} mm (crown tc ${f(r.tc,1)})<br>`+
+    `${i.N} × ${i.thread} grade ${i.cls.split(" ")[0]} · ${i.Kname} · applied ${torque.toFixed(2)} N·m/bolt<br>`+
+    `generated ${new Date().toLocaleString()} · typical reference values, verify before production`;
+  // make sure both document tabs have rendered before the print dialog opens
+  lastSig=""; requestAnimationFrame(()=>requestAnimationFrame(()=>window.print()));
+});
 $("useRec").addEventListener("click",()=>{ if(+$("T").max<recT) $("T").max=Math.ceil(recT*1.4); $("T").value=recT; target=recT; playing=false; });
 for(const id of ["fx","cut","spin","smode","ascale"]) $(id).addEventListener("click",()=>{
   $(id).classList.toggle("on"); if(id==="spin") spinning=$("spin").classList.contains("on");
