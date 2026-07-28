@@ -96,6 +96,18 @@
   .refrow{background:var(--panel);border:1px solid var(--line2);border-radius:3px;
           padding:10px 13px;margin-top:10px;font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.75}
   .refrow b{color:var(--ink)} .refrow .hdr{color:var(--mid);letter-spacing:.14em;display:block;margin-bottom:3px}
+  .cap{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:10px 13px;margin-top:8px}
+  .cap .hdr{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mid);margin-bottom:7px}
+  .cap table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px}
+  .cap th{font-size:8px;letter-spacing:.1em;color:var(--faint);font-weight:400;text-align:right;padding:0 0 4px 6px}
+  .cap th:first-child{text-align:left}
+  .cap td{padding:5px 0 5px 6px;border-top:1px solid var(--line2);color:var(--dim);text-align:right;
+          font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cap td:first-child{text-align:left;color:var(--mid)}
+  .cap td b{color:var(--ink);font-size:11.5px}
+  .cap .foot{font-family:var(--mono);font-size:9px;color:var(--faint);line-height:1.7;margin-top:8px;
+             padding-top:7px;border-top:1px solid var(--line2)}
+  .cap .foot b{color:var(--dim)}
   /* theory */
   .theory{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
   .theory .lab{font-family:var(--mono);font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
@@ -224,8 +236,9 @@
       <div class="fld"><label>Bolt thread condition</label><select id="Kname"></select></div>
       <label class="chk wide"><input id="washer" type="checkbox" checked> washers</label>
       <div class="fld wide"><label>Bore friction</label><select id="muName"></select></div>
-      <div class="dutyhead">The duty — what the clamp must hold <em>without slipping on the cylinder</em>.
-        Nothing here is bolt torque; these are the service loads trying to move the clamp.</div>
+      <div class="dutyhead"><b style="color:var(--dim)">Optional — your duty, for comparison.</b> The capacity
+        itself is computed for you and shown below; these are the service loads you want to check it against, and
+        they set the "duty needs" figure in the recommendation. Nothing here is bolt torque.</div>
       <div class="fld"><label>Slides along axis<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
       <div class="fld"><label>Twists around axis<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
       <div class="fld"><label>Grip safety factor<span>× the duty</span></label><input id="SFt" type="number" step="0.5" value="2"></div>
@@ -233,6 +246,7 @@
   </details>
 
   <div class="refrow" id="refRow"></div>
+  <div class="cap" id="capPanel"></div>
   </div><!-- /model pane -->
 
   <div class="tabpane" data-t="theory">
@@ -947,6 +961,29 @@ function tick(){
     (rec.T<spec.T
       ? `The clamp body gives out first, so use the <b>${rec.T.toFixed(2)} N·m</b> above — the fastener could take ${(spec.T/Math.max(rec.T,1e-6)).toFixed(1)}× more.`
       : `Here the fastener is the tighter limit, so do not exceed <b>${spec.T.toFixed(2)} N·m</b>.`);
+  // SLIP CAPACITY — what this joint actually holds, as an output. The duty
+  // inputs stay for the "is it enough?" comparison, but the capacity itself is
+  // computed, not asked for.
+  const kgf=(n)=>f(n/9.81,0);
+  const dutyF=Math.max(0,inp.Freq), dutyT=Math.max(0,inp.Treq);
+  const dutyEq=dutyF+(dutyT>0?2000*dutyT/inp.D:0);
+  $("capPanel").innerHTML=
+    `<div class="hdr">SLIP CAPACITY AT ${torque.toFixed(2)} N·m PER BOLT · ${inp.N} BOLTS</div>`+
+    `<table><tr><th>Before it slips on the cylinder</th><th>fresh</th><th>after creep</th></tr>`+
+    `<tr><td>Pull / push along the axis</td><td><b>${f(res.Fax,0)}</b> N</td>`+
+      `<td><b style="color:${col(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">${f(res.FaxLT,0)}</b> N</td></tr>`+
+    `<tr><td>&nbsp;&nbsp;<span style="color:var(--faint)">— same, as weight</span></td>`+
+      `<td>${kgf(res.Fax)} kgf</td><td>${kgf(res.FaxLT)} kgf</td></tr>`+
+    `<tr><td>Twist around the axis</td><td><b>${f(res.Thold,1)}</b> N·m</td>`+
+      `<td><b style="color:${col(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">${f(res.TholdLT,1)}</b> N·m</td></tr>`+
+    `<tr><td>Clamp force · bore pressure</td><td>${f(res.Fcl,0)} N</td><td>${f(res.p,2)} MPa</td></tr></table>`+
+    `<div class="foot">Friction only: <b>F<sub>ax</sub> = η·μ·π·ΣF</b> with η 0.75 and μ ${f(res.mu,2)}; the twist
+      capacity is that force acting at the bore radius, <b>T = F<sub>ax</sub>·D/2</b>. Either one alone will do it —
+      applied together they share the same friction, so check the combination.`+
+      (dutyEq>0?` Your duty (${f(dutyF,0)} N + ${f(dutyT,1)} N·m) is equivalent to <b>${f(dutyEq,0)} N</b> axial,
+      leaving <b style="color:${col(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">SF ${isFinite(res.SFslipLT)?f(res.SFslipLT,2):"∞"}</b> long-term.`:"")+
+      ` Never rely on friction alone where slipping is dangerous — add a key, pin or shoulder.</div>`;
+
   $("recWhy").innerHTML= rec.ok
     ? `recommended per bolt · limited by <b>${rec.governing}</b><br>keeps SF ${rec.margin.toFixed(1)} below first yield (${rec.Tyield.toFixed(2)} N·m) · duty needs ${rec.Tneed.toFixed(2)} N·m`
     : `<b>no safe torque</b> — the duty needs ${rec.Tneed.toFixed(2)} N·m but <b>${rec.governing}</b> limits you to ${rec.T.toFixed(2)}. Raise H, add bolts, or cut the load.`;
