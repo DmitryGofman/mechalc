@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cylinder Clamp — Design C: Bolt-Count Advisor</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+  a.back{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:14px;margin:10px 0 20px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 0;font-size:22px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:6px;line-height:1.7}
+
+  .form{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;margin-bottom:14px}
+  @media(max-width:720px){.form{grid-template-columns:repeat(2,1fr)}}
+  .fld label{display:flex;align-items:baseline;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:4px;white-space:nowrap;overflow:hidden}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:6px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 9px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .chk{display:flex;align-items:center;gap:7px;font-family:var(--mono);font-size:10px;color:var(--dim);cursor:pointer;align-self:end;padding:8px 0}
+  .chk input{accent-color:var(--blue)}
+  .flab{grid-column:1/-1;font-family:var(--mono);font-size:9.5px;letter-spacing:.22em;text-transform:uppercase;
+        color:var(--faint);margin-top:6px;padding-top:8px;border-top:1px solid var(--line2)}
+  .flab:first-child{margin-top:0;padding-top:0;border-top:none}
+
+  .banner{border:1px solid;border-radius:3px;background:var(--panel);padding:14px 16px;margin:18px 0 14px;
+          display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .banner .big{font-family:var(--mono);font-size:19px;font-weight:600}
+  .banner .why{font-family:var(--mono);font-size:10.5px;color:var(--dim);line-height:1.7}
+
+  .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:720px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:14px;display:flex;flex-direction:column;gap:2px}
+  .card.rec{border-color:var(--green)}
+  .card.dead{opacity:.75}
+  .chead{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+  .chead .n{font-family:var(--mono);font-size:16px;font-weight:600}
+  .badge{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.14em;border:1px solid;border-radius:2px;padding:2px 6px}
+  .torq{font-family:var(--mono);font-size:26px;font-weight:600;margin:2px 0 0;font-variant-numeric:tabular-nums}
+  .torq small{font-size:10px;color:var(--faint);font-weight:400}
+  .tsub{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-bottom:8px;line-height:1.6}
+  .crow{display:flex;justify-content:space-between;align-items:baseline;padding:5px 0;border-top:1px solid var(--line2);font-family:var(--mono)}
+  .crow .k{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mid)}
+  .crow .v{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums}
+  .cnote{font-family:var(--mono);font-size:9.5px;line-height:1.6;margin-top:8px;padding-top:8px;border-top:1px dashed var(--line2);color:var(--dim)}
+  .lesson{font-size:12.5px;color:var(--dim);line-height:1.75;margin-top:22px;border-top:1px solid var(--line);padding-top:14px}
+  .lesson strong{color:#c2ccd4}
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">← CYLINDER CLAMP DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN C · BOLT-COUNT ADVISOR</div>
+    <h1>How many bolts? Start from the job, not the wrench</h1>
+    <div class="sub">Goal-first interaction, inverted from A and B: state what the clamp must hold, and the advisor works
+    backwards — required clamp force → per-bolt preload → wrench torque — for 2, 4 and 6 bolts side by side, then checks
+    each configuration against every failure mode at that torque.</div>
+  </div>
+
+  <div class="form" id="inputs">
+    <div class="flab">The job</div>
+    <div class="fld"><label>Axial load<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
+    <div class="fld"><label>Torque load<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
+    <div class="fld"><label>Target grip SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+    <div class="fld"><label>Bore friction</label><select id="muName"></select></div>
+
+    <div class="flab">The parts</div>
+    <div class="fld"><label>Cylinder Ø<span>mm</span></label><input id="D" type="number" step="0.5" value="25"></div>
+    <div class="fld"><label>Wall<span>mm</span></label><input id="tw" type="number" step="0.1" value="2"></div>
+    <label class="chk"><input id="hollow" type="checkbox" checked> hollow tube</label>
+    <div class="fld"><label>Cylinder material</label><select id="cyl"></select></div>
+    <div class="fld"><label>Clamp material</label><select id="mat"></select></div>
+    <div class="fld"><label>Width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
+    <div class="fld"><label>Ear thickness tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+    <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
+    <div class="fld"><label>Flange gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
+    <div class="fld"><label>Thread</label><select id="thread"></select></div>
+    <div class="fld"><label>Class</label><select id="cls"></select></div>
+    <div class="fld"><label>Thread condition</label><select id="Kname"></select></div>
+    <label class="chk"><input id="washer" type="checkbox" checked> washers</label>
+  </div>
+
+  <div class="banner" id="banner">
+    <div><div class="big" id="recBig">—</div><div class="why" id="recWhy"></div></div>
+    <div class="why" id="recNums"></div>
+  </div>
+
+  <div class="cards" id="cards"></div>
+
+  <div class="lesson" id="lesson"></div>
+</div>
+
+<script src="clamp-engine.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=CLAMP.defaults();
+fill("cyl",CLAMP.CYL_MATS,DEF.cyl); fill("mat",CLAMP.CLAMP_MATS,DEF.mat);
+fill("thread",CLAMP.THREADS,DEF.thread); fill("cls",CLAMP.CLASSES,DEF.cls);
+fill("Kname",CLAMP.KFACT,DEF.Kname); fill("muName",CLAMP.MU,DEF.muName);
+const f=CLAMP.fmt, col=CLAMP.sfColor;
+
+function read(){return{
+  D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
+  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, e:+$("e").value||1,
+  gap:+$("gap").value||0, washer:$("washer").checked,
+  N:4, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:1,
+  muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,
+}}
+
+function update(){
+  const inp=read();
+  const a=CLAMP.advise(inp);
+
+  // banner
+  if(a.rec){
+    $("banner").style.borderColor="var(--green)";
+    $("recBig").textContent=`${a.rec.n} bolts — ${inp.thread} @ ${f(a.rec.T,2)} N·m each`;
+    $("recBig").style.color="var(--green)";
+    $("recWhy").textContent=`smallest count that meets the grip target (long-term, after creep) with every part check ≥ 1.2`;
+  } else {
+    const best=a.options.reduce((p,c)=>c.worst>p.worst?c:p);
+    $("banner").style.borderColor="var(--red)";
+    $("recBig").textContent="No bolt count gets there";
+    $("recBig").style.color="var(--red)";
+    $("recWhy").textContent=`closest: ${best.n} bolts, limited by ${best.worstKey} (SF ${f(best.worst,2)}). Torque can't fix this — change the highlighted part below.`;
+  }
+  $("recNums").innerHTML=`duty as equivalent axial: <b style="color:var(--ink)">${f(a.demand,0)} N</b><br>
+    clamp force needed (×SF, after creep): <b style="color:var(--ink)">${f(a.FclReq,0)} N</b>`;
+
+  // cards
+  $("cards").innerHTML=a.options.map(o=>{
+    const isRec=a.rec&&o.n===a.rec.n;
+    const status=o.ok?(isRec?["RECOMMENDED","var(--green)"]:["WORKS","var(--green)"])
+      : o.structOk&&!o.spacingOk?["UNEVEN GRIP","var(--amber)"]
+      : o.bottomed?["GAP BOTTOMS","var(--red)"]:["OVERLOADED","var(--red)"];
+    const checks=Object.entries(o.checks).map(([k,sf])=>
+      `<div class="crow"><span class="k">${k}${k===o.worstKey?" ◂ limit":""}</span>
+       <span class="v" style="color:${col(sf)}">${isFinite(sf)?f(sf,2):"∞"}</span></div>`).join("");
+    const notes=[];
+    if(o.bottomed)notes.push("flange gap closes before the needed clamp force — grip physically capped; widen the gap");
+    if(!o.spacingOk)notes.push(`bolts ${f(o.spacing,0)} mm apart on ${f(inp.tf,0)} mm ears — pressure sags between bolts (want ≤ ${f(4*inp.tf,0)} mm)`);
+    if(o.structOk&&o.spacingOk&&o.worst<1.2)notes.push("feasible but thin margin — creep/K-scatter can eat it");
+    return `<div class="card ${isRec?"rec":""} ${o.ok?"":"dead"}">
+      <div class="chead"><span class="n">${o.n} bolts</span>
+        <span class="badge" style="color:${status[1]};border-color:${status[1]}">${status[0]}</span></div>
+      <div class="torq">${f(o.T,2)} <small>N·m per bolt</small></div>
+      <div class="tsub">${f(o.Fb,0)} N preload each · ${o.n/2} per side</div>
+      ${checks}
+      ${notes.length?`<div class="cnote">${notes.join("<br>")}</div>`:""}
+    </div>`;
+  }).join("");
+
+  // the lesson — what more bolts actually buys
+  const sameFlange=Math.abs(a.options[0].checks.flange-a.options[2].checks.flange)<0.05*a.options[0].checks.flange;
+  $("lesson").innerHTML=`<strong>What more bolts buy — and what they don't:</strong> the flange-bending safety factor barely moves
+    between the columns${sameFlange?" (look — it's the same number)":""}: each added bolt takes a smaller slice of ear width, so
+    <em>ear stress tracks total clamp force, not bolt count</em>. Fix a red flange row with a thicker ear (tf), a shorter bolt offset (e),
+    or a stiffer material — not more bolts. What extra bolts <em>do</em> buy: lower per-bolt torque, less head-bearing crush on plastic,
+    smaller hardware, and even pressure along a wide clamp (the "uneven grip" check). Typical reference values — verify before production.`;
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",update));
+update();
+</script>
+</body>
+</html>

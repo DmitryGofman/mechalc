@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cylinder Clamp — Design B: Tightening Simulator</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:780px;margin:0 auto;padding:24px 16px 48px}
+  a.back{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:14px;margin:10px 0 20px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 0;font-size:22px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:6px;line-height:1.7}
+
+  /* the wrench */
+  .wrench{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px 18px 14px;margin-bottom:16px}
+  .wlab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid)}
+  .tq{display:flex;align-items:baseline;gap:10px;margin:4px 0 10px}
+  .tq .v{font-family:var(--mono);font-size:46px;font-weight:600;font-variant-numeric:tabular-nums}
+  .tq .u{font-family:var(--mono);font-size:13px;color:var(--faint)}
+  .tq .kgf{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto;text-align:right;line-height:1.6}
+  input[type=range].big{width:100%;accent-color:var(--blue);height:26px}
+  .trange{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:2px}
+
+  /* gauges */
+  .gauges{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  @media(max-width:560px){.gauges{grid-template-columns:1fr}}
+  .g{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:12px 14px}
+  .g .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid)}
+  .g .n{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:5px;font-variant-numeric:tabular-nums}
+  .g .n small{font-size:10.5px;color:var(--faint);font-weight:400}
+  .bar{position:relative;height:10px;background:#0e1419;border:1px solid var(--line2);border-radius:2px;margin-top:8px;overflow:visible}
+  .bar .fillA{position:absolute;inset:0;width:0%;border-radius:2px 0 0 2px;background:var(--green);opacity:.35}
+  .bar .fillB{position:absolute;inset:0;width:0%;border-radius:2px 0 0 2px;background:var(--green)}
+  .bar .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.8}
+  .bar .ticklab{position:absolute;top:13px;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;color:var(--faint);white-space:nowrap}
+  .g .foot{font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:7px;line-height:1.6}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;border:1px solid;border-radius:2px;padding:3px 7px}
+
+  /* the ladder */
+  .ladder{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:14px 16px;margin-bottom:16px}
+  .ladder .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid);margin-bottom:10px}
+  .lrow{display:grid;grid-template-columns:64px 14px 1fr;gap:8px;align-items:center;padding:6px 0;font-family:var(--mono)}
+  .lrow .t{font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+  .lrow .dot{width:9px;height:9px;border-radius:50%;justify-self:center}
+  .lrow .l{font-size:11px;color:var(--dim);line-height:1.45}
+  .lrow .l small{color:var(--faint)}
+  .lrow.past .l{color:var(--ink)}
+  .lrow.now{background:#0d1521;border-radius:2px;outline:1px solid #17324e}
+  .lrow.capped{opacity:.42}
+  .lrow.capped .l::after{content:" — unreachable: gap closes first";color:var(--amber)}
+  .youline{display:grid;grid-template-columns:64px 14px 1fr;gap:8px;font-family:var(--mono);font-size:9.5px;color:var(--blue);
+           letter-spacing:.15em;padding:1px 0}
+  .youline i{grid-column:3;border-top:1px dashed var(--blue);opacity:.6;margin-top:5px}
+
+  details{border:1px solid var(--line2);border-radius:3px;background:var(--panel);margin-bottom:8px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+          color:var(--mid);padding:10px 14px;user-select:none}
+  .dbody{padding:2px 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  @media(max-width:560px){.dbody{grid-template-columns:1fr}}
+  .fld label{display:flex;align-items:baseline;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:4px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:6px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 9px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .chk{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px;color:var(--dim);cursor:pointer;align-self:end;padding:8px 0}
+  .chk input{accent-color:var(--blue)}
+  .note{font-family:var(--sans);font-size:12px;color:var(--dim);line-height:1.7;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .note strong{color:#c2ccd4}
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">← CYLINDER CLAMP DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN B · TIGHTENING SIMULATOR</div>
+    <h1>Sweep the wrench, watch what breaks first</h1>
+    <div class="sub">Torque-first interaction: one big slider is your torque wrench. The ladder shows — in order —
+    every event on the way up: grip goal met, ears yielding, tube crushing, gap bottoming out, bolt proof.
+    Set the geometry once, then explore torque like you would at the bench.</div>
+  </div>
+
+  <div class="wrench">
+    <div class="wlab">TORQUE PER BOLT</div>
+    <div class="tq">
+      <span class="v" id="tv">1.20</span><span class="u">N·m</span>
+      <span class="kgf" id="tkgf"></span>
+    </div>
+    <input class="big" id="T" type="range" min="0" max="8" step="0.05" value="1.2">
+    <div class="trange"><span>0</span><span id="tmax">8 N·m</span></div>
+  </div>
+
+  <div class="gauges">
+    <div class="g">
+      <div class="k">AXIAL GRIP — LONG-TERM</div>
+      <div class="n" id="gripN">—</div>
+      <div class="bar" id="gripBar">
+        <div class="fillA" id="gripFresh"></div><div class="fillB" id="gripLT"></div>
+        <div class="tick" id="gripTick"></div><div class="ticklab" id="gripTickLab">need</div>
+      </div>
+      <div class="foot">pale = fresh · solid = after plastic creep · tick = duty × target SF</div>
+    </div>
+    <div class="g">
+      <div class="k">FLANGE GAP REMAINING</div>
+      <div class="n" id="gapN">—</div>
+      <div class="bar" id="gapBar"><div class="fillB" id="gapFill" style="background:var(--blue)"></div></div>
+      <div class="foot" id="gapFoot">ears bend + tube ovalizes → the gap is the budget for both</div>
+    </div>
+    <div class="g" style="grid-column:1/-1">
+      <div class="k">PART CHECKS AT THIS TORQUE</div>
+      <div class="chips" id="chips"></div>
+      <div class="foot">SF vs yield/proof · green ≥2 · amber ≥1.2 · red &lt;1.2 — printed parts: numbers assume in-plane (XY) loading</div>
+    </div>
+  </div>
+
+  <div class="ladder">
+    <div class="k">EVENT LADDER — WHAT HAPPENS AS YOU KEEP TIGHTENING</div>
+    <div id="lrows"></div>
+  </div>
+
+  <details open><summary>Geometry · materials · bolts</summary>
+    <div class="dbody">
+      <div class="fld"><label>Cylinder Ø<span>mm</span></label><input id="D" type="number" step="0.5" value="25"></div>
+      <div class="fld"><label>Wall (hollow)<span>mm</span></label><input id="tw" type="number" step="0.1" value="2"></div>
+      <label class="chk"><input id="hollow" type="checkbox" checked> hollow tube</label>
+      <div class="fld"><label>Cylinder material</label><select id="cyl"></select></div>
+      <div class="fld"><label>Clamp material</label><select id="mat"></select></div>
+      <div class="fld"><label>Clamp width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
+      <div class="fld"><label>Ear thickness tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+      <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
+      <div class="fld"><label>Flange gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
+      <div class="fld"><label>Bolt count</label><select id="N"><option>2</option><option selected>4</option><option>6</option></select></div>
+      <div class="fld"><label>Thread</label><select id="thread"></select></div>
+      <div class="fld"><label>Class</label><select id="cls"></select></div>
+      <div class="fld"><label>Thread condition</label><select id="Kname"></select></div>
+      <label class="chk"><input id="washer" type="checkbox" checked> washers</label>
+    </div>
+  </details>
+  <details open><summary>Duty — required grip</summary>
+    <div class="dbody">
+      <div class="fld"><label>Axial load<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
+      <div class="fld"><label>Torque load<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
+      <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+      <div class="fld"><label>Bore friction</label><select id="muName"></select></div>
+    </div>
+  </details>
+
+  <div class="note"><strong>Reading the ladder:</strong> everything below your dashed line has already happened; anything marked
+  amber-red is a limit you've crossed. The right amount of torque is <em>past the grip goal, before the first limit</em> — if the goal
+  sits above a limit, torque can't fix it: change geometry, material, bolt count or friction. Values are typical references — verify before production.</div>
+</div>
+
+<script src="clamp-engine.js"></script>
+<script>
+const $ = (id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=CLAMP.defaults();
+fill("cyl",CLAMP.CYL_MATS,DEF.cyl); fill("mat",CLAMP.CLAMP_MATS,DEF.mat);
+fill("thread",CLAMP.THREADS,DEF.thread); fill("cls",CLAMP.CLASSES,DEF.cls);
+fill("Kname",CLAMP.KFACT,DEF.Kname); fill("muName",CLAMP.MU,DEF.muName);
+const f=CLAMP.fmt, col=CLAMP.sfColor;
+
+function read(){return{
+  D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
+  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, e:+$("e").value||1,
+  gap:+$("gap").value||0, washer:$("washer").checked,
+  N:+$("N").value, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:+$("T").value,
+  muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,
+}}
+
+const EVCOL={goal:"var(--green)",info:"var(--blue)",limit:"var(--red)"};
+function update(){
+  const inp=read();
+  // auto-range the slider: 1.5× the last interesting event (recompute at a probe torque)
+  const probe=CLAMP.solve({...inp,T:Math.max(inp.T,0.5)});
+  const evs=probe.events.filter(e=>isFinite(e.T));
+  const tmax=Math.max(2, Math.ceil(Math.min(1.4*Math.max(...evs.map(e=>e.T),1), 40)));
+  if(+$("T").max!==tmax){$("T").max=tmax; $("tmax").textContent=tmax+" N·m";}
+
+  const r=CLAMP.solve(inp);
+  $("tv").textContent=f(inp.T,2);
+  $("tkgf").innerHTML=`${f(r.Fb,0)} N preload/bolt<br>${f(r.Fcl,0)} N on the cylinder`;
+
+  // grip gauge
+  const need=inp.SFt*(inp.Freq + 2000*inp.Treq/inp.D); // equivalent axial demand × SF
+  const span=Math.max(r.Fax, need)*1.25||1;
+  $("gripFresh").style.width=Math.min(100*r.Fax/span,100)+"%";
+  $("gripLT").style.width=Math.min(100*r.FaxLT/span,100)+"%";
+  $("gripLT").style.background = r.FaxLT>=need ? "var(--green)" : "var(--red)";
+  $("gripTick").style.left=Math.min(100*need/span,99)+"%";
+  $("gripTickLab").style.left=Math.min(100*need/span,92)+"%";
+  $("gripN").innerHTML=`${f(r.FaxLT,0)} N <small>of ${f(need,0)} N needed · fresh ${f(r.Fax,0)} N · torque grip ${f(r.TholdLT,1)} N·m</small>`;
+
+  // gap gauge
+  $("gapFill").style.width=Math.max(0,Math.min(100*r.gapRemain/inp.gap,100))+"%";
+  $("gapN").innerHTML= r.bottomed
+    ? `<span style="color:var(--red)">0 mm — BOTTOMED</span> <small>grip capped at ${f(r.Fclose,0)} N</small>`
+    : `${f(r.gapRemain,2)} mm <small>of ${f(inp.gap,2)} mm · ear bend ${f(r.dFl,3)} + ovalization ${f(r.dOval,3)} mm</small>`;
+  $("gapFoot").textContent = r.bottomed
+    ? "past this point extra torque clamps flange-on-flange, not the cylinder"
+    : "ears bend + tube ovalizes → the gap is the budget for both";
+
+  // chips
+  const chips=[["ears (bending)",r.SFflange],["head bearing",r.SFbear],[inp.hollow?"tube wall":"bore pressure",r.SFcyl],["bolt (proof)",r.SFbolt]];
+  $("chips").innerHTML=chips.map(([k,sf])=>`<span class="chip" style="color:${col(sf)};border-color:${col(sf)}">${k} · SF ${f(sf,2)}</span>`).join("");
+
+  // ladder
+  const rows=[]; let placed=false;
+  const evs2=r.events.filter(e=>isFinite(e.T)&&e.T<=tmax*1.05);
+  for(const ev of evs2){
+    if(!placed && inp.T<ev.T){rows.push(`<div class="youline"><span style="text-align:right">${f(inp.T,2)}</span><span>◂</span><span style="letter-spacing:.2em">YOU ARE HERE</span><i></i></div>`);placed=true;}
+    const past=inp.T>=ev.T;
+    rows.push(`<div class="lrow ${past?"past":""} ${ev.capped?"capped":""}">
+      <span class="t" style="color:${past?EVCOL[ev.type]:"var(--faint)"}">${f(ev.T,2)}</span>
+      <span class="dot" style="background:${EVCOL[ev.type]};opacity:${past?1:.35}"></span>
+      <span class="l">${ev.label} <small>N·m/bolt</small></span></div>`);
+  }
+  if(!placed)rows.push(`<div class="youline"><span style="text-align:right">${f(inp.T,2)}</span><span>◂</span><span style="letter-spacing:.2em">YOU ARE HERE</span><i></i></div>`);
+  $("lrows").innerHTML=rows.join("");
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",update));
+update();
+</script>
+</body>
+</html>
