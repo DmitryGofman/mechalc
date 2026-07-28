@@ -210,7 +210,7 @@ function Bolt3D({
       if (parts.nut) parts.nut.rotation.y = -angle;
       if (parts.arcGroup) parts.arcGroup.rotation.y = -angle;
       if (parts.arcMat) {
-        const Trec = r.Trec || 1;
+        const Trec = r.TrecJoint || 1;
         const engaged = grabbingRef.current || springRef.current;
         parts.arcMat.opacity = Math.min(1, Math.abs(T) / Trec) * (engaged ? 0.9 : 0.3);
       }
@@ -396,9 +396,10 @@ function Bolt3D({
         e.preventDefault();
         const rect = el.getBoundingClientRect();
         const wpx = rect.width || 480;
-        // Full-width drag sweeps ~2.2× the recommended torque — enough to
-        // walk the joint well past proof and feel it let go.
-        const Trec = resultsFor(0).Trec;
+        // Full-width drag sweeps ~2.2× the joint's recommended torque — the
+        // range that actually matters for THIS material stack, so a nylon
+        // joint doesn't need a hair-fine drag to reach its (much lower) limit.
+        const Trec = resultsFor(0).TrecJoint;
         const nmPerPx = (Trec * 2.2) / wpx;
         let nt = dragStartTorque + (e.clientX - dragStartX) * nmPerPx;
         nt = Math.max(0, Math.min(Trec * 3, nt));
@@ -681,20 +682,38 @@ const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "Fb = Fi + C·P,  Fm = Fi − (1−C)·P", note: "Load sharing: bolt force & remaining clamp" },
   { expr: "Psep = Fi / (1 − C)", note: "External load at which the joint separates" },
   { expr: "p = F / [π(dw² − dh²)/4]", note: "Bearing pressure under head/nut vs plate limit pG" },
+  { expr: "Trec = K·d·min(0.65·Sp·As, 0.9·pG·Abear)", note: "Recommended torque — bolt or plate, whichever gives out first" },
 ];
 
-const SectionLabel = ({ t }: { t: string }) => (
+// Grouped readout block: a titled, bordered card so the three phases of the
+// joint's life (tightening → in service → contact pressures) read as distinct
+// sections instead of one long undifferentiated list of bars.
+const Group = ({ t, sub, children }: { t: string; sub?: string; children: React.ReactNode }) => (
   <div
     style={{
-      fontFamily: "var(--mono)",
-      fontSize: 10,
-      letterSpacing: "0.18em",
-      textTransform: "uppercase",
-      color: "#3a78c2",
-      margin: "18px 0 2px",
+      border: "1px solid #141c22",
+      borderRadius: 3,
+      padding: "10px 12px 2px",
+      marginTop: 12,
     }}
   >
-    {t}
+    <div
+      style={{
+        fontFamily: "var(--mono)",
+        fontSize: 10,
+        letterSpacing: "0.18em",
+        textTransform: "uppercase",
+        color: "#3a78c2",
+      }}
+    >
+      {t}
+    </div>
+    {sub && (
+      <div style={{ fontFamily: "var(--mono)", fontSize: 9.5, color: "#46515c", marginTop: 2, lineHeight: 1.5 }}>
+        {sub}
+      </div>
+    )}
+    <div style={{ marginTop: 4 }}>{children}</div>
   </div>
 );
 
@@ -736,13 +755,18 @@ export default function BoltCalc() {
         ? { c: "#d9a441", t: "MARGINAL" }
         : { c: "#d65c5c", t: "YIELDING" };
 
-  // Joint-level warnings at the current state.
+  // Joint-level warnings at the current state. Kept terse and merged where
+  // possible so the reserved warning slot never has to grow (see below).
   const warnings: Array<{ msg: string; c: string }> = [];
-  if (r.Fm <= 0) warnings.push({ msg: "joint separates — clamp force is gone at this load", c: "#d65c5c" });
+  if (r.Fm <= 0) warnings.push({ msg: "joint separated — no clamp left at P", c: "#d65c5c" });
   else if (r.nSep < 1.5 && isFinite(r.nSep))
-    warnings.push({ msg: `separation margin is thin (n = ${r.nSep.toFixed(2)})`, c: "#d9a441" });
-  if (r.nBear1 < 1) warnings.push({ msg: `plate 1 crushes under the head (p > pG ${m1.pG} MPa) — use a washer`, c: "#d65c5c" });
-  if (r.nBear2 < 1) warnings.push({ msg: `plate 2 crushes under the nut (p > pG ${m2.pG} MPa) — use a washer`, c: "#d65c5c" });
+    warnings.push({ msg: `thin separation margin (n ${r.nSep.toFixed(2)})`, c: "#d9a441" });
+  const crush1 = r.nBear1 < 1;
+  const crush2 = r.nBear2 < 1;
+  if (crush1 && crush2)
+    warnings.push({ msg: `both plates crush (p > pG) — add washers`, c: "#d65c5c" });
+  else if (crush1) warnings.push({ msg: `plate 1 crushes under head — add washer`, c: "#d65c5c" });
+  else if (crush2) warnings.push({ msg: `plate 2 crushes under nut — add washer`, c: "#d65c5c" });
 
   const kN = (n: number) => (n / 1000).toFixed(2);
 
@@ -828,11 +852,23 @@ export default function BoltCalc() {
             </div>
 
             <Field label="External load P (tensile)" unit="N" value={Pext} onChange={setPext} min="0" step="50" />
+            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8, lineHeight: 1.55 }}>
+              the service load trying to pull the joint apart — in use, after
+              tightening. Set 0 for preload only.
+            </div>
+
             <Field label="Tightening torque T" unit="N·m" value={torque} onChange={setTorque} min="0" step="0.1" />
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8, lineHeight: 1.6 }}>
-              recommended ≈ {r.Trec.toFixed(r.Trec < 10 ? 1 : 0)} N·m
+            <div className="bolt-recslot">
+              recommended ≈ {r.TrecJoint.toFixed(r.TrecJoint < 10 ? 2 : 0)} N·m
               <br />
-              (preload at {Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof)
+              {r.TrecGovernedBy === "bolt" ? (
+                <>limited by the bolt ({Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof)</>
+              ) : (
+                <span style={{ color: "#d9a441" }}>
+                  limited by {m1.pG <= m2.pG ? "plate 1" : "plate 2"} bearing (pG{" "}
+                  {Math.min(m1.pG, m2.pG)} MPa)
+                </span>
+              )}
             </div>
           </div>
 
@@ -885,59 +921,88 @@ export default function BoltCalc() {
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#6b7884" }}>
                 σred vs proof strength, while torquing
               </div>
-              {warnings.map((w) => (
-                <div
-                  key={w.msg}
-                  style={{ fontFamily: "var(--mono)", fontSize: 10, color: w.c, marginTop: 6, lineHeight: 1.5 }}
-                >
-                  ⚠ {w.msg}
-                </div>
-              ))}
+              {/* Warning slot with RESERVED height: warnings appear and vanish
+                  as you drag the nut, and if this box resized it would shove
+                  the 3D viewer up and down under your finger. Fixed height +
+                  overflow means the layout below never moves. */}
+              <div className="bolt-warnslot">
+                {warnings.length === 0 ? (
+                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#2f3945" }}>
+                    no joint warnings
+                  </div>
+                ) : (
+                  warnings.map((w) => (
+                    <div
+                      key={w.msg}
+                      style={{ fontFamily: "var(--mono)", fontSize: 10, color: w.c, lineHeight: 1.45 }}
+                    >
+                      ⚠ {w.msg}
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
 
-            <SectionLabel t="Tightening" />
-            <Readout label="Preload Fi" value={kN(r.F)} unit="kN" />
-            <Readout label="Tension σ" value={(r.sigma / 1e6).toFixed(0)} unit="MPa" />
-            <Readout label="Torsion τ" value={(r.tau / 1e6).toFixed(0)} unit="MPa" />
-            <Readout label="Reduced σred (vM)" value={(r.vm / 1e6).toFixed(0)} unit="MPa" accent={status.c} />
-            <Readout label="Bolt stretch ΔL" value={(r.dL * 1e6).toFixed(1)} unit="µm" />
-            <Readout label="Plates squash δm" value={(r.dLm * 1e6).toFixed(1)} unit="µm" />
+            <Group t="1 · Tightening" sub="while the wrench is on">
+              <Readout label="Preload Fi" value={kN(r.F)} unit="kN" />
+              <Readout label="Tension σ" value={(r.sigma / 1e6).toFixed(0)} unit="MPa" />
+              <Readout label="Torsion τ" value={(r.tau / 1e6).toFixed(0)} unit="MPa" />
+              <Readout label="Reduced σred (vM)" value={(r.vm / 1e6).toFixed(0)} unit="MPa" accent={status.c} />
+              <Readout label="Bolt stretch ΔL" value={(r.dL * 1e6).toFixed(1)} unit="µm" />
+              <Readout label="Plates squash δm" value={(r.dLm * 1e6).toFixed(1)} unit="µm" />
+            </Group>
 
-            <SectionLabel t="Joint · clamped sandwich" />
-            <Readout
-              label="Stiffness ratio C"
-              value={r.C.toFixed(3)}
-              unit=""
-              hint={`kb ${(r.kb / 1e6).toFixed(0)} / km ${isFinite(r.km) ? (r.km / 1e6).toFixed(0) : "∞"} kN/mm ÷1000`}
-            />
-            <Readout label="Bolt force @ P" value={kN(r.Fb)} unit="kN" />
-            <Readout
-              label="Clamp left @ P"
-              value={kN(Math.max(r.Fm, 0))}
-              unit="kN"
-              accent={r.Fm <= 0 ? "#d65c5c" : undefined}
-              hint={r.Fm <= 0 ? "separated" : undefined}
-            />
-            <Readout
-              label="Separation SF"
-              value={fmtSF(r.nSep)}
-              unit=""
-              accent={r.nSep < 1 ? "#d65c5c" : r.nSep < 1.5 ? "#d9a441" : undefined}
-            />
-            <Readout label="Interface pressure" value={(r.pInt / 1e6).toFixed(1)} unit="MPa" hint={`cone Ø ${r.DiMm.toFixed(1)} mm`} />
-            <Readout
-              label="Bearing p head/nut"
-              value={(r.pHead / 1e6).toFixed(0)}
-              unit="MPa"
-              accent={Math.min(r.nBear1, r.nBear2) < 1 ? "#d65c5c" : undefined}
-              hint={`SF ${fmtSF(r.nBear1)} / ${fmtSF(r.nBear2)}`}
-            />
-            <Readout
-              label="Working σ (after relax)"
-              value={(r.sigmaWork / 1e6).toFixed(0)}
-              unit="MPa"
-              hint={`n vs yield ${fmtSF(r.nYieldWork)}`}
-            />
+            <Group t="2 · In service" sub={`with the external load P = ${num(Pext)} N applied`}>
+              <Readout
+                label="Stiffness ratio C"
+                value={r.C.toFixed(3)}
+                unit=""
+                hint={`bolt takes ${(r.C * 100).toFixed(0)}% of P`}
+              />
+              <Readout label="Bolt force @ P" value={kN(r.Fb)} unit="kN" />
+              <Readout
+                label="Clamp left @ P"
+                value={kN(Math.max(r.Fm, 0))}
+                unit="kN"
+                accent={r.Fm <= 0 ? "#d65c5c" : undefined}
+                // always present so the row can't change height mid-drag
+                hint={r.Fm <= 0 ? "separated" : "still clamped"}
+              />
+              <Readout
+                label="Separation SF"
+                value={fmtSF(r.nSep)}
+                unit=""
+                accent={r.nSep < 1 ? "#d65c5c" : r.nSep < 1.5 ? "#d9a441" : undefined}
+              />
+              <Readout
+                label="Working σ (relaxed)"
+                value={(r.sigmaWork / 1e6).toFixed(0)}
+                unit="MPa"
+                hint={`n vs yield ${fmtSF(r.nYieldWork)}`}
+              />
+            </Group>
+
+            <Group t="3 · Contact pressure" sub="what the clamped materials feel">
+              <Readout
+                label="Bearing p head/nut"
+                value={(r.pHead / 1e6).toFixed(0)}
+                unit="MPa"
+                accent={Math.min(r.nBear1, r.nBear2) < 1 ? "#d65c5c" : undefined}
+                hint={`SF ${fmtSF(r.nBear1)} / ${fmtSF(r.nBear2)}`}
+              />
+              <Readout
+                label="Interface pressure"
+                value={(r.pInt / 1e6).toFixed(1)}
+                unit="MPa"
+                hint={`cone Ø ${r.DiMm.toFixed(1)} mm`}
+              />
+              <Readout
+                label="Member stiffness km"
+                value={isFinite(r.km) ? (r.km / 1e6).toFixed(0) : "∞"}
+                unit="kN/mm"
+                hint={`bolt kb ${(r.kb / 1e6).toFixed(0)}`}
+              />
+            </Group>
           </div>
         </div>
 
@@ -1170,12 +1235,37 @@ export default function BoltCalc() {
               lineHeight: 1.7,
             }}
           >
+            <strong style={{ color: "#c2ccd4" }}>What &ldquo;external load P&rdquo; means.</strong> P is the
+            working load your product applies to the joint <em>after</em> it&apos;s assembled — the thing
+            trying to pull the two plates apart along the bolt axis. Pressure lifting a cover, a belt
+            tensioning a bracket, the weight of whatever hangs off the part, an impact. It is not the
+            tightening force: preload comes from the torque, and P is what arrives later, in service. The
+            interesting result is that the bolt does <em>not</em> feel all of P — it picks up only C·P
+            (typically 10–25% with metal plates) while the remaining (1−C)·P is subtracted from the clamp
+            squeezing the plates. Set P = 0 to look at the tightened joint alone; raise it to find the load
+            where clamp reaches zero and the joint separates.
+          </p>
+          <p
+            style={{
+              fontFamily: "var(--sans)",
+              fontSize: 12.5,
+              color: "#8b97a3",
+              marginTop: 10,
+              lineHeight: 1.7,
+            }}
+          >
             <strong style={{ color: "#c2ccd4" }}>Soft materials & bearing.</strong> The head and nut press
             on small annular faces, and soft plate materials crush there long before the bolt is in danger:
             the calculator checks that surface pressure against each material&apos;s permissible pressure pG
-            (VDI-style values). If a plate flags red — typical for plastics and soft aluminum at steel-bolt
-            torques — use washers to spread the load, or drop the preload target. Embedding (surfaces
-            flattening over time) also costs proportionally more preload in soft, short joints.
+            (VDI-style values). This is also why the <strong style={{ color: "#c2ccd4" }}>recommended
+            torque follows the materials you clamp</strong>, not just the bolt. The target preload is the
+            lesser of 65% of the bolt&apos;s proof load and what the softer plate&apos;s bearing limit
+            allows. With steel or aluminum plates the bolt governs and you get the familiar handbook number
+            (≈9 N·m for M6 class 8.8, dry); put the same bolt through nylon or FR-4 and the recommendation
+            drops several-fold, because the plate would crush first. That matches the separate torque tables
+            plastics and PCB suppliers publish. Washers raise the limit by enlarging the bearing area —
+            worth adding whenever a plate flags red. Embedding (surfaces flattening over time) also costs
+            proportionally more preload in soft, short joints.
           </p>
           <p
             style={{

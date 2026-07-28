@@ -146,6 +146,8 @@ export function Readout({
       >
         {label}
       </span>
+      {/* The number itself never wraps; a trailing hint is allowed to wrap
+          onto its own line so it can't be clipped in a narrow column. */}
       <span
         className="flexure-readout-value"
         style={{
@@ -153,11 +155,14 @@ export function Readout({
           fontSize: 17,
           color: accent || "#e8edf1",
           fontVariantNumeric: "tabular-nums",
-          whiteSpace: "nowrap",
+          textAlign: "right",
+          minWidth: 0,
         }}
       >
-        {value} <span style={{ fontSize: 11, color: "#46515c" }}>{unit}</span>
-        {hint && <span style={{ fontSize: 10, color: "#6b7884", marginLeft: 6 }}>{hint}</span>}
+        <span style={{ whiteSpace: "nowrap" }}>
+          {value} <span style={{ fontSize: 11, color: "#46515c" }}>{unit}</span>
+        </span>
+        {hint && <span className="flexure-readout-hint">{hint}</span>}
       </span>
     </div>
   );

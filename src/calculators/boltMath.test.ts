@@ -1,11 +1,21 @@
 import { describe, it, expect } from "vitest";
-import { boltResults, memberStiffness, jointResults, THREADS, CLASSES, PLATE_MATERIALS } from "./boltMath";
+import {
+  boltResults,
+  memberStiffness,
+  jointResults,
+  recommendedTorque,
+  THREADS,
+  CLASSES,
+  PLATE_MATERIALS,
+} from "./boltMath";
 
 const M6 = THREADS.M6;
 const C88 = CLASSES["8.8 (medium-carbon, Q&T)"];
 const STEEL = PLATE_MATERIALS["Mild steel (S235)"];
 const ALU = PLATE_MATERIALS["Aluminum 6061-T6"];
 const POM = PLATE_MATERIALS["POM / Delrin"];
+const PA12 = PLATE_MATERIALS["Nylon 12 (PA12)"];
+const FR4 = PLATE_MATERIALS["FR-4 PCB (glass-epoxy)"];
 
 describe("boltResults", () => {
   it("computes preload from torque via the nut factor", () => {
@@ -69,6 +79,61 @@ describe("memberStiffness (Shigley 30° pressure cone)", () => {
     const a = memberStiffness(8, 6, 68.9, 14, 200);
     const b = memberStiffness(8, 14, 200, 6, 68.9);
     expect(a / b).toBeCloseTo(1, 6);
+  });
+});
+
+describe("recommendedTorque (depends on the clamped materials)", () => {
+  it("is bolt-limited for steel plates and matches published M6 8.8 values", () => {
+    const r = recommendedTorque(M6, C88, 0.2, STEEL, STEEL);
+    expect(r.governedBy).toBe("bolt");
+    expect(r.T).toBeGreaterThan(8); // handbook dry M6 8.8 ≈ 9–11 N·m
+    expect(r.T).toBeLessThan(11);
+  });
+
+  it("stays bolt-limited for aluminum — same as the steel recommendation", () => {
+    const alu = recommendedTorque(M6, C88, 0.2, ALU, STEEL);
+    const steel = recommendedTorque(M6, C88, 0.2, STEEL, STEEL);
+    expect(alu.governedBy).toBe("bolt");
+    expect(alu.T).toBeCloseTo(steel.T, 9);
+  });
+
+  it("drops to a plate-limited value for nylon and PCB", () => {
+    const steel = recommendedTorque(M6, C88, 0.2, STEEL, STEEL);
+    const pa12 = recommendedTorque(M6, C88, 0.2, PA12, STEEL);
+    const fr4 = recommendedTorque(M6, C88, 0.2, FR4, STEEL);
+    expect(pa12.governedBy).toBe("plate");
+    expect(fr4.governedBy).toBe("plate");
+    expect(pa12.T).toBeLessThan(steel.T / 3);
+    expect(fr4.T).toBeGreaterThan(pa12.T); // FR-4 takes more pressure than PA12
+    expect(fr4.T).toBeLessThan(steel.T);
+  });
+
+  it("is governed by the SOFTER of the two plates", () => {
+    const a = recommendedTorque(M6, C88, 0.2, PA12, STEEL);
+    const b = recommendedTorque(M6, C88, 0.2, STEEL, PA12);
+    const both = recommendedTorque(M6, C88, 0.2, PA12, PA12);
+    expect(a.T).toBeCloseTo(b.T, 9);
+    expect(a.T).toBeCloseTo(both.T, 9);
+  });
+
+  it("recommends an M5-into-nylon torque in the practical ~1 N·m range", () => {
+    const r = recommendedTorque(THREADS.M5, C88, 0.2, PA12, PA12);
+    expect(r.T).toBeGreaterThan(0.5);
+    expect(r.T).toBeLessThan(1.5);
+  });
+
+  it("never recommends a torque that its own bearing check would flag", () => {
+    for (const m of [PA12, FR4, POM, ALU, STEEL]) {
+      const rec = recommendedTorque(M6, C88, 0.2, m, m);
+      const j = jointResults(M6, C88, 0.2, rec.T, 10, m, 10, m, 0);
+      expect(Math.min(j.nBear1, j.nBear2), `${m.pG} MPa plate`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("scales with the nut factor, like any torque spec", () => {
+    const dry = recommendedTorque(M6, C88, 0.2, STEEL, STEEL);
+    const lubed = recommendedTorque(M6, C88, 0.15, STEEL, STEEL);
+    expect(lubed.T / dry.T).toBeCloseTo(0.75, 6);
   });
 });
 

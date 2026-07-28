@@ -53,6 +53,11 @@ export const FRICTION: Record<string, number> = {
 // values. tone = base color for the 3D plates.
 export type PlateMaterial = { E: number; sy: number; pG: number; tone: string };
 
+// pG values follow VDI 2230 Table A9 for metals; polymer and laminate values
+// are the permissible short-term surface pressures quoted in plastics-
+// fastening practice (they creep badly above these, so they double as the
+// long-term clamp limit). For anisotropic laminates E is the through-
+// thickness value — that is the direction the clamp actually compresses.
 export const PLATE_MATERIALS: Record<string, PlateMaterial> = {
   "Mild steel (S235)": { E: 200, sy: 235, pG: 490, tone: "#39434e" },
   "Alloy steel (S355 / 4140)": { E: 200, sy: 355, pG: 760, tone: "#333d47" },
@@ -62,8 +67,11 @@ export const PLATE_MATERIALS: Record<string, PlateMaterial> = {
   "Gray cast iron (GJL-250)": { E: 110, sy: 165, pG: 800, tone: "#39404a" },
   "Brass (CuZn37)": { E: 100, sy: 200, pG: 300, tone: "#544e3a" },
   "Ti-6Al-4V": { E: 114, sy: 880, pG: 900, tone: "#4c4a42" },
+  "FR-4 PCB (glass-epoxy)": { E: 12, sy: 300, pG: 60, tone: "#2f4a3c" },
   "POM / Delrin": { E: 3.1, sy: 70, pG: 90, tone: "#4e4c44" },
-  "PA12 / Nylon": { E: 1.7, sy: 48, pG: 50, tone: "#464a40" },
+  "Nylon 12 (PA12)": { E: 1.7, sy: 48, pG: 50, tone: "#464a40" },
+  "Nylon 12 GF30 (glass-filled)": { E: 6.0, sy: 110, pG: 110, tone: "#4a4e42" },
+  "Nylon 6/6 (PA66, dry)": { E: 2.8, sy: 80, pG: 70, tone: "#484c42" },
 };
 
 // Fraction of the applied torque that is reacted in the threads (the rest is
@@ -148,6 +156,40 @@ export function memberStiffness(dMm: number, t1Mm: number, E1Gpa: number, t2Mm: 
   return inv > 0 ? 1 / inv : Infinity;
 }
 
+// Bearing (washer-face) annulus under the head or nut, m².
+export function bearingArea(dMm: number): number {
+  const d = dMm / 1000;
+  return (Math.PI / 4) * (Math.pow(DW_RATIO * d, 2) - Math.pow(DHOLE_RATIO * d, 2));
+}
+
+// Recommended tightening torque for the *assembled joint*, not just the bolt.
+// Handbook torque tables assume the clamped parts can take the preload — true
+// for steel and aluminum, false for plastics, laminates and thin castings,
+// where the head/nut simply crushes into the surface first. So the target
+// preload is the lesser of:
+//   · bolt-limited:  65% of proof on the stress area
+//   · plate-limited: the softer plate's permissible surface pressure pG
+//                    acting over the bearing annulus
+// then T = K·d·F. With steel plates the bolt governs and this reproduces the
+// familiar published values; with PA12 or FR-4 the plates govern and the
+// recommendation drops to the (much lower) value those materials tolerate.
+export function recommendedTorque(
+  thread: ThreadSpec,
+  cls: BoltClass,
+  K: number,
+  m1: PlateMaterial,
+  m2: PlateMaterial,
+): { T: number; F: number; governedBy: "bolt" | "plate"; pGmin: number } {
+  const Fbolt = TARGET_PRELOAD_FRACTION * (cls.sp * 1e6) * (thread.As * 1e-6);
+  const pGmin = Math.min(m1.pG, m2.pG);
+  // Keep a margin against the bearing limit so the recommendation itself is
+  // never flagged as crushing.
+  const Fplate = 0.9 * pGmin * 1e6 * bearingArea(thread.d);
+  const governedBy = Fplate < Fbolt ? "plate" : "bolt";
+  const F = Math.min(Fbolt, Fplate);
+  return { T: K * (thread.d / 1000) * F, F, governedBy, pGmin };
+}
+
 export type JointResults = BoltResults & {
   kb: number; // bolt stiffness, N/m
   km: number; // member (plate stack) stiffness, N/m
@@ -164,6 +206,8 @@ export type JointResults = BoltResults & {
   pInt: number; // mean pressure at the plate/plate interface, Pa
   DiMm: number; // pressure-cone diameter at the interface, mm
   dLm: number; // member (plate) compression at preload, m
+  TrecJoint: number; // recommended torque for the assembled joint, N·m
+  TrecGovernedBy: "bolt" | "plate"; // what limits it
 };
 
 // Full bolted-joint model: tightening (boltResults) + the clamped "sandwich":
@@ -220,8 +264,12 @@ export function jointResults(
 
   const dLm = isFinite(km) && km > 0 ? Fi / km : 0;
 
+  const rec = recommendedTorque(thread, cls, K, m1, m2);
+
   return {
     ...base,
+    TrecJoint: rec.T,
+    TrecGovernedBy: rec.governedBy,
     kb,
     km,
     C,

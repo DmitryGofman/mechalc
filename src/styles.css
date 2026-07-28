@@ -31,6 +31,40 @@ input[type="number"] {
   padding: 24px 16px;
 }
 
+/* Trailing hint on a readout: inline next to the value when there's room,
+   but free to wrap to its own line rather than being clipped. */
+.flexure-readout-hint {
+  font-size: 10px;
+  color: #6b7884;
+  margin-left: 6px;
+  overflow-wrap: anywhere;
+}
+
+/* ── Bolt calculator: stable-height slots ───────────────────────
+   Warnings and the recommended-torque note appear/disappear live while the
+   user drags the nut. If their containers resized, everything below them —
+   including the 3D viewer being dragged — would jump under the finger. Both
+   slots therefore reserve a fixed height and scroll internally instead. */
+.bolt-warnslot {
+  margin-top: 6px;
+  height: 46px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  scrollbar-width: thin;
+}
+
+.bolt-recslot {
+  margin-top: -8px;
+  height: 44px;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: #46515c;
+  line-height: 1.55;
+}
+
 /* ── Home page calculator cards ─────────────────────────────── */
 .home-grid {
   display: grid;
@@ -135,6 +169,14 @@ input[type="number"] {
   }
   .flexure-readout-value {
     font-size: 15px !important;
+    text-align: left !important;
+  }
+  /* Narrow column: the hint always gets its own line. */
+  .flexure-readout-hint {
+    display: block;
+    margin-left: 0;
+    margin-top: 1px;
+    line-height: 1.45;
   }
   /* Stack the safety-factor header so the badge doesn't crowd the label. */
   .flexure-sf-head {

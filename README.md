@@ -60,6 +60,13 @@ src/
 rectangular cantilever: `k = 3EI/L³`, `σ = 3Etδ/2L²`. Aim for a safety factor ≥ 2
 for cyclic / living-hinge duty.
 
+The bolt calculator's **recommended torque depends on the clamped materials**, not
+just the bolt: the target preload is `min(0.65·Sp·As, 0.9·pG·Abear)`, so steel and
+aluminum stacks reproduce the familiar handbook figures (≈9 N·m for M6 class 8.8,
+dry) while nylon or FR-4 stacks drop to the much lower values their bearing limits
+allow (≈1 N·m for M5 into PA12) — matching the separate torque tables plastics and
+PCB suppliers publish.
+
 **Bolted joint** — nut-factor model `F = T/(K·d)` on the tensile stress area, with
 the ~50% thread-torque split for tightening torsion and the VDI 2230-style reduced
 stress `σred = √(σ² + 3τ²)` against proof (torsion relaxes after the wrench lets
