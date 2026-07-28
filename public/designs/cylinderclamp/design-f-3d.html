@@ -93,8 +93,8 @@
   .rec.bad .big{color:var(--red)}
   .rec .why{font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.65;flex:1;min-width:150px}
   .rec .why b{color:var(--ink)}
-  .refrow{background:var(--panel);border:1px solid var(--line2);border-top:none;border-radius:0 0 3px 3px;
-          padding:9px 13px;margin-top:-1px;font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.75}
+  .refrow{background:var(--panel);border:1px solid var(--line2);border-radius:3px;
+          padding:10px 13px;margin-top:10px;font-family:var(--mono);font-size:9.5px;color:var(--dim);line-height:1.75}
   .refrow b{color:var(--ink)} .refrow .hdr{color:var(--mid);letter-spacing:.14em;display:block;margin-bottom:3px}
   /* theory */
   .theory{margin-top:20px;border-top:1px solid var(--line);padding-top:14px}
@@ -174,7 +174,6 @@
     <span class="why" id="recWhy"></span>
     <button class="btn" id="useRec">Use it</button>
   </div>
-  <div class="refrow" id="refRow"></div>
   <div class="btnrow">
     <button class="btn" id="play">▶ Tighten</button>
     <button class="btn on" id="fx">Forces</button>
@@ -233,6 +232,7 @@
     </div>
   </details>
 
+  <div class="refrow" id="refRow"></div>
   </div><!-- /model pane -->
 
   <div class="tabpane" data-t="theory">
