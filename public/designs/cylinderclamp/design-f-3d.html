@@ -98,6 +98,32 @@
   .deriv{font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.9;background:#0d1319;
          border-left:2px solid var(--line);border-radius:2px;padding:8px 10px;margin-top:8px;overflow-x:auto}
   .deriv b{color:var(--dim)}
+  /* maths — typeset with CSS, no external font or library (CSP blocks CDNs) */
+  .mth{font-family:"STIX Two Math","Cambria Math","Latin Modern Math",Georgia,"Times New Roman",serif;
+       font-size:13.5px;color:var(--ink);line-height:1.35}
+  .mi{font-style:italic}
+  /* vertical-align:middle puts the fraction's own centre — the rule — on the
+     surrounding text's midline, so σ and the = signs sit level with the bar
+     instead of riding up on the numerator. */
+  .frac{display:inline-flex;flex-direction:column;vertical-align:middle;text-align:center;margin:0 4px}
+  .frac>span:first-child{border-bottom:1px solid currentColor;padding:0 7px 3px;line-height:1.25}
+  .frac>span:last-child{padding:3px 7px 0;line-height:1.25}
+  .sqrt{border-top:1px solid currentColor;padding:0 3px}
+  .eqn{margin:14px 0 18px;overflow-x:auto;padding-bottom:2px}
+  .eqn .lead{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;
+             color:var(--blue);display:block;margin-bottom:5px}
+  .eqn .sub{color:var(--mid);font-size:12.5px}
+  .eqn .res{color:var(--green);font-weight:600}
+  .eqn .res.bad{color:var(--red)} .eqn .res.warn{color:var(--amber)}
+  .eqn .cmt{font-family:var(--sans);font-size:10px;color:var(--faint);display:block;margin-top:3px;line-height:1.6}
+  table.rep{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:10px;margin:6px 0 4px}
+  table.rep th{text-align:left;font-weight:400;color:var(--mid);font-size:8.5px;letter-spacing:.12em;
+               text-transform:uppercase;padding:5px 6px;border-bottom:1px solid var(--line)}
+  table.rep td{padding:5px 6px;border-bottom:1px solid var(--line2);color:var(--dim);font-variant-numeric:tabular-nums}
+  table.rep td.v{text-align:right;color:var(--ink);font-weight:600;white-space:nowrap}
+  table.rep tr.hi td{color:var(--ink)} table.rep tr.hi{background:#0d1521}
+  .repnote{font-size:10.5px;color:var(--dim);line-height:1.7;margin:8px 0 0}
+  .repnote b{color:#c2ccd4}
   @media (prefers-reduced-motion: reduce){ #flash{transition:none} }
 </style>
 </head>
@@ -135,7 +161,13 @@
     <button class="btn on" id="fx">Forces</button>
     <button class="btn" id="cut">Half section</button>
     <button class="btn" id="spin">Auto-spin</button>
+    <button class="btn on" id="smode">Stress colours</button>
     <span style="flex:1"></span>
+    <span class="bar" style="margin:0;padding:4px 9px;gap:6px">
+      <span class="lab">OPACITY</span>
+      <input id="op" type="range" min="15" max="100" value="100" style="width:70px" aria-label="Model opacity">
+      <span class="val" id="opv" style="min-width:32px;font-size:11px"></span>
+    </span>
     <span class="bar" style="margin:0;padding:4px 9px;gap:6px">
       <span class="lab">SPLIT ×</span>
       <input id="ex" type="range" min="1" max="16" value="6" style="width:70px" aria-label="Split magnification">
@@ -145,7 +177,8 @@
 
   <div class="strip" id="strip"></div>
   <div class="legend">
-    <span><i style="background:linear-gradient(90deg,#4fb477,#d9a441,#d65c5c)"></i>surface colour = safety factor of that part</span>
+    <span id="lgTens"><i style="background:linear-gradient(90deg,#4fb477,#d98c38,#d64545)"></i>tension</span>
+    <span id="lgComp"><i style="background:linear-gradient(90deg,#4fb477,#349bb0,#456fe6)"></i>compression</span>
     <span><i style="background:#4a8cd1"></i>bolt force</span>
     <span><i style="background:#4fb477"></i>bore reaction</span>
   </div>
@@ -192,8 +225,8 @@
     <h3>Why the crown carries more moment than the ear</h3>
     <div class="deriv" id="deriv"></div>
 
-    <div class="lab" style="margin-top:18px">THE EQUATIONS</div>
-    <div id="eqs"></div>
+    <div class="lab" style="margin-top:18px">CALCULATION REPORT</div>
+    <div id="report"></div>
     <p style="margin-top:12px"><b>Where the constants come from.</b> The nut factor <b>K</b> lumps thread and
     under-head friction (~90% of your wrench effort); it scatters ±25% between real joints, so treat preload as a band.
     <b>η ≈ 0.75</b> derates the friction grip because a real bore never touches uniformly. <b>λ = 0.2</b> is the share of
@@ -234,7 +267,9 @@ function read(){return{
    X = along the cylinder, Y = up (cap above base), Z = across (ears).      */
 const cv=$("view"), wrap=$("wrap"), ctx=cv.getContext("2d");
 const view={yaw:-0.70,pitch:-0.26,dist:5.2,drag:false,lx:0,ly:0};
-let fitR=1.8; // widest model radius, refreshed each build → drives the auto-fit
+let fitR=1.8;              // static model radius → stable auto-fit
+const ARROW_LEN=0.8;       // constant, so the camera never re-fits with load
+let CULL=1;                // back-face cull sign; 0 disables
 let torque=1.2, target=1.2, vel=0, recT=1.2;          // torque state + spring
 let grabbing=false, dragT0=0, dragY0=0;
 let playing=false, playT=0, spinning=false;
@@ -242,29 +277,45 @@ let boltScreen=[];                           // bolt head hit targets, screen sp
 let reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 const S=[]; // polygon soup, rebuilt each frame
-const poly=(p,c)=>S.push({p,c});
+const poly=(p,c,o)=>S.push({p,c,o});  // o = centroid of the parent solid (enables culling)
 
 // frustum / cylinder / cone about the Y axis (used for bolts and arrows)
-function frustumY(cx,cz,y0,y1,r0,r1,c,n){
+function frustumY(cx,cz,y0,y1,r0,r1,c,n,noCull){
+  const O=noCull?undefined:[cx,(y0+y1)/2,cz];
   for(let i=0;i<n;i++){
     const a0=i/n*2*Math.PI, a1=(i+1)/n*2*Math.PI;
     const A=[cx+r0*Math.cos(a0),y0,cz+r0*Math.sin(a0)], B=[cx+r0*Math.cos(a1),y0,cz+r0*Math.sin(a1)];
     const C=[cx+r1*Math.cos(a1),y1,cz+r1*Math.sin(a1)], D=[cx+r1*Math.cos(a0),y1,cz+r1*Math.sin(a0)];
-    poly(r1===0?[A,B,C]:(r0===0?[A,C,D]:[A,B,C,D]),c);
+    poly(r1===0?[A,B,C]:(r0===0?[A,C,D]:[A,B,C,D]),c,O);
   }
-  if(r1>0){const t=[];for(let i=0;i<n;i++){const a=i/n*2*Math.PI;t.push([cx+r1*Math.cos(a),y1,cz+r1*Math.sin(a)]);}poly(t,c);}
-  if(r0>0){const b=[];for(let i=n-1;i>=0;i--){const a=i/n*2*Math.PI;b.push([cx+r0*Math.cos(a),y0,cz+r0*Math.sin(a)]);}poly(b,c);}
+  if(r1>0){const t=[];for(let i=0;i<n;i++){const a=i/n*2*Math.PI;t.push([cx+r1*Math.cos(a),y1,cz+r1*Math.sin(a)]);}poly(t,c,O);}
+  if(r0>0){const b=[];for(let i=n-1;i>=0;i--){const a=i/n*2*Math.PI;b.push([cx+r0*Math.cos(a),y0,cz+r0*Math.sin(a)]);}poly(b,c,O);}
 }
 function arrowY(cx,cz,yTail,yTip,r,c){ // points from tail toward tip
   const dir=Math.sign(yTip-yTail)||1, headL=Math.abs(yTip-yTail)*0.34;
-  frustumY(cx,cz,yTail,yTip-dir*headL,r,r,c,8);
-  frustumY(cx,cz,yTip-dir*headL,yTip,r*2.3,0,c,10);
+  frustumY(cx,cz,yTail,yTip-dir*headL,r,r,c,8,true);
+  frustumY(cx,cz,yTip-dir*headL,yTip,r*2.3,0,c,10,true);
 }
 
 /* Cross-section profile of one HALF, in local (z,y) with the flange face at
    y = 0 and the bore centre at y = -g2. A plain flat block: the only height
    input is H, so the ear section (H) and the crown section over the bore
    (tc = g2 + H - R) can never disagree with each other. */
+// A painter's-algorithm renderer sorts whole polygons by depth, so one big
+// face can swap order with a small one that is genuinely in front of it —
+// that is what makes the model "break" at certain angles. Keeping every face
+// small makes the per-polygon depth a good stand-in for per-pixel depth.
+function densify(p,maxLen){
+  const out=[];
+  for(let i=0;i<p.length;i++){
+    const a=p[i], b=p[(i+1)%p.length];
+    out.push(a);
+    const n=Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])/maxLen);
+    for(let k=1;k<n;k++) out.push([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]);
+  }
+  return out;
+}
+
 function halfProfile(R,half,g2,H,arcN){
   const zb=Math.sqrt(Math.max(R*R-g2*g2,1e-6));
   const phi0=Math.asin(Math.max(-1,Math.min(g2/R,1)));
@@ -302,16 +353,24 @@ function buildScene(inp,res,ex){
 
   const tone=hex2rgb(CLAMP.CLAMP_MATS[inp.mat].tone);
   const earC=hex2rgb(col(res.SFflange)), crownC=hex2rgb(col(res.SFcrown));
-  const cylC=hex2rgb(col(res.SFcyl));
+  const stressOn=$("smode").classList.contains("on");
+  const cylC=stressOn?CLAMP.stressRGB(-Math.min(res.sigmaCyl/(CLAMP.CYL_MATS[inp.cyl].sy||1),1.4)):hex2rgb(col(res.SFcyl));
   const STEEL=[0.62,0.66,0.70], ARROW=[0.29,0.55,0.82], REACT=[0.31,0.71,0.47];
   const steely=(c)=>c.map((v,i)=>v*0.55+STEEL[i]*0.45);
-  const boltC=steely(hex2rgb(col(res.SFbolt))), bearC=steely(hex2rgb(col(res.SFbear)));
+  const boltC=steely(stressOn?CLAMP.stressRGB(Math.min(res.vm/(CLAMP.CLASSES[inp.cls].sp||1),1.4)):hex2rgb(col(res.SFbolt)));
+  const bearC=steely(stressOn?CLAMP.stressRGB(Math.min(res.pHead/(CLAMP.CLAMP_MATS[inp.mat].pG||1),1.4)):hex2rgb(col(res.SFbear)));
   const mix=(c)=>c.map((v,i)=>v*0.78+tone[i]*0.22);
   const govC=mix(res.SFflange<=res.SFcrown?earC:crownC);
-  const shade=(z,y)=> Math.abs(z)>R ? mix(earC) : mix(crownC);
+  // Two colour modes. STRESS paints the real signed bending field — outer
+  // surfaces in tension (red), bore surfaces in compression (blue), neutral
+  // axis green — so it slides smoothly instead of stepping between bands.
+  const stressMode=$("smode").classList.contains("on");
+  const shade=(z,y)=> stressMode
+    ? CLAMP.stressRGB(CLAMP.bodyStressRatio(inp,res,z,y))
+    : (Math.abs(z)>R ? mix(earC) : mix(crownC));
 
   // ── the two halves: sweep the local profile along X ──
-  const prof=halfProfile(R,half,g2,H,16);
+  const prof=densify(halfProfile(R,half,g2,H,16),Math.max(2.5,(half+H)/9));
   const NX=Math.max(6,Math.min(2*nSide+6,14));
   const x0=cut?0:-W/2;
   const pt=(zi,xi,up)=>{
@@ -322,34 +381,40 @@ function buildScene(inp,res,ex){
     return [x*s,(up?y:-y)*s,z*s];
   };
   for(const up of [true,false]){
+    const O=[0,(up?1:-1)*(lift+H/2)*s,0];       // centroid of this half
     for(let i=0;i<prof.length;i++){
       const j=(i+1)%prof.length;
       let c=shade((prof[i][0]+prof[j][0])/2,(prof[i][1]+prof[j][1])/2);
       if(Math.abs(prof[i][1])<1e-9&&Math.abs(prof[j][1])<1e-9) c=c.map(v=>v*0.34); // flange face
       for(let k=0;k<NX;k++){
         const A=pt(i,k,up),B=pt(j,k,up),C=pt(j,k+1,up),D2=pt(i,k+1,up);
-        poly(up?[A,B,C,D2]:[D2,C,B,A],c);
+        poly(up?[A,B,C,D2]:[D2,C,B,A],c,O);
       }
     }
     for(const k of [0,NX]){
       const face=prof.map((_,i)=>pt(i,k,up));
-      poly((k===0)===up?face:face.slice().reverse(),govC);
+      poly((k===0)===up?face:face.slice().reverse(),stressMode?CLAMP.stressRGB(0):govC,O);
     }
   }
 
   // ── the clamped cylinder ──
   const ry=(R-oval/2)*s, rz=(R+oval/2)*s, tw=Math.min(inp.tw,R-0.2);
-  const xa=-W*0.78*s, xb=W*0.78*s, NA=30;
+  const xa=-W*0.78*s, xb=W*0.78*s, NA=28, NL=10;   // NL segments along the axis
   const ring=(rY,rZ,x)=>{const o=[];for(let i=0;i<NA;i++){const a=i/NA*2*Math.PI;o.push([x,rY*Math.sin(a),rZ*Math.cos(a)]);}return o};
-  const oa=ring(ry,rz,xa), ob=ring(ry,rz,xb);
-  for(let i=0;i<NA;i++){const j=(i+1)%NA; poly([oa[i],oa[j],ob[j],ob[i]],cylC);}
+  const xs=[]; for(let k=0;k<=NL;k++) xs.push(xa+(xb-xa)*k/NL);
+  const outer=xs.map(x=>ring(ry,rz,x));
+  const OC=[0,0,0];
+  for(let k=0;k<NL;k++) for(let i=0;i<NA;i++){const j=(i+1)%NA;
+    poly([outer[k][i],outer[k][j],outer[k+1][j],outer[k+1][i]],cylC,[(xs[k]+xs[k+1])/2,0,0]);}
   if(inp.hollow){
-    const ia=ring(ry-tw*s,rz-tw*s,xa), ib=ring(ry-tw*s,rz-tw*s,xb);
-    for(let i=0;i<NA;i++){const j=(i+1)%NA; poly([ia[j],ia[i],ib[i],ib[j]],cylC.map(v=>v*0.5));}
+    const inner=xs.map(x=>ring(ry-tw*s,rz-tw*s,x));
+    for(let k=0;k<NL;k++) for(let i=0;i<NA;i++){const j=(i+1)%NA;   // bore wall: never culled
+      poly([inner[k][j],inner[k][i],inner[k+1][i],inner[k+1][j]],cylC.map(v=>v*0.5));}
+    const a0=outer[0],b0=outer[NL],ia=inner[0],ib=inner[NL];
     for(let i=0;i<NA;i++){const j=(i+1)%NA;
-      poly([oa[j],oa[i],ia[i],ia[j]],cylC.map(v=>v*0.78));
-      poly([ob[i],ob[j],ib[j],ib[i]],cylC.map(v=>v*0.78));}
-  } else { poly(oa.slice().reverse(),cylC.map(v=>v*0.78)); poly(ob,cylC.map(v=>v*0.78)); }
+      poly([a0[j],a0[i],ia[i],ia[j]],cylC.map(v=>v*0.78));
+      poly([b0[i],b0[j],ib[j],ib[i]],cylC.map(v=>v*0.78));}
+  } else { poly(outer[0].slice().reverse(),cylC.map(v=>v*0.78),OC); poly(outer[NL],cylC.map(v=>v*0.78),OC); }
 
   // ── bolts ──
   const yTop=lift+H, rSh=dB/2*s, rHd=(inp.washer?1.05:0.9)*dB*s, hHd=0.6*dB*s;
@@ -359,7 +424,8 @@ function buildScene(inp,res,ex){
       const cz=zs*(R+inp.e)*s, cx=bx*s;
       const drop=bend*zShape(R+inp.e)*xMult(bx)*s;
       const yT=yTop*s-drop, yB=-yTop*s+drop;
-      frustumY(cx,cz,yB,yT,rSh,rSh,boltC,12);
+      for(let k=0;k<6;k++)                                   // shank in slices, same reason
+        frustumY(cx,cz,yB+(yT-yB)*k/6,yB+(yT-yB)*(k+1)/6,rSh,rSh,boltC,12);
       frustumY(cx,cz,yT,yT+hHd,rHd,rHd,bearC,6);
       frustumY(cx,cz,yB-hHd*1.15,yB,rHd,rHd,bearC,6);
       boltScreen.push({x:cx,y:yT+hHd,z:cz});
@@ -368,7 +434,7 @@ function buildScene(inp,res,ex){
 
   // ── force arrows ──
   if($("fx").classList.contains("on")&&res.Fb>0){
-    const L=Math.max(0.5,Math.min(1.5,res.Fb/4000+0.45));
+    const L=ARROW_LEN;
     for(const bx of bolts){
       if(cut&&bx<0) continue;
       for(const zs of [1,-1]){
@@ -385,8 +451,10 @@ function buildScene(inp,res,ex){
     }
   }
 
-  let rMax=0; for(const q of S) for(const pnt of q.p) rMax=Math.max(rMax,Math.hypot(pnt[0],pnt[1],pnt[2]));
-  fitR=rMax;
+  // Camera bound from the STATIC envelope only. Deriving it from the live
+  // polygon soup made the frame re-fit on every torque change — that was the
+  // "jumping". Arrows are a fixed length for the same reason.
+  fitR=Math.hypot(W*0.78,(g2*ex+H)+ARROW_LEN,half)*s;  // g2*ex = rest lift, torque-independent
   return s;
 }
 
@@ -399,6 +467,11 @@ function project(p,Wp,Hp,fl){
   return [Wp/2+x1*fl/zc, Hp/2-y2*fl/zc, zc, x1, y2, z2];
 }
 // light in VIEW space: upper-left, slightly behind the camera
+function rot(p){
+  const cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);
+  const x1=p[0]*cy+p[2]*sy, z1=-p[0]*sy+p[2]*cy;
+  return [x1,p[1]*cp-z1*sp,p[1]*sp+z1*cp];
+}
 const LIGHT=(()=>{const l=[-0.40,0.66,0.64],n=Math.hypot(...l);return l.map(v=>v/n)})();
 // Newell's method: a reliable normal for any polygon, including the many-sided
 // non-planar end caps where picking three points gives a degenerate answer.
@@ -422,6 +495,8 @@ function draw(){
   const want=Math.max(2.6,fitR*fl/(0.34*Math.min(Wp,Hp)));
   view.dist+=(want-view.dist)*0.18;
 
+  const alpha=(+$("op").value)/100;
+  const solid=alpha>=0.995;
   const items=[];
   for(const q of S){
     const pp=q.p.map(p=>project(p,Wp,Hp,fl));
@@ -431,19 +506,35 @@ function draw(){
     // flip it toward the camera — then a single directional light reveals form
     // (up-facing bright, down-facing dark) no matter how a face was wound.
     let [nx,ny,nz]=newell(pp.map(p=>[p[3],p[4],p[5]]));
-    if(nz<0){nx=-nx;ny=-ny;nz=-nz;}
+    // When fully opaque, drop faces pointing away from the camera: that kills
+    // the see-through / flickering artefacts of a pure painter's algorithm.
+    // When translucent we keep them — you are meant to see the far side.
+    if(solid&&q.o){
+      // Winding is not uniform across swept and revolved parts, so derive
+      // "outward" geometrically: away from the parent solid's centroid. Then a
+      // face pointing away from the camera is a back face and gets dropped —
+      // which is what removes the see-through flicker.
+      const fc=[pp.reduce((t,p)=>t+p[3],0)/pp.length,pp.reduce((t,p)=>t+p[4],0)/pp.length,
+                pp.reduce((t,p)=>t+p[5],0)/pp.length];
+      const ov=rot(q.o);
+      if(nx*(fc[0]-ov[0])+ny*(fc[1]-ov[1])+nz*(fc[2]-ov[2])<0){nx=-nx;ny=-ny;nz=-nz;}
+      if(nx*fc[0]+ny*fc[1]+nz*(fc[2]-view.dist)>0) continue;
+    }
+    if(!(solid&&q.o)&&nz<0){nx=-nx;ny=-ny;nz=-nz;}
     const nl=Math.hypot(nx,ny,nz)||1;
     const sh=0.30+0.70*Math.max(0,(nx*LIGHT[0]+ny*LIGHT[1]+nz*LIGHT[2])/nl);
     items.push({pp,c:q.c,sh,z:pp.reduce((t,p)=>t+p[2],0)/pp.length});
   }
   items.sort((p,q)=>q.z-p.z);
+  ctx.globalAlpha=alpha;
   for(const it of items){
     ctx.fillStyle=`rgb(${it.c.map(v=>Math.round(Math.min(1,v*it.sh)*255)).join(",")})`;
-    ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=0.6;
+    ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=0.4;
     ctx.beginPath(); ctx.moveTo(it.pp[0][0],it.pp[0][1]);
     for(let i=1;i<it.pp.length;i++) ctx.lineTo(it.pp[i][0],it.pp[i][1]);
     ctx.closePath(); ctx.fill(); ctx.stroke();
   }
+  ctx.globalAlpha=1;
   // remember bolt heads in screen space for grab hit-testing
   boltScreen=boltScreen.map(b=>{const p=project([b.x,b.y,b.z],Wp,Hp,fl);return {sx:p[0],sy:p[1],z:p[2]}});
 }
@@ -465,50 +556,58 @@ function flashEvents(res){
 const cell=(k,n,u,c,hot)=>`<div class="s${hot?" hot":""}"><div class="k">${k}</div><div class="n" style="color:${c||"var(--ink)"}">${n}</div><div class="u">${u}</div></div>`;
 
 
-/* ── dimensioned cross-section: what every input actually measures ───────── */
+/* ── dimensioned cross-section, drawn like an engineering drawing ─────────
+   Every dimension lives in its own band OUTSIDE the part, joined to the
+   feature by thin extension lines, so no two labels can ever collide.     */
 function drawDims(inp,res){
   const R=inp.D/2, g2=res.g2, H=res.H, tc=res.tc, e=inp.e, dB=res.d;
-  const half=R+e+1.7*dB, top=g2+H;
-  const M=52, VW=400;                                   // margin, viewport width
-  const sc=Math.min((VW-2*M)/(2*half),(250-2*M)/(2*top));
-  const X=(z)=>VW/2+z*sc, Y=(y)=>125-y*sc;
-  const t=(x,y,txt,c,anc,size)=>`<text x="${x}" y="${y}" font-size="${size||8}" fill="${c||"#8b97a3"}" text-anchor="${anc||"middle"}" font-family="monospace">${txt}</text>`;
-  const dimH=(z0,z1,y,txt,c)=>`<line x1="${X(z0)}" y1="${y}" x2="${X(z1)}" y2="${y}" stroke="${c}" stroke-width=".6"/>
-    <line x1="${X(z0)}" y1="${y-3}" x2="${X(z0)}" y2="${y+3}" stroke="${c}" stroke-width=".6"/>
-    <line x1="${X(z1)}" y1="${y-3}" x2="${X(z1)}" y2="${y+3}" stroke="${c}" stroke-width=".6"/>
-    ${t((X(z0)+X(z1))/2,y-4,txt,c)}`;
-  const dimV=(x,y0,y1,txt,c)=>`<line x1="${x}" y1="${Y(y0)}" x2="${x}" y2="${Y(y1)}" stroke="${c}" stroke-width=".6"/>
-    <line x1="${x-3}" y1="${Y(y0)}" x2="${x+3}" y2="${Y(y0)}" stroke="${c}" stroke-width=".6"/>
-    <line x1="${x-3}" y1="${Y(y1)}" x2="${x+3}" y2="${Y(y1)}" stroke="${c}" stroke-width=".6"/>
-    ${t(x,(Y(y0)+Y(y1))/2-2,txt,c,"middle")}`;
-  const f1=(v)=>CLAMP.fmt(v,1);
+  const half=R+e+1.7*dB, top=g2+H, bad=res.tcRaw<0.5;
+  const VW=400, VH=272, ML=52, MR=54, MT=44, MB=50;
+  const sc=Math.min((VW-ML-MR)/(2*half),(VH-MT-MB)/(2*top));
+  const cx=ML+(VW-ML-MR)/2, cyv=MT+(VH-MT-MB)/2;
+  const X=(z)=>cx+z*sc, Y=(y)=>cyv-y*sc;
+  const INK="#8b97a3", THIN="#46515c", ACC="#3a78c2", GRN=bad?"#d65c5c":"#4fb477", AMB="#d9a441";
+
+  const txt=(x,y,s,c,size,anc)=>`<text x="${x}" y="${y}" font-size="${size||8.5}" fill="${c||INK}" `+
+    `text-anchor="${anc||"middle"}" font-family="monospace">${s}</text>`;
+  const ah=(x,y,dx,dy,c)=>{const L=5.2,Wd=2.1,nx=-dy,ny=dx;
+    return `<path d="M ${x} ${y} L ${x-dx*L+nx*Wd} ${y-dy*L+ny*Wd} L ${x-dx*L-nx*Wd} ${y-dy*L-ny*Wd} Z" fill="${c}"/>`};
+  const ext=(x1,y1,x2,y2)=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${THIN}" stroke-width=".45"/>`;
+  // horizontal dimension in a band at screen-y `yb`, feature edges at model-z z0,z1 and model-y yf
+  const dimH=(z0,z1,yb,yf,s,c)=>{const a=X(z0),b=X(z1);
+    return ext(a,Y(yf),a,yb+(yb<cyv?4:-4))+ext(b,Y(yf),b,yb+(yb<cyv?4:-4))+
+      `<line x1="${a}" y1="${yb}" x2="${b}" y2="${yb}" stroke="${c}" stroke-width=".7"/>`+
+      ah(a,yb,-1,0,c)+ah(b,yb,1,0,c)+txt((a+b)/2,yb-5,s,c)};
+  // vertical dimension in a band at screen-x `xb`, feature edges at model-y y0,y1 and model-z zf
+  const dimV=(y0,y1,xb,zf,s,c)=>{const a=Y(y0),b=Y(y1);
+    return ext(X(zf),a,xb+(xb<cx?4:-4),a)+ext(X(zf),b,xb+(xb<cx?4:-4),b)+
+      `<line x1="${xb}" y1="${a}" x2="${xb}" y2="${b}" stroke="${c}" stroke-width=".7"/>`+
+      ah(xb,a,0,-1,c)+ah(xb,b,0,1,c)+
+      `<text x="${xb-4}" y="${(a+b)/2+3}" font-size="8.5" fill="${c}" text-anchor="end" font-family="monospace">${s}</text>`};
+
   const zb=Math.sqrt(Math.max(R*R-g2*g2,1e-6));
-  const bad=res.tcRaw<0.5;                                // H too small: no meat over the bore
-  const boreC=bad?"#d65c5c":"#4fb477";
-  const bore=(up)=>{const sgn=up?1:-1;
-    return `<path d="M ${X(-zb)} ${Y(sgn*g2)} A ${R*sc} ${R*sc} 0 0 ${up?1:0} ${X(zb)} ${Y(sgn*g2)}" fill="none"
-      stroke="${boreC}" stroke-width="1.1" ${bad?'stroke-dasharray="4 3"':""}/>`};
-  const blk=(up)=>{const sgn=up?1:-1;
-    return `<path d="M ${X(-half)} ${Y(sgn*g2)} L ${X(-zb)} ${Y(sgn*g2)} M ${X(zb)} ${Y(sgn*g2)} L ${X(half)} ${Y(sgn*g2)}
-      M ${X(-half)} ${Y(sgn*g2)} L ${X(-half)} ${Y(sgn*top)} L ${X(half)} ${Y(sgn*top)} L ${X(half)} ${Y(sgn*g2)}"
-      fill="none" stroke="#8b97a3" stroke-width="1.1"/>`};
-  const boltLine=(z)=>`<line x1="${X(z)}" y1="${Y(top+3)}" x2="${X(z)}" y2="${Y(-top-3)}" stroke="#3a78c2" stroke-width=".5" stroke-dasharray="3 2"/>
-    <circle cx="${X(z)}" cy="${Y(top)}" r="${dB*sc/2}" fill="none" stroke="#3a78c2" stroke-width=".8"/>`;
-  $("dims").innerHTML=`
-    <rect x="0" y="0" width="400" height="250" fill="none"/>
-    ${blk(true)}${blk(false)}${bore(true)}${bore(false)}
-    ${boltLine(R+e)}${boltLine(-(R+e))}
-    <line x1="${X(-half)-8}" y1="${Y(0)}" x2="${X(half)+8}" y2="${Y(0)}" stroke="#46515c" stroke-width=".5" stroke-dasharray="6 2 2 2"/>
-    <line x1="${X(0)}" y1="${Y(top)+6}" x2="${X(0)}" y2="${Y(-top)-6}" stroke="#46515c" stroke-width=".5" stroke-dasharray="6 2 2 2"/>
-    ${dimH(-R,R,Y(0)+13,"D = "+f1(inp.D),boreC)}
-    ${dimV(X(-half)-14,g2,top,"H "+f1(H),"#d9a441")}
-    ${bad?"":dimV(X(0)+16,R,top,"tc "+f1(tc),"#d9a441")}
-    ${dimH(R,R+e,Y(top)-16,"e = "+f1(e),"#3a78c2")}
-    ${dimV(X(half)+15,-g2,g2,"gap "+f1(inp.gap),"#8b97a3")}
-    ${t(X(R+e),Y(top)-26,"bolt axis",'#3a78c2')}
-    ${bad?"":t(X(-half)+2,Y(g2)-4,"split face","#46515c","start",7.5)}
-    ${t(X(0),Y(-top)+13,"width W = "+f1(inp.W)+" mm into the page",'#46515c')}
-    ${bad?t(X(0),Y(0)-4,"H must exceed D/2 = "+f1(R)+" mm — no material over the bore","#d65c5c","middle",8.5):""}`;
+  const halfOutline=(up)=>{const s=up?1:-1;
+    return `<path d="M ${X(-half)} ${Y(s*g2)} L ${X(-zb)} ${Y(s*g2)} M ${X(zb)} ${Y(s*g2)} L ${X(half)} ${Y(s*g2)}
+      M ${X(-half)} ${Y(s*g2)} L ${X(-half)} ${Y(s*top)} L ${X(half)} ${Y(s*top)} L ${X(half)} ${Y(s*g2)}"
+      fill="none" stroke="${INK}" stroke-width="1.2" stroke-linejoin="round"/>
+      <path d="M ${X(-zb)} ${Y(s*g2)} A ${R*sc} ${R*sc} 0 0 ${up?1:0} ${X(zb)} ${Y(s*g2)}"
+      fill="none" stroke="${GRN}" stroke-width="1.2" ${bad?'stroke-dasharray="4 3"':""}/>`};
+  const bolt=(z)=>`<line x1="${X(z)}" y1="${Y(top)-13}" x2="${X(z)}" y2="${Y(-top)+13}" stroke="${ACC}"
+      stroke-width=".5" stroke-dasharray="7 2 2 2"/>
+    <rect x="${X(z)-dB*sc/2}" y="${Y(top)}" width="${dB*sc}" height="${(2*top)*sc}" fill="none" stroke="${ACC}" stroke-width=".7"/>`;
+
+  $("dims").innerHTML=`<rect x="0" y="0" width="${VW}" height="${VH}" fill="none"/>
+    ${halfOutline(true)}${halfOutline(false)}
+    ${bolt(R+e)}${bolt(-(R+e))}
+    <line x1="${X(-half)-10}" y1="${Y(0)}" x2="${X(half)+10}" y2="${Y(0)}" stroke="${THIN}" stroke-width=".5" stroke-dasharray="7 2 2 2"/>
+    ${dimV(g2,top,ML-16,-half,"H "+CLAMP.fmt(H,1),AMB)}
+    ${dimH(R,R+e,MT-18,top,"e "+CLAMP.fmt(e,1),ACC)}
+    ${dimH(-R,R,VH-MB+20,-top,"D "+CLAMP.fmt(inp.D,1),GRN)}
+    ${bad?"":dimV(R,top,VW-MR+34,0,"tc "+CLAMP.fmt(tc,1),"#d65c5c")}
+    ${dimV(-g2,g2,VW-MR+12,half,"gap "+CLAMP.fmt(inp.gap,2)+" (split faces)",INK)}
+    ${txt(X(0),MT-30,"bolt axis at R + e",ACC,8)}
+    ${txt(X(0),VH-10,"width W = "+CLAMP.fmt(inp.W,1)+" mm into the page",THIN,8)}
+    ${bad?txt(X(0),Y(0)+4,"H must exceed D/2 = "+CLAMP.fmt(R,1)+" mm — no material over the bore","#d65c5c",8.5):""}`;
 }
 
 function renderTheory(inp,res){
@@ -522,21 +621,107 @@ function renderTheory(inp,res){
     `→ the crown carries <b>${f((inp.e+R/2)/Math.max(inp.e,0.01),2)}×</b> the moment of the ear, on a section only `+
     `<b>${f(res.tc,1)} mm</b> deep instead of ${f(res.H,1)} mm.`;
 
-  const rows=[
-    ["F = T / (K·d)",`preload per bolt — now ${f(res.Fb,0)} N`],
-    ["tc = gap/2 + H − D/2",`crown section = ${f(res.tc,1)} mm`],
-    ["σ_crown = 6·F·(e + D/4) / (b·tc²)",`b = W/(N/2) = ${f(res.b,1)} mm per bolt → ${f(res.sigmaCrown,1)} MPa`],
-    ["σ_ear = 6·F·e / (b·H²)",`${f(res.sigmaF,1)} MPa`],
-    ["p = ΣF / (D·W)",`bore pressure ${f(res.p,2)} MPa`],
-    ["F_ax = η·μ·π·ΣF",`friction grip ${f(res.Fax,0)} N (η = 0.75)`],
-    ["σ_tube = p·R/t + ovalization",`${f(res.sigmaCyl,1)} MPa`],
-    ["p_head = F / A_washer",`bearing ${f(res.pHead,1)} MPa`],
-    ["gap − (2δ_ear + δ_oval) → 0",res.bottomed?"BOTTOMED — grip capped":`${f(res.gapRemain,2)} mm left`],
-  ];
-  $("eqs").innerHTML=rows.map(([e,n])=>`<div class="eqrow"><span class="e">${e}</span><span class="n">${n}</span></div>`).join("");
 }
 
-let res=null, inp=null;
+/* ── Calculation report: every step symbolic → substituted → result ────────
+   Typeset with CSS only (a maths CDN would be blocked), so it reads like a
+   hand-worked check sheet with this calculator's actual numbers in it.      */
+const V=(x)=>`<span class="mi">${x}</span>`;
+const FR=(n,d)=>`<span class="frac"><span>${n}</span><span>${d}</span></span>`;
+const eqn=(lead,sym,sub,res,cls,cmt)=>
+  `<div class="eqn"><span class="lead">${lead}</span><span class="mth">${sym} <span class="sub">= ${sub}</span> = `+
+  `<span class="res ${cls||""}">${res}</span></span>${cmt?`<span class="cmt">${cmt}</span>`:""}</div>`;
+const sfCls=(sf)=>sf>=2?"":sf>=1.2?"warn":"bad";
+
+function renderReport(inp,res,rec,spec){
+  const f=CLAMP.fmt, R=inp.D/2, n2=(v)=>v.toFixed(2), n0=(v)=>Math.round(v).toLocaleString("en-US");
+  const cm=CLAMP.CLAMP_MATS[inp.mat], cy=CLAMP.CYL_MATS[inp.cyl];
+
+  const given=`<table class="rep"><tr><th>Given</th><th style="text-align:right">Value</th></tr>
+    <tr><td>Cylinder ${V("D")} · wall ${V("t")} · ${inp.hollow?"hollow tube":"solid rod"}</td><td class="v">${f(inp.D,1)} · ${inp.hollow?f(inp.tw,1):"—"} mm</td></tr>
+    <tr><td>Body height above split ${V("H")} · width ${V("W")}</td><td class="v">${f(res.H,1)} · ${f(inp.W,1)} mm</td></tr>
+    <tr><td>Bolt offset ${V("e")} · total gap</td><td class="v">${f(inp.e,1)} · ${f(inp.gap,2)} mm</td></tr>
+    <tr><td>Bolts ${V("N")} × ${inp.thread}, grade ${inp.cls}</td><td class="v">${inp.N} × ${inp.thread}</td></tr>
+    <tr><td>Body material (σ<sub>y</sub> ${f(cm.sy,0)} MPa · p<sub>G</sub> ${f(cm.pG,0)} MPa)</td><td class="v">${inp.mat}</td></tr>
+    <tr><td>Nut factor ${V("K")} · bore friction ${V("μ")}</td><td class="v">${res.K} · ${f(res.mu,2)}</td></tr>
+    <tr><td>Applied torque per bolt ${V("T")}</td><td class="v">${n2(inp.T)} N·m</td></tr></table>`;
+
+  const steps=[
+    eqn("1 · Preload from wrench torque",
+      `${V("F")} = ${FR(V("T"),`${V("K")}·${V("d")}`)}`,
+      FR(`${n2(inp.T)}×10³ N·mm`,`${res.K} × ${f(res.d,0)} mm`),
+      `${n0(res.Fb)} N`,"",
+      "The nut factor K absorbs thread and under-head friction — about 90% of your wrench effort never reaches the bolt. K scatters ±25%, so read this as a band."),
+    eqn("2 · Total clamp force on the cylinder",
+      `Σ${V("F")} = ${V("N")}·${V("F")}`, `${inp.N} × ${n0(res.Fb)} N`, `${n0(res.Ftot)} N`,"",
+      res.bottomed?`Capped at ${n0(res.Fcl)} N — the flange gap has shut, so extra torque no longer reaches the cylinder.`:""),
+    eqn("3 · Crown section left over the bore",
+      `${V("t")}<sub>c</sub> = ${FR("gap","2")} + ${V("H")} − ${FR(V("D"),"2")}`,
+      `${f(inp.gap/2,2)} + ${f(res.H,1)} − ${f(R,2)} mm`, `${f(res.tc,2)} mm`,
+      res.tcRaw<0.5?"bad":"", "This is the only place the two bending sections come from — nothing else to set, nothing to contradict."),
+    eqn("4 · Width of body carried by one bolt",
+      `${V("b")} = ${FR(V("W"),`${V("N")}/2`)}`, FR(`${f(inp.W,1)} mm`,`${inp.N/2}`), `${f(res.b,1)} mm`),
+    eqn("5 · Crown bending moment (the see-saw)",
+      `${V("M")} = ${V("F")}·(${V("e")} + ${FR(V("R"),"2")})`,
+      `${n0(res.Fb)} N × (${f(inp.e,1)} + ${f(R/2,2)}) mm`, `${n0(res.Mcrown)} N·mm`,"",
+      `Bolt sits at a = R + e = ${f(R+inp.e,1)} mm; the bore reaction, spread over ±R, gives back F·R/2. The ear only sees F·e = ${n0(res.Fb*inp.e)} N·mm — the crown carries ${f((inp.e+R/2)/Math.max(inp.e,0.01),2)}× more on a thinner section.`),
+    eqn("6 · Crown stress and margin",
+      `σ<sub>c</sub> = ${FR(`6·${V("M")}`,`${V("b")}·${V("t")}<sub>c</sub>²`)}`,
+      FR(`6 × ${n0(res.Mcrown)}`,`${f(res.b,1)} × ${f(res.tc,2)}²`), `${f(res.sigmaCrown,1)} MPa`,"",
+      `Safety factor = σ<sub>y</sub>/σ<sub>c</sub> = ${f(cm.sy,0)} / ${f(res.sigmaCrown,1)} = <b style="color:${CLAMP.sfColor(res.SFcrown)}">${f(res.SFcrown,2)}</b>`),
+    eqn("7 · Ear (flange) stress",
+      `σ<sub>e</sub> = ${FR(`6·${V("F")}·${V("e")}`,`${V("b")}·${V("H")}²`)}`,
+      FR(`6 × ${n0(res.Fb)} × ${f(inp.e,1)}`,`${f(res.b,1)} × ${f(res.H,1)}²`), `${f(res.sigmaF,1)} MPa`,"",
+      `SF = ${f(cm.sy,0)} / ${f(res.sigmaF,1)} = <b style="color:${CLAMP.sfColor(res.SFflange)}">${f(res.SFflange,2)}</b>`),
+    eqn("8 · Bore contact pressure",
+      `${V("p")} = ${FR(`Σ${V("F")}`,`${V("D")}·${V("W")}`)}`,
+      FR(`${n0(res.Fcl)} N`,`${f(inp.D,1)} × ${f(inp.W,1)} mm²`), `${f(res.p,2)} MPa`),
+    eqn("9 · Friction grip (what actually holds)",
+      `${V("F")}<sub>ax</sub> = ${V("η")}·${V("μ")}·π·Σ${V("F")}`,
+      `0.75 × ${f(res.mu,2)} × π × ${n0(res.Fcl)} N`, `${n0(res.Fax)} N`,"",
+      `Holding torque = F<sub>ax</sub>·D/2 = ${f(res.Thold,1)} N·m. η = 0.75 derates for non-uniform bore contact.`),
+    eqn("10 · After creep relaxation",
+      `${V("F")}<sub>ax,LT</sub> = ${V("c")}·${V("F")}<sub>ax</sub>`,
+      `${f(cm.creep,2)} × ${n0(res.Fax)} N`, `${n0(res.FaxLT)} N`, res.SFslipLT>=inp.SFt?"":"bad",
+      cm.printed?`Printed polymers give back ${f((1-cm.creep)*100,0)}% of preload over days. Grip safety factor long-term = <b style="color:${CLAMP.sfColor(res.SFslipLT*(2/Math.max(inp.SFt,.5)))}">${f(res.SFslipLT,2)}</b> against a target of ${f(inp.SFt,1)}.`:"Metal body — no creep derate applied."),
+    eqn("11 · Flange gap budget",
+      `${V("g")}<sub>left</sub> = gap − (2δ<sub>ear</sub> + δ<sub>oval</sub>)`,
+      `${f(inp.gap,2)} − (2×${f(res.dFl,3)} + ${f(res.dOval,3)}) mm`,
+      res.bottomed?"0 — SHUT":`${f(res.gapRemain,2)} mm`, res.bottomed?"bad":"",
+      `Gap shuts at ${n2(res.Tclose)} N·m per bolt; beyond that the halves clamp each other, not the cylinder.`),
+  ].join("");
+
+  const rows=[["Crown bending",res.sigmaCrown+" MPa",res.SFcrown],["Ear bending",res.sigmaF+" MPa",res.SFflange],
+    ["Head bearing",res.pHead+" MPa",res.SFbear],[inp.hollow?"Tube wall":"Bore pressure",res.sigmaCyl+" MPa",res.SFcyl],
+    ["Bolt (von Mises)",res.vm+" MPa",res.SFbolt],["Grip (long-term)","—",res.SFslipLT]];
+  const verdict=`<table class="rep"><tr><th>Check</th><th>Stress</th><th style="text-align:right">Safety factor</th></tr>`+
+    rows.map(([k,v,sf])=>`<tr class="${sf===res.SFstruct?"hi":""}"><td>${k}</td><td>${v==="—"?"—":f(parseFloat(v),1)+" MPa"}</td>`+
+      `<td class="v" style="color:${CLAMP.sfColor(sf)}">${isFinite(sf)?f(sf,2):"∞"}</td></tr>`).join("")+`</table>`;
+
+  const torque=`<table class="rep">
+    <tr><th>Tightening torque, per bolt</th><th style="text-align:right">N·m</th></tr>
+    <tr><td>Fastener alone — 65% of proof (${inp.thread} ${inp.cls.split(" ")[0]}, K = ${res.K})</td><td class="v">${n2(spec.T65)}</td></tr>
+    <tr><td>Capped by bearing on ${inp.mat} (p<sub>G</sub> ${f(spec.pG,0)} MPa${inp.washer?", washer":", bare head"})</td><td class="v">${n2(spec.Tbear)}</td></tr>
+    <tr class="hi"><td><b>Fastener-side spec</b> — governed by ${spec.governs}</td><td class="v">${n2(spec.T)}</td></tr>
+    <tr><td>First yield anywhere in the joint (${rec.limits[0].key})</td><td class="v">${n2(rec.Tyield)}</td></tr>
+    <tr><td>Torque needed for the duty (SF ${f(inp.SFt,1)}, long-term)</td><td class="v">${n2(rec.Tneed)}</td></tr>
+    <tr class="hi"><td><b>Joint-side recommendation</b> — ${rec.governing}, SF ${rec.margin.toFixed(1)}</td>
+        <td class="v" style="color:${rec.ok?"var(--green)":"var(--red)"}">${n2(rec.T)}</td></tr></table>`;
+
+  $("report").innerHTML=given+steps+
+    `<div class="lab" style="margin-top:18px">VERDICT</div>`+verdict+
+    `<div class="lab" style="margin-top:18px">TORQUE SPECIFICATION</div>`+torque+
+    `<p class="repnote"><b>Two recommendations, and they answer different questions.</b> The
+     <b>fastener-side spec</b> is the classic bolted-joint number: what this screw can carry, capped by what the
+     material under its head can take without crushing — the same logic as the bolt calculator.
+     The <b>joint-side recommendation</b> asks what this <em>clamp</em> survives in bending. On a plastic body the
+     joint number is far lower, and it is the one to use: ${rec.T<spec.T?`here ${n2(rec.T)} N·m, not ${n2(spec.T)}`:`here they nearly agree at ~${n2(Math.min(rec.T,spec.T))} N·m`}.
+     Torque wrenches below ~2 N·m are rare — for small plastic clamps, consider a torque-limiting driver or
+     a preload set by turn-of-nut on a test print.</p>`;
+}
+
+
+let res=null, inp=null, lastSig="";
 function tick(){
   // spring the torque toward its target so dragging/playing feels physical
   if(playing){
@@ -578,7 +763,11 @@ function tick(){
   $("recWhy").innerHTML= rec.ok
     ? `recommended per bolt · limited by <b>${rec.governing}</b><br>keeps SF ${rec.margin.toFixed(1)} below first yield (${rec.Tyield.toFixed(2)} N·m) · duty needs ${rec.Tneed.toFixed(2)} N·m`
     : `<b>no safe torque</b> — the duty needs ${rec.Tneed.toFixed(2)} N·m but <b>${rec.governing}</b> limits you to ${rec.T.toFixed(2)}. Raise H, add bolts, or cut the load.`;
-  drawDims(inp,res); renderTheory(inp,res);
+  // The report and the drawing are DOM-heavy; rebuilding them every frame was
+  // pure churn. Refresh only when an input or the torque actually changes.
+  const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
+  if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
+    renderReport(inp,res,rec,CLAMP.boltSpec(inp)); }
 
   requestAnimationFrame(tick);
 }
@@ -611,7 +800,7 @@ cv.addEventListener("pointerup",release); cv.addEventListener("pointercancel",re
 $("T").addEventListener("input",()=>{target=+$("T").value; playing=false;});
 $("play").addEventListener("click",()=>{ lastT=0; torque=0; playT=0; playing=true; target=+$("T").value; });
 $("useRec").addEventListener("click",()=>{ if(+$("T").max<recT) $("T").max=Math.ceil(recT*1.4); $("T").value=recT; target=recT; playing=false; });
-for(const id of ["fx","cut","spin"]) $(id).addEventListener("click",()=>{
+for(const id of ["fx","cut","spin","smode"]) $(id).addEventListener("click",()=>{
   $(id).classList.toggle("on"); if(id==="spin") spinning=$("spin").classList.contains("on");
 });
 document.querySelectorAll("input,select").forEach(el=>{ if(el.id!=="T") el.addEventListener("input",()=>{

@@ -331,6 +331,70 @@
     };
   }
 
+  // ── Fastener-side tightening spec ──────────────────────────────────────────
+  // The classic bolted-joint answer, same as the toolkit's bolt calculator:
+  // what torque suits THIS fastener, capped by what the CONNECTED material can
+  // take under the head. Independent of the clamp's bending checks — a plastic
+  // body usually needs far less than the fastener could carry, which is exactly
+  // why both numbers are worth showing side by side.
+  function boltSpec(inp) {
+    const th = THREADS[inp.thread], cl = CLASSES[inp.cls];
+    const cm = CLAMP_MATS[inp.mat], K = KFACT[inp.Kname];
+    const d = th.d, As = th.As;
+
+    const F65 = TARGET_PRELOAD_FRACTION * cl.sp * As; // N at 65% of proof
+    const T65 = (K * d * F65) / 1000; // N·m
+
+    const dw = (inp.washer ? DW_WASHER : DW) * d, dh = DH * d;
+    const Abear = (Math.PI / 4) * (dw * dw - dh * dh);
+    const Fbear = cm.pG * Abear; // N that just reaches permissible bearing
+    const Tbear = (K * d * Fbear) / 1000;
+
+    const T = Math.min(T65, Tbear);
+    return { d, As, F65, T65, dw, dh, Abear, Fbear, Tbear, T, pG: cm.pG, sp: cl.sp, K,
+      governs: Tbear < T65 ? "bearing on the clamped material" : "bolt proof strength" };
+  }
+
+  // ── Signed bending stress anywhere on the body section ─────────────────────
+  // Drives the smooth tension/compression colouring. The half is a beam: bolt
+  // loads down at ±(R+e), bore reaction up spread over ±R. Hogging over the
+  // bore puts the OUTER surface in tension and the bore surface in compression.
+  // z = transverse position from the bore centre, y = height above the flange
+  // face. Returns σ/σyield: positive tension, negative compression.
+  function bodyStressRatio(inp, res, z, y) {
+    const R = inp.D / 2, a = R + inp.e, F = res.Fb, az = Math.abs(z);
+    if (az >= a || F <= 0) return 0;
+    let M = F * (a - az);
+    // inside the bore span the distributed reaction relieves the moment
+    if (az < R) M -= (F * Math.pow(R - az, 2)) / (2 * R);
+    // section available at this z: from the bore surface (or flange face) to the top
+    const yLo = az < R ? Math.max(Math.sqrt(Math.max(R * R - az * az, 0)) - res.g2, 0) : 0;
+    const yHi = res.H;
+    const h = Math.max(yHi - yLo, 1e-6);
+    const yn = (yLo + yHi) / 2;
+    const I = (res.b * Math.pow(h, 3)) / 12;
+    const sig = I > 0 ? (M * (y - yn)) / I : 0;
+    return sig / (CLAMP_MATS[inp.mat].sy || 1);
+  }
+
+  // Toolkit stress ramp: neutral green → amber → red in tension,
+  // neutral green → teal → blue in compression. Returns [r,g,b] in 0..1.
+  const NEUTRAL = [0.31, 0.706, 0.467];
+  const T_STOPS = [[0, NEUTRAL], [0.5, [0.85, 0.55, 0.22]], [1, [0.84, 0.27, 0.27]], [1.4, [1, 0.3, 0.3]]];
+  const C_STOPS = [[0, NEUTRAL], [0.5, [0.2, 0.58, 0.68]], [1, [0.27, 0.46, 0.9]], [1.4, [0.3, 0.4, 1]]];
+  function ramp(stops, x) {
+    const xc = Math.max(0, Math.min(stops[stops.length - 1][0], x));
+    for (let i = 1; i < stops.length; i++) {
+      const [p1, c1] = stops[i];
+      if (xc <= p1) {
+        const [p0, c0] = stops[i - 1], t = (xc - p0) / (p1 - p0 || 1);
+        return [c0[0] + (c1[0] - c0[0]) * t, c0[1] + (c1[1] - c0[1]) * t, c0[2] + (c1[2] - c0[2]) * t];
+      }
+    }
+    return stops[stops.length - 1][1];
+  }
+  const stressRGB = (signed) => (signed >= 0 ? ramp(T_STOPS, signed) : ramp(C_STOPS, -signed));
+
   // ── Bolt-count advisor: work BACKWARDS from the duty ───────────────────────
   // For n = 2, 4, 6: how much torque per bolt to meet the grip target
   // long-term, and does the clamp survive it?
@@ -451,5 +515,5 @@
   }
 
   return { THREADS, CLASSES, KFACT, CLAMP_MATS, CYL_MATS, MU, ETA, LAMBDA, DESIGN_MARGIN,
-    defaults, solve, recommend, advise, renderSection, fmt, sfStatus, sfColor };
+    defaults, solve, recommend, boltSpec, bodyStressRatio, stressRGB, advise, renderSection, fmt, sfStatus, sfColor };
 })();
