@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantilever — Design C: Playful (after (Not Boring) Habits)</title>
+<style>
+  /* ── After (Not Boring) Habits (Apple Design Award 2024, Delight & Fun) ──
+     Saturated gradients, huge rounded numerals, soft 3D depth, and a beam
+     that squishes with spring physics when you drag its tip. The number IS
+     the interface: the safety factor fills the screen. */
+  :root {
+    --ink: #fff;
+    --sans: ui-rounded, "SF Pro Rounded", -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; min-height: 100vh; color: var(--ink); font-family: var(--sans);
+         background: linear-gradient(160deg, #2e1660 0%, #7b2ff7 45%, #f74c8a 100%);
+         transition: background 1s; }
+  body.warn { background: linear-gradient(160deg, #5b2400 0%, #d96b00 50%, #ffb340 100%); }
+  body.bad  { background: linear-gradient(160deg, #4a0505 0%, #b31217 50%, #ff5f52 100%); }
+  .shell { max-width: 480px; margin: 0 auto; padding: 24px 18px 70px; }
+  a.back { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.6); text-decoration: none; }
+  a.back:hover { color: #fff; }
+
+  .kicker { text-align: center; font-size: 13px; font-weight: 800; letter-spacing: .22em;
+            text-transform: uppercase; color: rgba(255,255,255,.65); margin-top: 18px; }
+  .bignum { text-align: center; font-size: clamp(88px, 30vw, 150px); font-weight: 900;
+            line-height: 1; letter-spacing: -.04em; margin: 2px 0 0;
+            text-shadow: 0 10px 40px rgba(0,0,0,.35);
+            font-variant-numeric: tabular-nums; transition: transform .18s; }
+  .bignum small { font-size: .32em; font-weight: 800; vertical-align: .18em; opacity: .8; }
+  .verdict { text-align: center; font-size: 16px; font-weight: 700; color: rgba(255,255,255,.85);
+             margin: 6px 0 20px; min-height: 22px; }
+
+  /* squishy beam stage */
+  .stage { background: rgba(255,255,255,.13); border-radius: 26px; padding: 8px;
+           box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 18px 40px rgba(0,0,0,.25);
+           backdrop-filter: blur(6px); }
+  .stage svg { width: 100%; height: 190px; display: block; touch-action: none; cursor: grab; }
+  .stage svg:active { cursor: grabbing; }
+  .hint { text-align: center; font-size: 12px; font-weight: 700; color: rgba(255,255,255,.55);
+          margin: 8px 0 22px; }
+
+  /* chunky pill sliders */
+  .pill { background: rgba(255,255,255,.13); border-radius: 22px; padding: 14px 18px 10px;
+          margin-bottom: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+  .pill-top { display: flex; justify-content: space-between; align-items: baseline; font-weight: 800; }
+  .pill-top .pv { font-size: 20px; font-variant-numeric: tabular-nums; }
+  .pill-top .pl { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: rgba(255,255,255,.7); }
+  input[type=range] { -webkit-appearance: none; appearance: none; width: 100%; height: 14px; border-radius: 7px;
+    background: rgba(0,0,0,.28); outline: none; margin: 12px 0 6px; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 34px; height: 34px; border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #ffffff, #ffd9e8 55%, #ffb0cd);
+    box-shadow: 0 6px 14px rgba(0,0,0,.4), inset 0 -3px 6px rgba(0,0,0,.15); cursor: pointer; }
+  input[type=range]::-moz-range-thumb { width: 34px; height: 34px; border: none; border-radius: 50%;
+    background: radial-gradient(circle at 32% 28%, #ffffff, #ffd9e8 55%, #ffb0cd);
+    box-shadow: 0 6px 14px rgba(0,0,0,.4); cursor: pointer; }
+
+  select { width: 100%; padding: 14px 16px; border-radius: 22px; border: none; margin-bottom: 12px;
+           font: 800 16px var(--sans); color: #fff; background: rgba(255,255,255,.13);
+           box-shadow: inset 0 1px 0 rgba(255,255,255,.22); }
+  select option { color: #222; }
+
+  .chips { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px; }
+  .chip { background: rgba(0,0,0,.22); border-radius: 18px; padding: 12px 8px; text-align: center; }
+  .chip .cv { font-size: 21px; font-weight: 900; font-variant-numeric: tabular-nums; }
+  .chip .cl { font-size: 10.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+              color: rgba(255,255,255,.6); margin-top: 3px; }
+  .credit { margin-top: 34px; text-align: center; color: rgba(255,255,255,.5); font-size: 11.5px; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">‹ All designs</a>
+
+  <div class="kicker">Safety Factor</div>
+  <div class="bignum" id="sfBig">—<small>×</small></div>
+  <div class="verdict" id="verdict">bend it. feel it. don’t break it.</div>
+
+  <div class="stage">
+    <svg id="stage" viewBox="0 0 440 190" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <linearGradient id="beamG" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#ffd9e8"/>
+        </linearGradient>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+          <feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000" flood-opacity=".35"/>
+        </filter>
+      </defs>
+      <rect x="14" y="20" width="18" height="150" rx="7" fill="rgba(0,0,0,.3)"/>
+      <path id="beam" d="" fill="none" stroke="url(#beamG)" stroke-width="16"
+            stroke-linecap="round" filter="url(#soft)"/>
+      <circle id="tip" r="17" fill="#ffffff" cx="410" cy="95"/>
+    </svg>
+  </div>
+  <div class="hint">☝ grab the tip and bend the beam</div>
+
+  <select id="mat"></select>
+
+  <div class="pill"><div class="pill-top"><span class="pl">Length</span><span class="pv" id="Lv">60 mm</span></div>
+    <input type="range" id="L" min="5" max="300" step="1" value="60"></div>
+  <div class="pill"><div class="pill-top"><span class="pl">Thickness</span><span class="pv" id="tv">2.0 mm</span></div>
+    <input type="range" id="t" min="0.2" max="12" step="0.1" value="2"></div>
+  <div class="pill"><div class="pill-top"><span class="pl">Width</span><span class="pv" id="wv">10 mm</span></div>
+    <input type="range" id="w" min="1" max="60" step="0.5" value="10"></div>
+
+  <div class="chips">
+    <div class="chip"><div class="cv" id="kOut">—</div><div class="cl">N/mm stiff</div></div>
+    <div class="chip"><div class="cv" id="FOut">—</div><div class="cl">N at tip</div></div>
+    <div class="chip"><div class="cv" id="sOut">—</div><div class="cl">MPa peak</div></div>
+  </div>
+
+  <div class="credit">Design study C · after (Not Boring) Habits — Apple Design Award 2024</div>
+</div>
+
+<script>
+"use strict";
+const MATS = {
+  "Spring Steel (1095)":  { E: 205,  sy: 1200 },
+  "Ti-6Al-4V":            { E: 114,  sy: 880  },
+  "Aluminum 6061-T6":     { E: 68.9, sy: 276  },
+  "Aluminum 7075-T6":     { E: 71.7, sy: 503  },
+  "Delrin (POM)":         { E: 3.1,  sy: 70   },
+  "PLA (FDM)":            { E: 3.5,  sy: 50   },
+  "PETG (FDM)":           { E: 2.0,  sy: 45   },
+  "Polycarbonate (FDM)":  { E: 2.2,  sy: 57   },
+  "PA12 (MJF)":           { E: 1.7,  sy: 48   },
+  "TPU 95A (FDM)":        { E: 0.04, sy: 9    },
+};
+const $ = id => document.getElementById(id);
+const matSel = $("mat");
+for (const n of Object.keys(MATS)) { const o = document.createElement("option"); o.value = o.textContent = n; matSel.appendChild(o); }
+matSel.value = "PLA (FDM)";
+const fmt = (v,d=2) => Number(v).toLocaleString("en-US",{maximumFractionDigits:d});
+
+// Deflection is owned by a little spring sim: drag sets the target,
+// release lets it bounce home around the resting droop of zero.
+let delta = 3;            // current drawn deflection (mm)
+let deltaTarget = 3;      // where the user is holding it
+let vel = 0, holding = false;
+
+function calc() {
+  const L = +$("L").value, t = +$("t").value, w = +$("w").value;
+  const m = MATS[matSel.value];
+  const E = m.E*1000, I = w*t*t*t/12;
+  const k = 3*E*I/(L*L*L);
+  const d = Math.abs(delta);
+  const F = k*d, sig = 3*E*t*d/(2*L*L);
+  const sf = sig > 0 ? m.sy/sig : Infinity;
+  return { L, t, w, m, k, F, sig, sf };
+}
+
+function paint() {
+  const { L, t, w, k, F, sig, sf } = calc();
+  $("Lv").textContent = `${fmt(L,0)} mm`; $("tv").textContent = `${fmt(t,1)} mm`; $("wv").textContent = `${fmt(w,1)} mm`;
+  const big = $("sfBig");
+  big.innerHTML = (isFinite(sf) ? (sf >= 100 ? "99+" : fmt(sf, sf < 10 ? 1 : 0)) : "∞") + "<small>×</small>";
+  big.style.transform = holding ? "scale(1.06)" : "scale(1)";
+  $("kOut").textContent = fmt(k, k < 10 ? 1 : 0);
+  $("FOut").textContent = fmt(F, F < 10 ? 1 : 0);
+  $("sOut").textContent = fmt(sig, sig < 10 ? 1 : 0);
+
+  document.body.classList.toggle("bad", sf < 1);
+  document.body.classList.toggle("warn", sf >= 1 && sf < 2);
+  $("verdict").textContent =
+    !isFinite(sf) || delta === 0 ? "bend it. feel it. don’t break it." :
+    sf >= 4  ? "barely trying. bend harder." :
+    sf >= 2  ? "springy and safe. chef’s kiss." :
+    sf >= 1  ? "ooh. living dangerously." :
+               "SNAP. that one’s staying bent.";
+
+  // beam path with cubic shape; drawn deflection is capped to the stage
+  const x0 = 32, x1 = 406, y0 = 60;
+  const amp = Math.max(-95, Math.min(95, delta / Math.max(L*0.12,1) * 85));
+  let path = `M ${x0} ${y0}`;
+  for (let i = 1; i <= 36; i++) {
+    const p = i/36, x = x0 + (x1-x0)*p;
+    const y = y0 + amp*(1.5*p*p - .5*p*p*p);
+    path += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  const beam = $("beam");
+  beam.setAttribute("d", path);
+  beam.setAttribute("stroke-width", Math.max(8, Math.min(26, t*4)));
+  const tip = $("tip");
+  tip.setAttribute("cx", x1); tip.setAttribute("cy", y0 + amp);
+  tip.setAttribute("fill", sf < 1 ? "#ffdad6" : "#ffffff");
+}
+
+// spring loop — wobbles the beam home when released
+function loop() {
+  if (!holding) {
+    const springK = 0.16, damp = 0.86;
+    vel = (vel + (deltaTarget - delta) * springK) * damp;
+    delta += vel;
+    if (Math.abs(vel) < .005 && Math.abs(deltaTarget - delta) < .01) { delta = deltaTarget; vel = 0; }
+  }
+  paint();
+  requestAnimationFrame(loop);
+}
+
+// drag the tip
+const stage = $("stage");
+function evPos(ev) {
+  const r = stage.getBoundingClientRect();
+  const pt = ev.touches ? ev.touches[0] : ev;
+  return { x: (pt.clientX - r.left) / r.width * 440, y: (pt.clientY - r.top) / r.height * 190 };
+}
+function drag(ev) {
+  const { y } = evPos(ev);
+  const L = +$("L").value;
+  const amp = Math.max(-95, Math.min(95, y - 60));
+  delta = amp / 85 * Math.max(L*0.12,1);
+  deltaTarget = delta;
+  ev.preventDefault();
+}
+stage.addEventListener("pointerdown", ev => { holding = true; stage.setPointerCapture(ev.pointerId); drag(ev); });
+stage.addEventListener("pointermove", ev => { if (holding) drag(ev); });
+stage.addEventListener("pointerup", () => { holding = false; deltaTarget = delta * 0.55; vel = -delta * .12; });
+stage.addEventListener("pointercancel", () => { holding = false; });
+
+for (const id of ["L","t","w"]) $(id).addEventListener("input", paint);
+matSel.addEventListener("change", paint);
+loop();
+</script>
+</body>
+</html>

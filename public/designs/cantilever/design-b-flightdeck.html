@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantilever — Design B: Flight Deck (after Flighty)</title>
+<style>
+  /* ── After Flighty (Apple Design Award 2023) ──
+     A live-tracking dashboard: status banner up top, a "route" from
+     WALL to TIP, huge tabular numerals, and a timeline of checks that
+     update like flight phases. */
+  :root {
+    --bg: #0c1024; --card: #151a33; --card2: #1b2140; --line: #262d52;
+    --ink: #f2f4ff; --dim: #8b93b8; --faint: #545b80;
+    --orange: #ff9500; --blue: #4d8dff; --green: #30d158; --red: #ff453a;
+    --sans: -apple-system, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 15px; }
+  .shell { max-width: 640px; margin: 0 auto; padding: 22px 16px 60px; }
+  a.back { font-size: 12px; color: var(--faint); text-decoration: none; }
+  a.back:hover { color: var(--blue); }
+
+  .banner { margin: 14px 0 16px; border-radius: 14px; padding: 12px 16px;
+            display: flex; align-items: center; gap: 12px; font-weight: 700;
+            letter-spacing: .02em; transition: background .3s; }
+  .banner .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor;
+                 box-shadow: 0 0 12px currentColor; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .banner small { display: block; font-weight: 500; color: rgba(255,255,255,.75); font-size: 12px; }
+  .banner.ok   { background: #0e3a22; color: #7dedaa; }
+  .banner.warn { background: #4a3406; color: #ffcf66; }
+  .banner.bad  { background: #4a1210; color: #ff9a93; }
+
+  /* route card: WALL ──✈── TIP */
+  .route { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 8px; }
+  .route-ends { display: flex; justify-content: space-between; align-items: baseline; }
+  .code { font-size: 34px; font-weight: 800; letter-spacing: .01em; }
+  .code small { display: block; font-size: 11px; font-weight: 600; color: var(--dim);
+                letter-spacing: .18em; text-transform: uppercase; }
+  .route svg { width: 100%; height: 110px; display: block; margin: 4px 0 2px; }
+  .route-meta { display: flex; justify-content: space-between; font-family: var(--mono);
+                font-size: 11.5px; color: var(--dim); padding: 6px 2px 10px; }
+  .route-meta b { color: var(--orange); font-weight: 600; }
+
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+  @media (min-width: 520px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+  .stat { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+  .stat .s-lab { font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+  .stat .s-val { font-family: var(--mono); font-size: 21px; font-weight: 700; margin-top: 4px;
+                 font-variant-numeric: tabular-nums; }
+  .stat .s-unit { font-size: 11px; color: var(--faint); font-family: var(--mono); }
+
+  /* timeline of checks, like flight phases */
+  .timeline { margin-top: 16px; background: var(--card); border: 1px solid var(--line);
+              border-radius: 16px; padding: 6px 0; }
+  .phase { display: flex; gap: 14px; padding: 11px 18px; align-items: flex-start; }
+  .phase .rail { width: 12px; display: flex; flex-direction: column; align-items: center; flex: none; }
+  .phase .node { width: 12px; height: 12px; border-radius: 50%; border: 2.5px solid var(--faint);
+                 background: var(--bg); margin-top: 3px; }
+  .phase .stem { width: 2px; flex: 1; background: var(--line); margin-top: 3px; min-height: 14px; }
+  .phase:last-child .stem { display: none; }
+  .phase.ok .node { border-color: var(--green); background: var(--green); }
+  .phase.warn .node { border-color: var(--orange); background: var(--orange); }
+  .phase.bad .node { border-color: var(--red); background: var(--red); }
+  .phase .p-body { flex: 1; }
+  .phase .p-top { display: flex; justify-content: space-between; gap: 10px; }
+  .phase .p-name { font-weight: 600; font-size: 14px; }
+  .phase .p-val { font-family: var(--mono); font-size: 14px; color: var(--orange);
+                  font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .phase .p-sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+
+  /* control sheet */
+  .sheet { margin-top: 16px; background: var(--card2); border: 1px solid var(--line);
+           border-radius: 16px; padding: 14px 18px 8px; }
+  .sheet h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: .18em; text-transform: uppercase;
+              color: var(--dim); font-weight: 700; }
+  .ctl { padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .ctl:last-child { border-bottom: none; }
+  .ctl-top { display: flex; justify-content: space-between; font-size: 13.5px; }
+  .ctl-top b { font-family: var(--mono); color: var(--blue); font-weight: 600; }
+  input[type=range] { width: 100%; accent-color: var(--orange); margin: 6px 0 2px; }
+  select { width: 100%; margin: 6px 0 4px; background: var(--bg); color: var(--ink);
+           border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: 14px var(--sans); }
+  .credit { margin-top: 30px; text-align: center; color: var(--faint); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">‹ All designs</a>
+
+  <div class="banner ok" id="banner">
+    <span class="dot"></span>
+    <div><span id="bannerTitle">ON TRACK</span><small id="bannerSub">Stress well below yield — margin in hand.</small></div>
+  </div>
+
+  <div class="route">
+    <div class="route-ends">
+      <div class="code">FIX<small>Wall · clamped</small></div>
+      <div class="code" style="text-align:right">TIP<small id="tipStat">δ = 3.0 mm</small></div>
+    </div>
+    <svg id="routeSvg" viewBox="0 0 600 110" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="stressGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop id="g0" offset="0" stop-color="#ff453a"/>
+          <stop id="g1" offset="1" stop-color="#30d158"/>
+        </linearGradient>
+      </defs>
+      <rect x="6" y="8" width="12" height="94" rx="3" fill="#262d52"></rect>
+      <path id="rest" d="M18 46 H 588" stroke="#262d52" stroke-width="2" stroke-dasharray="2 7" fill="none"/>
+      <path id="beam" d="" stroke="url(#stressGrad)" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <g id="plane" transform="translate(300,46)">
+        <circle r="10" fill="#0c1024" stroke="#ff9500" stroke-width="2"/>
+        <circle r="3.5" fill="#ff9500"/>
+      </g>
+    </svg>
+    <div class="route-meta">
+      <span>UTILIZATION <b id="utilOut">—</b></span>
+      <span>σ/σᵧ ALONG SPAN → wall is the hot end</span>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="stat"><div class="s-lab">Stiffness</div><div class="s-val" id="kOut">—</div><div class="s-unit">N/mm</div></div>
+    <div class="stat"><div class="s-lab">Tip force</div><div class="s-val" id="FOut">—</div><div class="s-unit">N</div></div>
+    <div class="stat"><div class="s-lab">Peak stress</div><div class="s-val" id="sOut">—</div><div class="s-unit">MPa @ wall</div></div>
+    <div class="stat"><div class="s-lab">Safety</div><div class="s-val" id="sfOut">—</div><div class="s-unit">× yield</div></div>
+  </div>
+
+  <div class="timeline" id="phases">
+    <div class="phase" id="ph-geo">
+      <div class="rail"><div class="node"></div><div class="stem"></div></div>
+      <div class="p-body">
+        <div class="p-top"><span class="p-name">Section</span><span class="p-val" id="phGeoV">—</span></div>
+        <div class="p-sub">I = wt³/12 — thickness runs to the third power.</div>
+      </div>
+    </div>
+    <div class="phase" id="ph-slender">
+      <div class="rail"><div class="node"></div><div class="stem"></div></div>
+      <div class="p-body">
+        <div class="p-top"><span class="p-name">Slenderness L/t</span><span class="p-val" id="phSlV">—</span></div>
+        <div class="p-sub">Below ~10 the thin-beam math starts lying to you.</div>
+      </div>
+    </div>
+    <div class="phase" id="ph-defl">
+      <div class="rail"><div class="node"></div><div class="stem"></div></div>
+      <div class="p-body">
+        <div class="p-top"><span class="p-name">Deflection δ/L</span><span class="p-val" id="phDefV">—</span></div>
+        <div class="p-sub">Past ~15% the linear small-deflection model drifts.</div>
+      </div>
+    </div>
+    <div class="phase" id="ph-yield">
+      <div class="rail"><div class="node"></div><div class="stem"></div></div>
+      <div class="p-body">
+        <div class="p-top"><span class="p-name">Yield margin</span><span class="p-val" id="phYldV">—</span></div>
+        <div class="p-sub">SF ≥ 2 recommended for cyclic / living-hinge duty.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sheet">
+    <h3>Flight plan</h3>
+    <div class="ctl">
+      <div class="ctl-top"><span>Material</span></div>
+      <select id="mat"></select>
+    </div>
+    <div class="ctl"><div class="ctl-top"><span>Length L</span><b id="Lv">60 mm</b></div>
+      <input type="range" id="L" min="5" max="300" step="1" value="60"></div>
+    <div class="ctl"><div class="ctl-top"><span>Thickness t</span><b id="tv">2.0 mm</b></div>
+      <input type="range" id="t" min="0.2" max="12" step="0.1" value="2"></div>
+    <div class="ctl"><div class="ctl-top"><span>Width w</span><b id="wv">10 mm</b></div>
+      <input type="range" id="w" min="1" max="60" step="0.5" value="10"></div>
+    <div class="ctl"><div class="ctl-top"><span>Tip deflection δ</span><b id="dv">3.0 mm</b></div>
+      <input type="range" id="d" min="0" max="30" step="0.1" value="3"></div>
+  </div>
+
+  <div class="credit">Design study B · after Flighty — Apple Design Award 2023</div>
+</div>
+
+<script>
+"use strict";
+const MATS = {
+  "Spring Steel (1095)":  { E: 205,  sy: 1200 },
+  "Ti-6Al-4V":            { E: 114,  sy: 880  },
+  "Aluminum 6061-T6":     { E: 68.9, sy: 276  },
+  "Aluminum 7075-T6":     { E: 71.7, sy: 503  },
+  "Delrin (POM)":         { E: 3.1,  sy: 70   },
+  "PLA (FDM)":            { E: 3.5,  sy: 50   },
+  "PETG (FDM)":           { E: 2.0,  sy: 45   },
+  "Polycarbonate (FDM)":  { E: 2.2,  sy: 57   },
+  "PA12 (MJF)":           { E: 1.7,  sy: 48   },
+};
+const $ = id => document.getElementById(id);
+const matSel = $("mat");
+for (const n of Object.keys(MATS)) { const o = document.createElement("option"); o.value = o.textContent = n; matSel.appendChild(o); }
+matSel.value = "Aluminum 6061-T6";
+const fmt = (v,d=2) => Number(v).toLocaleString("en-US",{maximumFractionDigits:d});
+
+function setPhase(id, state, val) {
+  const el = $(id);
+  el.classList.remove("ok","warn","bad");
+  el.classList.add(state);
+  el.querySelector(".p-val").textContent = val;
+}
+
+function update() {
+  const L = +$("L").value, t = +$("t").value, w = +$("w").value, d = +$("d").value;
+  const m = MATS[matSel.value];
+  $("Lv").textContent = `${fmt(L,0)} mm`; $("tv").textContent = `${fmt(t,1)} mm`;
+  $("wv").textContent = `${fmt(w,1)} mm`; $("dv").textContent = `${fmt(d,1)} mm`;
+  $("tipStat").textContent = `δ = ${fmt(d,1)} mm`;
+
+  const E = m.E * 1000, I = w*t*t*t/12;
+  const k = 3*E*I/(L*L*L), F = k*d, sig = 3*E*t*d/(2*L*L);
+  const sf = sig > 0 ? m.sy/sig : Infinity, util = sig/m.sy;
+
+  $("kOut").textContent = fmt(k, k < 10 ? 2 : 1);
+  $("FOut").textContent = fmt(F, F < 10 ? 2 : 1);
+  $("sOut").textContent = fmt(sig,1);
+  $("sfOut").textContent = isFinite(sf) ? fmt(sf,2) : "∞";
+  $("utilOut").textContent = `${fmt(util*100,0)}%`;
+
+  const b = $("banner");
+  b.classList.remove("ok","warn","bad");
+  if (util >= 1) { b.classList.add("bad");
+    $("bannerTitle").textContent = "YIELD EXCEEDED";
+    $("bannerSub").textContent = "The wall fibers are past yield — this blade takes a set.";
+  } else if (sf < 2) { b.classList.add("warn");
+    $("bannerTitle").textContent = "STRESS ADVISORY";
+    $("bannerSub").textContent = "Flying under the ×2 margin — fine once, risky forever.";
+  } else { b.classList.add("ok");
+    $("bannerTitle").textContent = "ON TRACK";
+    $("bannerSub").textContent = "Stress well below yield — margin in hand.";
+  }
+
+  // phases
+  setPhase("ph-geo", "ok", `I = ${fmt(I, I<10?2:0)} mm⁴`);
+  const sl = L/t;
+  setPhase("ph-slender", sl >= 10 ? "ok" : sl >= 5 ? "warn" : "bad", `${fmt(sl,1)}`);
+  const dr = d/L;
+  setPhase("ph-defl", dr <= 0.15 ? "ok" : dr <= 0.3 ? "warn" : "bad", `${fmt(dr*100,1)}%`);
+  setPhase("ph-yield", sf >= 2 ? "ok" : sf >= 1 ? "warn" : "bad",
+           isFinite(sf) ? `${fmt(sf,2)}×` : "∞");
+
+  // route beam: cubic deflection, gradient hot at the wall
+  const x0 = 18, x1 = 588, y0 = 46;
+  const amp = Math.max(-52, Math.min(52, d/Math.max(L*0.12,1)*52));
+  let path = `M ${x0} ${y0}`;
+  for (let i = 1; i <= 40; i++) {
+    const p = i/40, x = x0 + (x1-x0)*p;
+    const y = y0 + amp*(1.5*p*p - .5*p*p*p);
+    path += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  $("beam").setAttribute("d", path);
+  // wall-end color by utilization
+  const hot = util >= 1 ? "#ff453a" : util >= .5 ? "#ff9500" : "#4d8dff";
+  $("g0").setAttribute("stop-color", hot);
+  $("g1").setAttribute("stop-color", "#30d158");
+  // marker rides at 60% span
+  const p = .6, px = x0 + (x1-x0)*p, py = y0 + amp*(1.5*p*p - .5*p*p*p);
+  $("plane").setAttribute("transform", `translate(${px.toFixed(1)},${py.toFixed(1)})`);
+}
+
+for (const id of ["L","t","w","d"]) $(id).addEventListener("input", update);
+matSel.addEventListener("change", update);
+update();
+</script>
+</body>
+</html>

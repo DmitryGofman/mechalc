@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantilever — Design E: Notebook (after Bear)</title>
+<style>
+  /* ── After Bear (Apple Design Award 2017) ──
+     Typography-first: the calculator reads as a worksheet in a warm
+     paper notebook. Values are inline blanks you edit in the prose;
+     the answer paragraph rewrites itself as you type. One red accent. */
+  :root {
+    --paper: #f7f2e9; --ink: #40392f; --dim: #94897a; --faint: #c9c0b0;
+    --red: #c8452c; --green: #4c7a4c; --amber: #a8742a;
+    --serif: "Avenir Next", "Avenir", -apple-system, "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif);
+         font-size: 17px; line-height: 1.75; }
+  .page { max-width: 620px; margin: 0 auto; padding: 34px 22px 70px; }
+  a.back { font-size: 12px; color: var(--dim); text-decoration: none; letter-spacing: .04em; }
+  a.back:hover { color: var(--red); }
+
+  h1 { font-size: 27px; font-weight: 700; letter-spacing: -.01em; margin: 22px 0 2px; }
+  h1::before { content: "# "; color: var(--faint); font-weight: 400; }
+  .date { color: var(--dim); font-size: 13px; margin-bottom: 26px; }
+  h2 { font-size: 15px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+       color: var(--dim); margin: 34px 0 8px; }
+  h2::before { content: "## "; color: var(--faint); font-weight: 400; text-transform: none; }
+  p { margin: 10px 0; }
+  em { font-style: normal; background: #efe5d2; border-radius: 3px; padding: 0 4px; }
+
+  /* inline editable blanks */
+  .blank { display: inline-block; width: 74px; border: none; border-bottom: 2px solid var(--faint);
+           background: none; color: var(--red); font: 600 17px var(--mono); text-align: center;
+           padding: 0 2px 1px; outline: none; border-radius: 0; }
+  .blank:focus { border-bottom-color: var(--red); }
+  select.blank { width: auto; max-width: 240px; text-align: left; appearance: none; cursor: pointer; }
+  .unit { color: var(--dim); font-size: 14px; }
+
+  /* the worked answer */
+  .work { border-left: 3px solid var(--faint); padding: 2px 0 2px 18px; margin: 14px 0;
+          font-family: var(--mono); font-size: 14.5px; line-height: 2.05; color: var(--ink); }
+  .work b { font-weight: 700; color: var(--red); }
+  .work .step-note { color: var(--dim); }
+
+  .verdict { margin: 18px 0; padding: 14px 18px; border-radius: 8px; font-weight: 600; }
+  .verdict.ok   { background: #e7eddd; color: var(--green); }
+  .verdict.warn { background: #f3e7cd; color: var(--amber); }
+  .verdict.bad  { background: #f5ded7; color: var(--red); }
+
+  /* hand-sketch beam */
+  .sketch { margin: 8px 0 4px; }
+  .sketch svg { width: 100%; height: 150px; display: block; }
+  .caption { text-align: center; color: var(--dim); font-size: 12.5px; font-style: italic; margin-top: 2px; }
+
+  .tags { margin-top: 40px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag { font-size: 12.5px; color: var(--red); background: #f0e2d8; padding: 3px 10px; border-radius: 20px; }
+  .credit { margin-top: 26px; color: var(--faint); font-size: 11.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="back" href="index.html">‹ All designs</a>
+
+  <h1>Cantilever beam — design check</h1>
+  <div class="date" id="today">Worksheet</div>
+
+  <h2>Setup</h2>
+  <p>
+    A rectangular blade of
+    <select class="blank" id="mat"></select>
+    is clamped at one end. It is
+    <input class="blank" id="L" type="number" value="60" min="1" step="1"> <span class="unit">mm</span> long,
+    <input class="blank" id="w" type="number" value="10" min="0.1" step="0.5"> <span class="unit">mm</span> wide and
+    <input class="blank" id="t" type="number" value="2" min="0.05" step="0.1"> <span class="unit">mm</span> thick.
+    We push the free tip sideways by
+    <input class="blank" id="d" type="number" value="3" min="0" step="0.1"> <span class="unit">mm</span>.
+  </p>
+  <p id="matLine">The handbook gives <em>E = — GPa</em> and a yield strength of <em>σY = — MPa</em>.</p>
+
+  <h2>Sketch</h2>
+  <div class="sketch">
+    <svg id="sk" viewBox="0 0 580 150">
+      <!-- hatched wall -->
+      <g stroke="#94897a" stroke-width="1.6">
+        <line x1="40" y1="18" x2="40" y2="132"/>
+        <line x1="40" y1="24" x2="28" y2="36"/><line x1="40" y1="46" x2="28" y2="58"/>
+        <line x1="40" y1="68" x2="28" y2="80"/><line x1="40" y1="90" x2="28" y2="102"/>
+        <line x1="40" y1="112" x2="28" y2="124"/>
+      </g>
+      <path id="rest" d="M40 70 H 520" stroke="#c9c0b0" stroke-width="1.4" stroke-dasharray="5 6" fill="none"/>
+      <path id="beam" d="" fill="none" stroke="#40392f" stroke-width="5" stroke-linecap="round"/>
+      <g id="arrow"></g>
+      <text id="dimL" x="280" y="145" text-anchor="middle" font-size="13" fill="#94897a" font-style="italic">L</text>
+    </svg>
+    <div class="caption" id="cap">Deflection drawn to an exaggerated scale, cubic shape v(x) ∝ 3x²L−x³.</div>
+  </div>
+
+  <h2>Working</h2>
+  <div class="work" id="work">…</div>
+
+  <div class="verdict ok" id="verdict">—</div>
+
+  <p style="color:var(--dim); font-size:14.5px">
+    Rule of thumb: keep the safety factor at <em>2 or better</em> when the blade flexes
+    every day — living hinges, clips, battery doors. A one-time press-to-install
+    flex can run closer to 1.
+  </p>
+
+  <div class="tags">
+    <span class="tag">#cantilever</span><span class="tag">#flexure</span>
+    <span class="tag">#eulerbernoulli</span><span class="tag">#mechalc/designs</span>
+  </div>
+  <div class="credit">Design study E · after Bear — Apple Design Award 2017</div>
+</div>
+
+<script>
+"use strict";
+const MATS = {
+  "spring steel (1095)":   { E: 205,  sy: 1200 },
+  "Ti-6Al-4V titanium":    { E: 114,  sy: 880  },
+  "6061-T6 aluminum":      { E: 68.9, sy: 276  },
+  "7075-T6 aluminum":      { E: 71.7, sy: 503  },
+  "Delrin (POM)":          { E: 3.1,  sy: 70   },
+  "printed PLA":           { E: 3.5,  sy: 50   },
+  "printed PETG":          { E: 2.0,  sy: 45   },
+  "printed polycarbonate": { E: 2.2,  sy: 57   },
+  "MJF nylon (PA12)":      { E: 1.7,  sy: 48   },
+};
+const $ = id => document.getElementById(id);
+const matSel = $("mat");
+for (const n of Object.keys(MATS)) { const o = document.createElement("option"); o.value = o.textContent = n; matSel.appendChild(o); }
+matSel.value = "printed PLA";
+
+const today = new Date();
+$("today").textContent = "Worksheet · " + today.toLocaleDateString("en-US", { year:"numeric", month:"long", day:"numeric" });
+
+const fmt = (v,d=2) => Number(v).toLocaleString("en-US",{maximumFractionDigits:d});
+
+function update() {
+  const L = Math.max(+$("L").value || 0, 0.001), t = Math.max(+$("t").value || 0, 0.001);
+  const w = Math.max(+$("w").value || 0, 0.001), d = Math.max(+$("d").value || 0, 0);
+  const m = MATS[matSel.value];
+
+  $("matLine").innerHTML =
+    `The handbook gives <em>E = ${m.E} GPa</em> and a yield strength of <em>σY = ${m.sy} MPa</em>.`;
+
+  const E = m.E*1000, I = w*t*t*t/12;
+  const k = 3*E*I/(L*L*L), F = k*d, sig = 3*E*t*d/(2*L*L);
+  const sf = sig > 0 ? m.sy/sig : Infinity;
+
+  $("work").innerHTML =
+    `I  = wt³/12 = ${fmt(w,1)} × ${fmt(t,1)}³ / 12 = <b>${fmt(I, I<10?3:1)} mm⁴</b><br>` +
+    `k  = 3EI/L³ = 3 × ${fmt(E,0)} × ${fmt(I, I<10?3:1)} / ${fmt(L,0)}³ = <b>${fmt(k, k<10?3:1)} N/mm</b><br>` +
+    `F  = k·δ = ${fmt(k, k<10?3:1)} × ${fmt(d,1)} = <b>${fmt(F, F<10?2:1)} N</b> <span class="step-note">← push needed at the tip</span><br>` +
+    `σ  = 3Etδ/2L² = <b>${fmt(sig,1)} MPa</b> <span class="step-note">← at the wall, top &amp; bottom fiber</span><br>` +
+    `SF = σY/σ = ${m.sy} / ${fmt(sig,1)} = <b>${isFinite(sf) ? fmt(sf,2) : "∞"}</b>`;
+
+  const v = $("verdict");
+  v.classList.remove("ok","warn","bad");
+  if (!isFinite(sf) || sf >= 2) { v.classList.add("ok");
+    v.textContent = `✓ Passes with a safety factor of ${isFinite(sf) ? fmt(sf,2) : "∞"} — comfortable for everyday flexing.`;
+  } else if (sf >= 1) { v.classList.add("warn");
+    v.textContent = `△ Safety factor ${fmt(sf,2)} — it holds, but fatigue will find it. Thin the blade or shorten the throw.`;
+  } else { v.classList.add("bad");
+    v.textContent = `✗ Safety factor ${fmt(sf,2)} — the wall fibers yield. This blade stays bent.`;
+  }
+
+  // sketch
+  const x0 = 40, x1 = 520, y0 = 70;
+  const amp = Math.max(-46, Math.min(46, d/Math.max(L*0.12,1)*46));
+  let path = `M ${x0} ${y0}`;
+  for (let i = 1; i <= 32; i++) {
+    const p = i/32, x = x0 + (x1-x0)*p;
+    const y = y0 + amp*(1.5*p*p - .5*p*p*p);
+    path += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  $("beam").setAttribute("d", path);
+  $("beam").setAttribute("stroke", sf < 1 ? "#c8452c" : "#40392f");
+  const tipY = y0 + amp;
+  $("arrow").innerHTML = d > 0 ?
+    `<line x1="${x1+18}" y1="${y0}" x2="${x1+18}" y2="${tipY}" stroke="#c8452c" stroke-width="1.6"/>
+     <path d="M${x1+18} ${tipY} l -4 ${amp>=0?-7:7} h 8 z" fill="#c8452c"/>
+     <text x="${x1+26}" y="${(y0+tipY)/2+4}" font-size="13" fill="#c8452c" font-style="italic">δ</text>` : "";
+}
+
+for (const id of ["L","t","w","d"]) $(id).addEventListener("input", update);
+matSel.addEventListener("change", update);
+update();
+</script>
+</body>
+</html>

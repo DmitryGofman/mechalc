@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantilever — Design F: Stress Forecast (after CARROT Weather)</title>
+<style>
+  /* ── After CARROT Weather (Apple Design Award 2020) ──
+     A weather app for your beam: current conditions = peak stress, the
+     hourly strip = stress stations along the span, the 10-day = how
+     every material in the library would fare. With attitude. */
+  :root {
+    --ink: #ffffff; --dim: rgba(255,255,255,.72); --faint: rgba(255,255,255,.45);
+    --card: rgba(255,255,255,.12); --card2: rgba(0,0,0,.18);
+    --sans: -apple-system, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; color: var(--ink); font-family: var(--sans);
+         background: linear-gradient(180deg, #1a5276 0%, #2e86ab 60%, #47a3c4 100%);
+         transition: background .8s; }
+  body.warn { background: linear-gradient(180deg, #7a4a09 0%, #c07f10 60%, #d99a2b 100%); }
+  body.bad  { background: linear-gradient(180deg, #4d0a0a 0%, #8e1414 60%, #b3261e 100%); }
+  .shell { max-width: 520px; margin: 0 auto; padding: 24px 16px 60px; }
+  a.back { font-size: 12px; color: var(--faint); text-decoration: none; }
+  a.back:hover { color: #fff; }
+
+  .loc { text-align: center; margin-top: 14px; font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+  .loc small { display: block; font-weight: 500; color: var(--dim); font-size: 12px; margin-top: 2px; }
+  .now { text-align: center; margin: 10px 0 4px; }
+  .now .icon { font-size: 56px; line-height: 1; }
+  .now .temp { font-size: 84px; font-weight: 200; line-height: 1.02; letter-spacing: -.03em;
+               font-variant-numeric: tabular-nums; }
+  .now .temp small { font-size: 26px; font-weight: 400; color: var(--dim); }
+  .now .cond { font-size: 17px; font-weight: 700; letter-spacing: .01em; }
+  .now .hilo { color: var(--dim); font-size: 13.5px; margin-top: 3px; }
+  .snark { text-align: center; font-size: 13.5px; color: var(--dim); font-style: italic;
+           max-width: 380px; margin: 10px auto 20px; min-height: 20px; }
+
+  .card { background: var(--card); border-radius: 16px; padding: 12px 14px; margin-bottom: 12px;
+          backdrop-filter: blur(8px); }
+  .card h3 { margin: 0 0 8px; font-size: 11px; letter-spacing: .14em; text-transform: uppercase;
+             color: var(--faint); font-weight: 700; display: flex; gap: 6px; align-items: center; }
+
+  /* hourly = stations along the beam */
+  .hourly { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 4px; }
+  .hr { flex: none; width: 52px; text-align: center; padding: 8px 0 6px; border-radius: 10px; }
+  .hr.now { background: var(--card2); }
+  .hr .h-x { font-size: 10.5px; color: var(--faint); font-weight: 600; }
+  .hr .h-i { font-size: 20px; margin: 5px 0; }
+  .hr .h-v { font-size: 12.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* 10-day = material outlook rows */
+  .day { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-top: 1px solid rgba(255,255,255,.12); }
+  .day:first-of-type { border-top: none; }
+  .day .d-name { flex: 1.5; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .day .d-ico { width: 26px; text-align: center; font-size: 16px; }
+  .day .d-bar { flex: 2; height: 5px; border-radius: 3px; background: rgba(0,0,0,.25); position: relative; overflow: hidden; }
+  .day .d-fill { position: absolute; inset: 0 auto 0 0; border-radius: 3px; }
+  .day .d-sf { width: 54px; text-align: right; font-size: 13.5px; font-weight: 700;
+               font-variant-numeric: tabular-nums; }
+
+  /* detail tiles */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tiles .card { margin: 0; }
+  .tile-v { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .tile-u { font-size: 12px; color: var(--dim); }
+  .tile-note { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
+
+  /* controls */
+  .ctl { padding: 7px 0; }
+  .ctl-top { display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 600; }
+  .ctl-top b { font-variant-numeric: tabular-nums; }
+  input[type=range] { width: 100%; accent-color: #fff; margin-top: 4px; }
+  select { width: 100%; background: var(--card2); color: #fff; border: none; border-radius: 10px;
+           padding: 10px 12px; font: 600 14px var(--sans); margin-top: 2px; }
+  select option { color: #222; }
+  .credit { margin-top: 26px; text-align: center; color: var(--faint); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">‹ All designs</a>
+
+  <div class="loc">BEAM ROOT, WALL COUNTY<small id="locSub">rectangular cantilever · end load</small></div>
+  <div class="now">
+    <div class="icon" id="icon">☀️</div>
+    <div class="temp" id="temp">—<small> MPa</small></div>
+    <div class="cond" id="cond">—</div>
+    <div class="hilo" id="hilo">Yield: — MPa · Feels like: fine</div>
+  </div>
+  <div class="snark" id="snark">—</div>
+
+  <div class="card">
+    <h3>⏱ Along the span — wall → tip</h3>
+    <div class="hourly" id="hourly"></div>
+  </div>
+
+  <div class="tiles">
+    <div class="card"><h3>💪 Stiffness</h3><div class="tile-v" id="kOut">—</div>
+      <div class="tile-u">N/mm</div><div class="tile-note">k = 3EI/L³ — the beam’s spring rate.</div></div>
+    <div class="card"><h3>👉 Tip force</h3><div class="tile-v" id="FOut">—</div>
+      <div class="tile-u">N</div><div class="tile-note">What your finger supplies to hold δ.</div></div>
+    <div class="card"><h3>🛡 Safety factor</h3><div class="tile-v" id="sfOut">—</div>
+      <div class="tile-u">× yield</div><div class="tile-note">Keep ≥ 2 for parts that flex daily.</div></div>
+    <div class="card"><h3>📐 Deflection ratio</h3><div class="tile-v" id="drOut">—</div>
+      <div class="tile-u">δ / L</div><div class="tile-note">Linear theory drifts past ~15%.</div></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <h3>📅 Material outlook — same geometry, every stock</h3>
+    <div id="days"></div>
+  </div>
+
+  <div class="card">
+    <h3>🎛 Conditions</h3>
+    <select id="mat"></select>
+    <div class="ctl"><div class="ctl-top"><span>Length L</span><b id="Lv">60 mm</b></div>
+      <input type="range" id="L" min="5" max="300" step="1" value="60"></div>
+    <div class="ctl"><div class="ctl-top"><span>Thickness t</span><b id="tv">2.0 mm</b></div>
+      <input type="range" id="t" min="0.2" max="12" step="0.1" value="2"></div>
+    <div class="ctl"><div class="ctl-top"><span>Width w</span><b id="wv">10 mm</b></div>
+      <input type="range" id="w" min="1" max="60" step="0.5" value="10"></div>
+    <div class="ctl"><div class="ctl-top"><span>Tip deflection δ</span><b id="dv">3.0 mm</b></div>
+      <input type="range" id="d" min="0" max="30" step="0.1" value="3"></div>
+  </div>
+
+  <div class="credit">Design study F · after CARROT Weather — Apple Design Award 2020</div>
+</div>
+
+<script>
+"use strict";
+const MATS = {
+  "Spring Steel (1095)":  { E: 205,  sy: 1200 },
+  "Ti-6Al-4V":            { E: 114,  sy: 880  },
+  "Aluminum 6061-T6":     { E: 68.9, sy: 276  },
+  "Aluminum 7075-T6":     { E: 71.7, sy: 503  },
+  "Delrin (POM)":         { E: 3.1,  sy: 70   },
+  "PLA (FDM)":            { E: 3.5,  sy: 50   },
+  "PETG (FDM)":           { E: 2.0,  sy: 45   },
+  "Polycarbonate (FDM)":  { E: 2.2,  sy: 57   },
+  "PA12 (MJF)":           { E: 1.7,  sy: 48   },
+};
+const $ = id => document.getElementById(id);
+const matSel = $("mat");
+for (const n of Object.keys(MATS)) { const o = document.createElement("option"); o.value = o.textContent = n; matSel.appendChild(o); }
+matSel.value = "PETG (FDM)";
+const fmt = (v,d=2) => Number(v).toLocaleString("en-US",{maximumFractionDigits:d});
+
+function stationIcon(u) {          // u = σ(x)/σY at a station
+  return u >= 1 ? "⛈" : u >= .75 ? "🌧" : u >= .5 ? "⛅" : u >= .25 ? "🌤" : "☀️";
+}
+const SNARK = {
+  clear:  ["Not a cloud of plasticity in the sky.",
+           "Your beam is bored. It could do this all day.",
+           "Forecast: springback with a 100% chance of elasticity."],
+  breezy: ["Some stress gusts near the wall. Nothing a grown-up beam can’t handle.",
+           "Comfortable margins. I’ve seen worse. I’ve *caused* worse."],
+  storm:  ["Stress advisory in effect. Fatigue is circling like a vulture.",
+           "You’re inside the ×2 margin. Bold. I like it. Your beam doesn’t."],
+  mayhem: ["STRUCTURAL MAYHEM. The wall fibers just filed for divorce.",
+           "Congratulations, you’ve invented a bent beam. Permanently."],
+};
+let snarkIdx = 0;
+
+function update() {
+  const L = +$("L").value, t = +$("t").value, w = +$("w").value, d = +$("d").value;
+  const m = MATS[matSel.value];
+  $("Lv").textContent = `${fmt(L,0)} mm`; $("tv").textContent = `${fmt(t,1)} mm`;
+  $("wv").textContent = `${fmt(w,1)} mm`; $("dv").textContent = `${fmt(d,1)} mm`;
+
+  const E = m.E*1000, I = w*t*t*t/12;
+  const k = 3*E*I/(L*L*L), F = k*d, sig = 3*E*t*d/(2*L*L);
+  const sf = sig > 0 ? m.sy/sig : Infinity, util = sig/m.sy;
+
+  $("temp").innerHTML = `${fmt(sig, sig<10?1:0)}<small> MPa</small>`;
+  $("hilo").textContent = `Yield: ${m.sy} MPa · Utilization: ${fmt(util*100,0)}%`;
+  $("kOut").textContent = fmt(k, k<10?2:1);
+  $("FOut").textContent = fmt(F, F<10?2:1);
+  $("sfOut").textContent = isFinite(sf) ? fmt(sf,2) : "∞";
+  $("drOut").textContent = `${fmt(d/L*100,1)}%`;
+
+  let mood, cond, icon;
+  if (util >= 1)        { mood = "mayhem"; cond = "STRUCTURAL MAYHEM"; icon = "⛈"; }
+  else if (sf < 2)      { mood = "storm";  cond = "Stress Advisory";  icon = "🌧"; }
+  else if (util >= .25) { mood = "breezy"; cond = "Breezy Margins";   icon = "⛅"; }
+  else                  { mood = "clear";  cond = "Elastic & Clear";  icon = "☀️"; }
+  $("cond").textContent = cond; $("icon").textContent = icon;
+  document.body.classList.toggle("bad", mood === "mayhem");
+  document.body.classList.toggle("warn", mood === "storm");
+  const lines = SNARK[mood];
+  $("snark").textContent = "“" + lines[snarkIdx % lines.length] + "”";
+
+  // hourly: 8 stations, σ(x) = σmax(1 − x/L)
+  let hh = "";
+  for (let i = 0; i < 8; i++) {
+    const x = i/7, u = util * (1 - x);
+    hh += `<div class="hr ${i===0?"now":""}">
+      <div class="h-x">${i===0 ? "WALL" : i===7 ? "TIP" : fmt(x*100,0)+"%"}</div>
+      <div class="h-i">${stationIcon(u)}</div>
+      <div class="h-v">${fmt(u*m.sy, u*m.sy<10?1:0)}</div></div>`;
+  }
+  $("hourly").innerHTML = hh;
+
+  // 10-day: every material at this geometry & δ
+  let dd = "";
+  for (const [name, mm] of Object.entries(MATS)) {
+    const s2 = 3*mm.E*1000*t*d/(2*L*L);
+    const sf2 = s2 > 0 ? mm.sy/s2 : Infinity;
+    const u2 = Math.min(1, s2/mm.sy);
+    const col = sf2 < 1 ? "#ff6b5e" : sf2 < 2 ? "#ffd166" : "#7be495";
+    dd += `<div class="day">
+      <div class="d-name">${name}</div>
+      <div class="d-ico">${stationIcon(s2/mm.sy)}</div>
+      <div class="d-bar"><div class="d-fill" style="width:${fmt(u2*100,0)}%; background:${col}"></div></div>
+      <div class="d-sf" style="color:${col}">${isFinite(sf2) ? fmt(sf2, sf2<10?1:0)+"×" : "∞"}</div></div>`;
+  }
+  $("days").innerHTML = dd;
+}
+
+for (const id of ["L","t","w","d"]) $(id).addEventListener("input", update);
+matSel.addEventListener("change", () => { snarkIdx++; update(); });
+update();
+</script>
+</body>
+</html>

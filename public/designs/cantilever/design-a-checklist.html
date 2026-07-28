@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cantilever — Design A: Checklist (after Things)</title>
+<style>
+  /* ── After Things 3 (Apple Design Award 2017) ──
+     Calm white space, one quiet blue, grouped rows, and a progress
+     pie that fills as the design passes its checks. */
+  :root {
+    --bg: #f6f6f6; --card: #ffffff; --ink: #2c2c2e; --dim: #8e8e93;
+    --faint: #c7c7cc; --line: #ececec; --blue: #2f7cf6; --blue-soft: #e8f0fe;
+    --green: #34c759; --amber: #ff9f0a; --red: #ff3b30;
+    --sans: -apple-system, "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+    --mono: "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+         font-size: 15px; line-height: 1.45; }
+  .shell { max-width: 560px; margin: 0 auto; padding: 28px 16px 60px; }
+  a.back { font-size: 12px; color: var(--dim); text-decoration: none; }
+  a.back:hover { color: var(--blue); }
+
+  /* header with the Things-style progress pie */
+  .head { display: flex; align-items: center; gap: 14px; margin: 18px 0 6px; }
+  .pie { width: 34px; height: 34px; flex: none; }
+  .pie circle.track { fill: none; stroke: var(--blue-soft); stroke-width: 3.4; }
+  .pie circle.fill  { fill: none; stroke: var(--blue); stroke-width: 3.4;
+                      stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%;
+                      transition: stroke-dashoffset .45s cubic-bezier(.2,.8,.2,1), stroke .3s; }
+  h1 { margin: 0; font-size: 26px; font-weight: 700; letter-spacing: -.02em; }
+  .sub { margin: 2px 0 22px 48px; color: var(--dim); font-size: 13px; }
+
+  .group-lab { margin: 26px 6px 8px; font-size: 13px; font-weight: 600; color: var(--blue); }
+  .card { background: var(--card); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.05); overflow: hidden; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: none; }
+  .row .lab { flex: 1; }
+  .row .lab small { display: block; color: var(--dim); font-size: 12px; }
+  .row input[type=number], .row select {
+    font: 500 15px var(--sans); color: var(--blue); background: none; border: none;
+    text-align: right; width: 96px; padding: 4px 0; outline: none;
+  }
+  .row select { width: auto; max-width: 190px; direction: rtl; }
+  .row select option { direction: ltr; }
+  .row .unit { color: var(--faint); font-size: 13px; width: 34px; }
+  input[type=range] { width: 100%; margin: 2px 0 0; accent-color: var(--blue); }
+  .slider-row { flex-direction: column; align-items: stretch; gap: 4px; }
+  .slider-top { display: flex; justify-content: space-between; align-items: baseline; }
+  .slider-top b { font-variant-numeric: tabular-nums; color: var(--blue); font-weight: 600; }
+
+  /* results as to-dos with round checkboxes */
+  .todo { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--line); }
+  .todo:last-child { border-bottom: none; }
+  .tick { width: 20px; height: 20px; flex: none; border-radius: 50%; border: 1.6px solid var(--faint);
+          display: grid; place-items: center; transition: all .25s; }
+  .tick svg { width: 11px; height: 11px; opacity: 0; transform: scale(.5); transition: all .25s; }
+  .todo.done .tick { border-color: var(--green); background: var(--green); }
+  .todo.done .tick svg { opacity: 1; transform: scale(1); }
+  .todo.warn .tick { border-color: var(--amber); }
+  .todo.fail .tick { border-color: var(--red); background: var(--red); }
+  .todo.fail .tick svg { opacity: 1; transform: scale(1); }
+  .todo .t-lab { flex: 1; }
+  .todo .t-lab small { display: block; color: var(--dim); font-size: 12px; }
+  .todo .t-val { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .todo.warn .t-val { color: var(--amber); }
+  .todo.fail .t-val { color: var(--red); }
+
+  /* quiet beam sketch */
+  .sketch { padding: 18px 16px 10px; }
+  .sketch svg { width: 100%; height: 120px; display: block; }
+  .credit { margin-top: 34px; text-align: center; color: var(--faint); font-size: 11.5px; }
+</style>
+</head>
+<body>
+<div class="shell">
+  <a class="back" href="index.html">‹ All designs</a>
+
+  <div class="head">
+    <svg class="pie" viewBox="0 0 34 34">
+      <circle class="track" cx="17" cy="17" r="13"></circle>
+      <circle class="fill" id="pieFill" cx="17" cy="17" r="13"
+              stroke-dasharray="81.68" stroke-dashoffset="81.68"></circle>
+    </svg>
+    <h1>Cantilever Beam</h1>
+  </div>
+  <div class="sub" id="subline">End-loaded rectangular section · k = 3EI/L³</div>
+
+  <div class="group-lab">Geometry</div>
+  <div class="card">
+    <div class="row slider-row">
+      <div class="slider-top"><span>Length L</span><b id="Lv">60 mm</b></div>
+      <input type="range" id="L" min="5" max="300" step="1" value="60">
+    </div>
+    <div class="row slider-row">
+      <div class="slider-top"><span>Thickness t</span><b id="tv">2.0 mm</b></div>
+      <input type="range" id="t" min="0.2" max="12" step="0.1" value="2">
+    </div>
+    <div class="row slider-row">
+      <div class="slider-top"><span>Width w</span><b id="wv">10 mm</b></div>
+      <input type="range" id="w" min="1" max="60" step="0.5" value="10">
+    </div>
+  </div>
+
+  <div class="group-lab">Material &amp; Load</div>
+  <div class="card">
+    <div class="row">
+      <div class="lab">Material<small id="matNote">E and yield from the shared library</small></div>
+      <select id="mat"></select>
+    </div>
+    <div class="row slider-row">
+      <div class="slider-top"><span>Tip deflection δ</span><b id="dv">3.0 mm</b></div>
+      <input type="range" id="d" min="0" max="30" step="0.1" value="3">
+    </div>
+  </div>
+
+  <div class="group-lab">Today’s checks</div>
+  <div class="card" id="todos">
+    <div class="todo" id="todo-k">
+      <div class="tick"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.6L10 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="t-lab">Stiffness k<small>3EI/L³ — how firm the blade feels</small></div>
+      <div class="t-val" id="kOut">—</div>
+    </div>
+    <div class="todo" id="todo-F">
+      <div class="tick"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.6L10 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="t-lab">Tip force F<small>k·δ at the set deflection</small></div>
+      <div class="t-val" id="FOut">—</div>
+    </div>
+    <div class="todo" id="todo-s">
+      <div class="tick"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.6L10 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="t-lab">Peak stress σ<small>3Etδ/2L² at the wall — keep under yield</small></div>
+      <div class="t-val" id="sOut">—</div>
+    </div>
+    <div class="todo" id="todo-sf">
+      <div class="tick"><svg viewBox="0 0 12 12"><path d="M2 6.5l2.6 2.6L10 3.5" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="t-lab">Safety factor<small>aim ≥ 2 for cyclic / living-hinge duty</small></div>
+      <div class="t-val" id="sfOut">—</div>
+    </div>
+  </div>
+
+  <div class="group-lab">Sketch</div>
+  <div class="card sketch">
+    <svg id="beamSvg" viewBox="0 0 520 120" preserveAspectRatio="xMidYMid meet">
+      <rect x="18" y="10" width="10" height="100" rx="2" fill="#ececec"></rect>
+      <path id="beamPath" d="" fill="none" stroke="#2f7cf6" stroke-width="7" stroke-linecap="round"></path>
+      <path id="beamRest" d="M28 60 H 470" fill="none" stroke="#e3e3e3" stroke-width="2" stroke-dasharray="1 6" stroke-linecap="round"></path>
+      <circle id="tipDot" r="6" fill="#2f7cf6"></circle>
+    </svg>
+  </div>
+
+  <div class="credit">Design study A · after Things — Apple Design Award 2017</div>
+</div>
+
+<script>
+"use strict";
+// Subset of src/calculators/materials.ts — E in GPa, yield in MPa.
+const MATS = {
+  "Spring Steel (1095)":  { E: 205,  sy: 1200 },
+  "Ti-6Al-4V":            { E: 114,  sy: 880  },
+  "Aluminum 6061-T6":     { E: 68.9, sy: 276  },
+  "Aluminum 7075-T6":     { E: 71.7, sy: 503  },
+  "Delrin (POM)":         { E: 3.1,  sy: 70   },
+  "PLA (FDM)":            { E: 3.5,  sy: 50   },
+  "PETG (FDM)":           { E: 2.0,  sy: 45   },
+  "Polycarbonate (FDM)":  { E: 2.2,  sy: 57   },
+  "PA12 (MJF)":           { E: 1.7,  sy: 48   },
+};
+const $ = id => document.getElementById(id);
+const matSel = $("mat");
+for (const name of Object.keys(MATS)) {
+  const o = document.createElement("option");
+  o.value = o.textContent = name;
+  matSel.appendChild(o);
+}
+matSel.value = "PLA (FDM)";
+
+const fmt = (v, d=2) => Number(v).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: 0 });
+
+function setTodo(id, state, val) {   // state: done | warn | fail
+  const el = $(id);
+  el.classList.remove("done", "warn", "fail");
+  el.classList.add(state);
+  el.querySelector(".t-val").textContent = val;
+}
+
+function update() {
+  const L = +$("L").value, t = +$("t").value, w = +$("w").value, d = +$("d").value;
+  const m = MATS[matSel.value];
+  $("Lv").textContent = `${fmt(L,0)} mm`;
+  $("tv").textContent = `${fmt(t,1)} mm`;
+  $("wv").textContent = `${fmt(w,1)} mm`;
+  $("dv").textContent = `${fmt(d,1)} mm`;
+  $("matNote").textContent = `E = ${m.E} GPa · yield ${m.sy} MPa`;
+
+  const E = m.E * 1000;              // MPa = N/mm²
+  const I = w * t * t * t / 12;      // mm⁴
+  const k = 3 * E * I / (L * L * L); // N/mm
+  const F = k * d;                   // N
+  const sig = 3 * E * t * d / (2 * L * L); // MPa
+  const sf = sig > 0 ? m.sy / sig : Infinity;
+
+  setTodo("todo-k", "done", k >= 1 ? `${fmt(k,1)} N/mm` : `${fmt(k*1000,0)} mN/mm`);
+  setTodo("todo-F", "done", F >= 1 ? `${fmt(F,1)} N` : `${fmt(F*1000,0)} mN`);
+  const util = sig / m.sy;
+  setTodo("todo-s", util < 0.5 ? "done" : util < 1 ? "warn" : "fail", `${fmt(sig,1)} MPa`);
+  setTodo("todo-sf", sf >= 2 ? "done" : sf >= 1 ? "warn" : "fail",
+          isFinite(sf) ? `${fmt(sf,2)}×` : "∞");
+
+  // progress pie = how much margin is in hand (full circle at SF ≥ 2)
+  const C = 81.68;
+  const frac = Math.max(0, Math.min(1, isFinite(sf) ? sf / 2 : 1));
+  const pie = $("pieFill");
+  pie.style.strokeDashoffset = C * (1 - frac);
+  pie.style.stroke = sf >= 2 ? "var(--green)" : sf >= 1 ? "var(--blue)" : "var(--red)";
+  $("subline").textContent = sf >= 2
+    ? "All checks clear — this blade can ship."
+    : sf >= 1 ? "Working, but shy of the ×2 margin for cyclic duty."
+    : "Over yield — shorten the throw or thin the blade.";
+
+  // sketch: cubic cantilever shape, exaggerated to fit
+  const x0 = 28, x1 = 470, y0 = 60;
+  const amp = Math.max(-44, Math.min(44, d / Math.max(L * 0.12, 1) * 44));
+  let path = `M ${x0} ${y0}`;
+  for (let i = 1; i <= 32; i++) {
+    const p = i / 32, x = x0 + (x1 - x0) * p;
+    const y = y0 + amp * (1.5 * p * p - 0.5 * p * p * p);
+    path += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }
+  $("beamPath").setAttribute("d", path);
+  const tipY = y0 + amp;
+  $("tipDot").setAttribute("cx", x1); $("tipDot").setAttribute("cy", tipY);
+  const col = util >= 1 ? "var(--red)" : util >= 0.5 ? "var(--amber)" : "var(--blue)";
+  $("beamPath").style.stroke = col; $("tipDot").style.fill = col;
+}
+
+for (const id of ["L","t","w","d"]) $(id).addEventListener("input", update);
+matSel.addEventListener("change", update);
+update();
+</script>
+</body>
+</html>
