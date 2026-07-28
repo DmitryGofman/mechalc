@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cylinder Clamp — Design F: 3D Clamp</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:560px;margin:0 auto;padding:14px 10px 40px}
+  a.back{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:10px;margin:8px 0 12px}
+  .kicker{font-family:var(--mono);font-size:9px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:5px 0 0;font-size:18px;font-weight:600;text-wrap:balance}
+  .sub{font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;line-height:1.7}
+
+  /* ── the 3D stage ── */
+  #wrap{position:relative;width:100%;height:340px;border-radius:3px;overflow:hidden;background:var(--panel);
+        border:1px solid var(--line2)}
+  #view{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  #view.grabbing{cursor:grabbing}
+  #hud{position:absolute;top:9px;left:11px;font-family:var(--mono);font-size:10px;color:var(--dim);
+       line-height:1.65;pointer-events:none;text-shadow:0 1px 5px #000}
+  #hud b{color:var(--ink);font-weight:600}
+  #flash{position:absolute;top:9px;right:11px;font-family:var(--mono);font-size:10px;text-align:right;
+         pointer-events:none;text-shadow:0 1px 5px #000;opacity:0;transition:opacity .25s}
+  #flash.on{opacity:1}
+  #hint{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:8.5px;
+        color:var(--faint);pointer-events:none;text-shadow:0 1px 4px #000}
+  @media(max-width:520px){#wrap{height:290px}}
+
+  .bar{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line2);
+       border-radius:3px;padding:9px 11px;margin-top:8px}
+  .bar .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mid);white-space:nowrap}
+  .bar input[type=range]{flex:1;accent-color:var(--blue);min-width:0}
+  .bar .val{font-family:var(--mono);font-size:13px;font-weight:600;min-width:74px;text-align:right;font-variant-numeric:tabular-nums}
+  .btn{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
+       background:#0e1419;border:1px solid var(--line);color:var(--dim);border-radius:2px;padding:7px 10px;white-space:nowrap}
+  .btn:hover{border-color:var(--blue);color:var(--ink)}
+  .btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+  .btn.on{border-color:var(--blue);color:var(--blue)}
+  .btnrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
+  .s{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:7px 8px;min-width:0}
+  .s.hot{border-color:var(--red)}
+  .s .k{font-family:var(--mono);font-size:7.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);
+        white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .s .n{font-family:var(--mono);font-size:14px;font-weight:600;margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .s .u{font-family:var(--mono);font-size:8px;color:var(--faint);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:9px}
+  .form .wide{grid-column:1/-1}
+  .fld label{display:flex;align-items:baseline;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:3px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:5px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 8px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .chk{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:9.5px;color:var(--dim);cursor:pointer;padding:4px 0;align-self:end}
+  .chk input{accent-color:var(--blue)}
+  details{border:1px solid var(--line2);border-radius:3px;background:var(--panel);margin-top:8px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);padding:8px 11px}
+  details .form{padding:0 11px 11px;margin-top:0}
+  .legend{display:flex;flex-wrap:wrap;gap:5px 13px;margin-top:8px;font-family:var(--mono);font-size:8.5px;color:var(--dim);justify-content:center}
+  .legend i{width:13px;height:8px;border-radius:2px;display:inline-block;margin-right:5px;vertical-align:-1px}
+  #warns .warn{font-size:10px;line-height:1.5;padding:7px 8px;border-left:2px solid;border-radius:2px;margin-top:6px;background:#0d1319;color:var(--dim)}
+  .warn.bad{border-color:var(--red);color:#e0a3a3} .warn.warn{border-color:var(--amber);color:#e6c98a}
+  .note{font-size:10.5px;color:var(--dim);line-height:1.65;margin-top:14px;border-top:1px solid var(--line);padding-top:10px}
+  .note strong{color:#c2ccd4}
+  @media (prefers-reduced-motion: reduce){ #flash{transition:none} }
+</style>
+</head>
+<body>
+<div class="shell">
+<div id="nojs" style="background:#1a0e10;border:1px solid #d65c5c;border-radius:3px;color:#e0a3a3;font:12px/1.6 ui-monospace,Menlo,monospace;padding:10px 12px;margin-bottom:12px">This calculator needs JavaScript. If you can read this, your viewer blocked it — file previews in chat apps do. Save the file, then open it with Safari or Chrome (on iPhone: save to Files, long-press the file → Share → Safari).</div><script>document.getElementById("nojs").remove()</script>
+  <a class="back" href="index.html">← CYLINDER CLAMP DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN F · 3D CLAMP</div>
+    <h1>Tighten it with your finger</h1>
+    <div class="sub">The whole assembly in 3D — split clamp, bolts and cylinder, every surface painted by how close
+    it is to yielding. Drag a bolt head to tighten it and watch the ears bend, the tube go oval and the gap close
+    for real. Drag anywhere else to orbit.</div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="flash"></div>
+    <div id="hint">drag a bolt head to tighten · drag elsewhere to orbit</div>
+  </div>
+
+  <div class="bar">
+    <span class="lab">TORQUE/BOLT</span>
+    <input id="T" type="range" min="0" max="6" step="0.05" value="1.2" aria-label="Torque per bolt">
+    <span class="val" id="Tval"></span>
+  </div>
+  <div class="btnrow">
+    <button class="btn" id="play">▶ Tighten</button>
+    <button class="btn on" id="fx">Forces</button>
+    <button class="btn" id="cut">Half section</button>
+    <button class="btn" id="spin">Auto-spin</button>
+    <span style="flex:1"></span>
+    <span class="bar" style="margin:0;padding:4px 9px;gap:6px">
+      <span class="lab">SPLIT ×</span>
+      <input id="ex" type="range" min="1" max="16" value="6" style="width:70px" aria-label="Split magnification">
+      <span class="val" id="exv" style="min-width:26px;font-size:11px"></span>
+    </span>
+  </div>
+
+  <div class="strip" id="strip"></div>
+  <div class="legend">
+    <span><i style="background:linear-gradient(90deg,#4fb477,#d9a441,#d65c5c)"></i>surface colour = safety factor of that part</span>
+    <span><i style="background:#4a8cd1"></i>bolt force</span>
+    <span><i style="background:#4fb477"></i>bore reaction</span>
+  </div>
+  <div id="warns"></div>
+
+  <div class="form">
+    <div class="fld"><label>Cylinder Ø<span>mm</span></label><input id="D" type="number" step="0.5" value="25"></div>
+    <div class="fld"><label>Width W<span>mm</span></label><input id="W" type="number" step="1" value="30"></div>
+    <div class="fld"><label>Crown tc<span>mm</span></label><input id="tc" type="number" step="0.5" value="16"></div>
+    <div class="fld"><label>Ear tf<span>mm</span></label><input id="tf" type="number" step="0.5" value="12"></div>
+    <div class="fld"><label>Bolt offset e<span>mm</span></label><input id="e" type="number" step="0.5" value="10"></div>
+    <div class="fld"><label>Gap<span>mm/side</span></label><input id="gap" type="number" step="0.1" value="1.5"></div>
+    <div class="fld wide"><label>Clamp material</label><select id="mat"></select></div>
+    <div class="fld"><label>Bolts</label><select id="N"><option>2</option><option selected>4</option><option>6</option></select></div>
+    <div class="fld"><label>Thread</label><select id="thread"></select></div>
+  </div>
+
+  <details>
+    <summary>Cylinder · bolts · duty</summary>
+    <div class="form">
+      <div class="fld"><label>Wall<span>mm</span></label><input id="tw" type="number" step="0.1" value="2"></div>
+      <label class="chk"><input id="hollow" type="checkbox" checked> hollow tube</label>
+      <div class="fld wide"><label>Cylinder material</label><select id="cyl"></select></div>
+      <div class="fld"><label>Class</label><select id="cls"></select></div>
+      <div class="fld"><label>Threads</label><select id="Kname"></select></div>
+      <label class="chk wide"><input id="washer" type="checkbox" checked> washers</label>
+      <div class="fld wide"><label>Bore friction</label><select id="muName"></select></div>
+      <div class="fld"><label>Axial load<span>N</span></label><input id="Freq" type="number" step="10" value="400"></div>
+      <div class="fld"><label>Torque load<span>N·m</span></label><input id="Treq" type="number" step="0.5" value="3"></div>
+      <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+    </div>
+  </details>
+
+  <div class="note"><strong>What you're watching:</strong> deflections are real but tiny — <b>SPLIT ×</b> magnifies the flange gap and every
+  deflection by the same factor, so the halves close in true proportion and meet exactly when the joint bottoms out. Ears rotate down toward the split plane, the tube squashes vertically and bulges sideways, and the
+  flange gap closes; when it shuts, the halves touch and grip stops growing no matter how hard you pull. With few bolts on a
+  wide clamp you'll also see the halves lift <em>between</em> bolts — that's uneven grip. Typical reference values; verify before production.</div>
+</div>
+
+<script src="clamp-engine.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=CLAMP.defaults();
+fill("cyl",CLAMP.CYL_MATS,DEF.cyl); fill("mat",CLAMP.CLAMP_MATS,DEF.mat);
+fill("thread",CLAMP.THREADS,DEF.thread); fill("cls",CLAMP.CLASSES,DEF.cls);
+fill("Kname",CLAMP.KFACT,DEF.Kname); fill("muName",CLAMP.MU,DEF.muName);
+const f=CLAMP.fmt, col=CLAMP.sfColor;
+const hex2rgb=(h)=>{const n=parseInt(h.slice(1),16);return [(n>>16&255)/255,(n>>8&255)/255,(n&255)/255]};
+
+function read(){return{
+  D:+$("D").value||1, hollow:$("hollow").checked, tw:+$("tw").value||0.5, cyl:$("cyl").value,
+  mat:$("mat").value, W:+$("W").value||1, tf:+$("tf").value||1, tc:+$("tc").value||1, e:+$("e").value||1,
+  gap:+$("gap").value||0, washer:$("washer").checked,
+  N:+$("N").value, thread:$("thread").value, cls:$("cls").value, Kname:$("Kname").value, T:torque,
+  muName:$("muName").value, Freq:+$("Freq").value||0, Treq:+$("Treq").value||0, SFt:+$("SFt").value||1,
+}}
+
+/* ══ 3D viewer — dependency-free canvas painter ═══════════════════════════
+   Same technique as the toolkit's other 3D viewers: build the assembly as
+   polygons in model space, rotate (yaw→pitch), perspective-project, cull
+   back faces, sort far→near and fill with a lambert-ish shade. Axes:
+   X = along the cylinder, Y = up (cap above base), Z = across (ears).      */
+const cv=$("view"), wrap=$("wrap"), ctx=cv.getContext("2d");
+const view={yaw:-0.70,pitch:-0.26,dist:5.2,drag:false,lx:0,ly:0};
+let fitR=1.8; // widest model radius, refreshed each build → drives the auto-fit
+let torque=1.2, target=1.2, vel=0;          // torque state + spring
+let grabbing=false, dragT0=0, dragY0=0;
+let playing=false, playT=0, spinning=false;
+let boltScreen=[];                           // bolt head hit targets, screen space
+let reduced=matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const S=[]; // polygon soup, rebuilt each frame
+const poly=(p,c)=>S.push({p,c});
+
+// frustum / cylinder / cone about the Y axis (used for bolts and arrows)
+function frustumY(cx,cz,y0,y1,r0,r1,c,n){
+  for(let i=0;i<n;i++){
+    const a0=i/n*2*Math.PI, a1=(i+1)/n*2*Math.PI;
+    const A=[cx+r0*Math.cos(a0),y0,cz+r0*Math.sin(a0)], B=[cx+r0*Math.cos(a1),y0,cz+r0*Math.sin(a1)];
+    const C=[cx+r1*Math.cos(a1),y1,cz+r1*Math.sin(a1)], D=[cx+r1*Math.cos(a0),y1,cz+r1*Math.sin(a0)];
+    poly(r1===0?[A,B,C]:(r0===0?[A,C,D]:[A,B,C,D]),c);
+  }
+  if(r1>0){const t=[];for(let i=0;i<n;i++){const a=i/n*2*Math.PI;t.push([cx+r1*Math.cos(a),y1,cz+r1*Math.sin(a)]);}poly(t,c);}
+  if(r0>0){const b=[];for(let i=n-1;i>=0;i--){const a=i/n*2*Math.PI;b.push([cx+r0*Math.cos(a),y0,cz+r0*Math.sin(a)]);}poly(b,c);}
+}
+function arrowY(cx,cz,yTail,yTip,r,c){ // points from tail toward tip
+  const dir=Math.sign(yTip-yTail)||1, headL=Math.abs(yTip-yTail)*0.34;
+  frustumY(cx,cz,yTail,yTip-dir*headL,r,r,c,8);
+  frustumY(cx,cz,yTip-dir*headL,yTip,r*2.3,0,c,10);
+}
+
+/* Cross-section profile of the CAP (upper half), in (z,y), CCW.
+   Stepped rectangle: crown of depth tc over the bore, thinner ears of
+   thickness tf carrying the bolts — the shape in the reference photos. */
+function capProfile(R,half,g2,tf,tc,arcN){
+  const yEar=g2+tf, yCrown=R+tc, zStep=Math.min(R+0.35*(half-R), half*0.92);
+  const zb=Math.sqrt(Math.max(R*R-g2*g2,1e-4));
+  const p=[[half,g2],[zb,g2]];
+  const phi0=Math.asin(Math.min(g2/R,1));
+  for(let i=0;i<=arcN;i++){                       // bore arc, right → left over the top
+    const phi=phi0+(Math.PI-2*phi0)*i/arcN;
+    p.push([R*Math.cos(phi),R*Math.sin(phi)]);
+  }
+  p.push([-zb,g2],[-half,g2],[-half,yEar],[-zStep,yEar],[-zStep,yCrown],[zStep,yCrown],[zStep,yEar],[half,yEar]);
+  return p;
+}
+
+function buildScene(inp,res,ex){
+  S.length=0; boltScreen=[];
+  // Real deflections here are hundredths of a millimetre, so the split is drawn
+  // magnified ×ex — and crucially the GAP is magnified by the same factor. The
+  // halves therefore close in exact proportion and meet precisely when the model
+  // says the joint bottoms out, instead of tearing through each other.
+  const R=inp.D/2, dB=res.d, g2=inp.gap/2*ex;
+  const half=R+inp.e+1.7*dB, W=inp.W;
+  const maxDim=Math.max(2*half,W,2*(R+inp.tc));
+  const s=3.3/maxDim;                              // model → view scale
+  const cut=$("cut").classList.contains("on");
+
+  // deflections at the same magnification (dFl ≤ gap/2 always, so bend ≤ g2)
+  const bend=Math.min(res.dFl*ex,g2*0.995);
+  const oval=Math.min((res.dOval||0)*ex,R*0.3);
+  const nSide=Math.max(inp.N/2,1);
+  const bolts=[]; for(let i=0;i<nSide;i++) bolts.push(-W/2+W*(i+0.5)/nSide);
+  // uneven-grip: ears deflect most at the bolts, least between them
+  const spacing=W/nSide, unev=Math.max(0,Math.min((spacing-4*inp.tf)/(6*inp.tf),0.55));
+  const xMult=(x)=>{
+    let d=Infinity; for(const bx of bolts) d=Math.min(d,Math.abs(x-bx));
+    return 1-unev*Math.min(d/(spacing/2||1),1);
+  };
+  // ear bending shape: 0 at the bore wall, 1 at the tip
+  const zShape=(az)=>{ if(az<=R)return 0; const u=Math.min((az-R)/(half-R||1),1); return u*u*(3-u)/2; };
+
+  const tone=hex2rgb(CLAMP.CLAMP_MATS[inp.mat].tone);
+  const earC=hex2rgb(col(res.SFflange)), crownC=hex2rgb(col(res.SFcrown));
+  const STEEL=[0.62,0.66,0.70], ARROW=[0.29,0.55,0.82], REACT=[0.31,0.71,0.47];
+  const steely=(c)=>c.map((v,i)=>v*0.55+STEEL[i]*0.45);
+  const cylC=hex2rgb(col(res.SFcyl)), boltC=steely(hex2rgb(col(res.SFbolt))), bearC=steely(hex2rgb(col(res.SFbear)));
+
+  // ── clamp halves: sweep the profile along X ──
+  const prof=capProfile(R,half,g2,inp.tf,inp.tc,16);
+  const NX=Math.max(6,Math.min(2*nSide+6,14));
+  const x0=cut?0:-W/2;                              // "half section" clips the near half
+  const pt=(zi,xi,up)=>{
+    const [z,y]=prof[zi];
+    const x=x0+(W/2-x0)*xi/NX;
+    const dy=bend*zShape(Math.abs(z))*xMult(x);
+    return [x*s,(up?y-dy:-(y-dy))*s,z*s];
+  };
+  // Every surface is painted by the safety factor of the check that governs it,
+  // kept honest with a little of the material's own tone mixed back in.
+  const mix=(c)=>c.map((v,i)=>v*0.78+tone[i]*0.22);
+  const govC=mix(res.SFflange<=res.SFcrown?earC:crownC);
+  const shade=(z,y)=> Math.abs(z)>R ? mix(earC) : (y>R*0.7 ? mix(crownC) : govC);
+  for(const up of [true,false]){
+    for(let i=0;i<prof.length;i++){
+      const j=(i+1)%prof.length;
+      let c=shade((prof[i][0]+prof[j][0])/2,(prof[i][1]+prof[j][1])/2);
+      // the two mating flange faces: darken them so the split plane reads as a
+      // seam even though the real gap is a fraction of a millimetre
+      if(Math.abs(prof[i][1]-g2)<1e-6&&Math.abs(prof[j][1]-g2)<1e-6) c=c.map(v=>v*0.34);
+      for(let k=0;k<NX;k++){
+        const A=pt(i,k,up),B=pt(j,k,up),C=pt(j,k+1,up),D=pt(i,k+1,up);
+        poly(up?[A,B,C,D]:[D,C,B,A],c);
+      }
+    }
+    for(const k of [0,NX]){                          // end faces
+      const face=prof.map((_,i)=>pt(i,k,up));
+      poly((k===0)===up?face:face.slice().reverse(),govC);
+    }
+  }
+
+  // ── the clamped cylinder ──
+  const ry=(R-oval/2)*s, rz=(R+oval/2)*s, tw=Math.min(inp.tw,R-0.2);
+  const xa=-W*0.78*s, xb=W*0.78*s, NA=30;
+  const ring=(rY,rZ,x)=>{const o=[];for(let i=0;i<NA;i++){const a=i/NA*2*Math.PI;o.push([x,rY*Math.sin(a),rZ*Math.cos(a)]);}return o};
+  const oa=ring(ry,rz,xa), ob=ring(ry,rz,xb);
+  for(let i=0;i<NA;i++){const j=(i+1)%NA; poly([oa[i],oa[j],ob[j],ob[i]],cylC);}
+  if(inp.hollow){
+    const ia=ring(ry-tw*s,rz-tw*s,xa), ib=ring(ry-tw*s,rz-tw*s,xb);
+    for(let i=0;i<NA;i++){const j=(i+1)%NA; poly([ia[j],ia[i],ib[i],ib[j]],cylC.map(v=>v*0.55));}
+    for(let i=0;i<NA;i++){const j=(i+1)%NA;
+      poly([oa[j],oa[i],ia[i],ia[j]],cylC.map(v=>v*0.8));
+      poly([ob[i],ob[j],ib[j],ib[i]],cylC.map(v=>v*0.8));}
+  } else { poly(oa.slice().reverse(),cylC.map(v=>v*0.8)); poly(ob,cylC.map(v=>v*0.8)); }
+
+  // ── bolts ──
+  const yEarTop=(g2+inp.tf), rSh=dB/2*s, rHd=(inp.washer?1.05:0.9)*dB*s, hHd=0.6*dB*s;
+  for(const bx of bolts){
+    if(cut&&bx<0) continue;
+    for(const zs of [1,-1]){
+      const cz=zs*(R+inp.e)*s, cx=bx*s;
+      const dy=bend*zShape(R+inp.e)*xMult(bx)*s;
+      const yT=(yEarTop)*s-dy, yB=-(yEarTop)*s+dy;
+      frustumY(cx,cz,yB,yT,rSh,rSh,boltC,12);
+      frustumY(cx,cz,yT,yT+hHd,rHd,rHd,bearC,6);          // hex head
+      frustumY(cx,cz,yB-hHd*1.15,yB,rHd,rHd,bearC,6);      // nut
+      boltScreen.push({x:cx,y:yT+hHd,z:cz});
+    }
+  }
+
+  // ── force arrows (the statics view, in 3D) ──
+  if($("fx").classList.contains("on")&&res.Fb>0){
+    const L=Math.max(0.5,Math.min(1.5,res.Fb/4000+0.45));
+    for(const bx of bolts){
+      if(cut&&bx<0) continue;
+      for(const zs of [1,-1]){
+        const cz=zs*(R+inp.e)*s, cx=bx*s;
+        const dy=bend*zShape(R+inp.e)*xMult(bx)*s;
+        const yT=(yEarTop)*s-dy+hHd;
+        arrowY(cx,cz,yT+L,yT+0.06,rSh*0.75,ARROW);
+        arrowY(cx,cz,-yT-L,-yT-0.06,rSh*0.75,ARROW);
+      }
+    }
+    for(const zs of [1,-1]) for(const bx of bolts){       // bore reaction, outward
+      if(cut&&bx<0) continue;
+      arrowY(bx*s,0,zs>0?ry*0.1:-ry*0.1,zs>0?ry+L*0.55:-(ry+L*0.55),rSh*0.6,REACT);
+    }
+  }
+  // widest point of the assembly, for the camera auto-fit
+  let rMax=0; for(const q of S) for(const p of q.p) rMax=Math.max(rMax,Math.hypot(p[0],p[1],p[2]));
+  fitR=rMax;
+  return s;
+}
+
+/* ── projection, culling, painting ── */
+function project(p,Wp,Hp,fl){
+  const cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);
+  const x1=p[0]*cy+p[2]*sy, z1=-p[0]*sy+p[2]*cy;
+  const y2=p[1]*cp-z1*sp, z2=p[1]*sp+z1*cp;
+  const zc=view.dist-z2;
+  return [Wp/2+x1*fl/zc, Hp/2-y2*fl/zc, zc, x1, y2, z2];
+}
+// light in VIEW space: upper-left, slightly behind the camera
+const LIGHT=(()=>{const l=[-0.40,0.66,0.64],n=Math.hypot(...l);return l.map(v=>v/n)})();
+// Newell's method: a reliable normal for any polygon, including the many-sided
+// non-planar end caps where picking three points gives a degenerate answer.
+function newell(p){
+  let nx=0,ny=0,nz=0;
+  for(let i=0;i<p.length;i++){
+    const a=p[i], b=p[(i+1)%p.length];
+    nx+=(a[1]-b[1])*(a[2]+b[2]); ny+=(a[2]-b[2])*(a[0]+b[0]); nz+=(a[0]-b[0])*(a[1]+b[1]);
+  }
+  return [nx,ny,nz];
+}
+
+function draw(){
+  const Wp=wrap.clientWidth, Hp=wrap.clientHeight||320;
+  const dpr=Math.min(devicePixelRatio||1,2);
+  if(cv.width!==Wp*dpr||cv.height!==Hp*dpr){cv.width=Wp*dpr;cv.height=Hp*dpr;}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle="#0b1015"; ctx.fillRect(0,0,Wp,Hp);
+  const fl=Math.min(Wp,Hp)*0.92;
+  // ease the camera so the whole part stays framed at any geometry
+  const want=Math.max(2.6,fitR*fl/(0.34*Math.min(Wp,Hp)));
+  view.dist+=(want-view.dist)*0.18;
+
+  const items=[];
+  for(const q of S){
+    const pp=q.p.map(p=>project(p,Wp,Hp,fl));
+    if(pp.some(p=>p[2]<=0.25)) continue;
+    // No back-face culling: the mesh mixes swept profiles with revolved solids,
+    // so windings aren't uniform. Instead take the normal in VIEW space and
+    // flip it toward the camera — then a single directional light reveals form
+    // (up-facing bright, down-facing dark) no matter how a face was wound.
+    let [nx,ny,nz]=newell(pp.map(p=>[p[3],p[4],p[5]]));
+    if(nz<0){nx=-nx;ny=-ny;nz=-nz;}
+    const nl=Math.hypot(nx,ny,nz)||1;
+    const sh=0.30+0.70*Math.max(0,(nx*LIGHT[0]+ny*LIGHT[1]+nz*LIGHT[2])/nl);
+    items.push({pp,c:q.c,sh,z:pp.reduce((t,p)=>t+p[2],0)/pp.length});
+  }
+  items.sort((p,q)=>q.z-p.z);
+  for(const it of items){
+    ctx.fillStyle=`rgb(${it.c.map(v=>Math.round(Math.min(1,v*it.sh)*255)).join(",")})`;
+    ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=0.6;
+    ctx.beginPath(); ctx.moveTo(it.pp[0][0],it.pp[0][1]);
+    for(let i=1;i<it.pp.length;i++) ctx.lineTo(it.pp[i][0],it.pp[i][1]);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  // remember bolt heads in screen space for grab hit-testing
+  boltScreen=boltScreen.map(b=>{const p=project([b.x,b.y,b.z],Wp,Hp,fl);return {sx:p[0],sy:p[1],z:p[2]}});
+}
+
+/* ── event flash: announce limits as they're crossed ── */
+let lastT=0;
+function flashEvents(res){
+  if(torque<=lastT){lastT=torque;return;}
+  for(const ev of res.events){
+    if(lastT<ev.T&&torque>=ev.T&&isFinite(ev.T)){
+      const c=ev.type==="goal"?"var(--green)":ev.type==="info"?"var(--blue)":"var(--red)";
+      const el=$("flash"); el.style.color=c; el.textContent=ev.label; el.classList.add("on");
+      clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("on"),1600);
+    }
+  }
+  lastT=torque;
+}
+
+const cell=(k,n,u,c,hot)=>`<div class="s${hot?" hot":""}"><div class="k">${k}</div><div class="n" style="color:${c||"var(--ink)"}">${n}</div><div class="u">${u}</div></div>`;
+
+let res=null, inp=null;
+function tick(){
+  // spring the torque toward its target so dragging/playing feels physical
+  if(playing){
+    playT+=0.016; const p=Math.min(playT/1.5,1);
+    torque=target*(1-Math.pow(1-p,3));
+    if(p>=1) playing=false;
+  } else if(!grabbing){
+    const k=reduced?1:0.22, d=target-torque;
+    if(Math.abs(d)>1e-4||Math.abs(vel)>1e-4){ vel=(vel+d*k)*0.62; torque+=vel; } else { torque=target; vel=0; }
+  }
+  if(spinning) view.yaw+=0.006;
+
+  inp=read(); res=CLAMP.solve(inp);
+  flashEvents(res);
+  const ex=+$("ex").value;
+  buildScene(inp,res,ex); draw();
+
+  $("Tval").textContent=f(torque,2)+" N·m";
+  $("exv").textContent="×"+ex;
+  $("hud").innerHTML=`T <b>${f(torque,2)} N·m</b> → <b>${f(res.Fb,0)} N</b>/bolt<br>
+    on cylinder <b>${f(res.Fcl,0)} N</b> · p <b>${f(res.p,2)} MPa</b><br>
+    grip <b>${f(res.FaxLT,0)} N</b> · gap <b>${res.bottomed?"SHUT":f(res.gapRemain,2)+" mm"}</b>`;
+
+  const worst=Math.min(res.SFflange,res.SFcrown,res.SFbear,res.SFcyl,res.SFbolt);
+  $("strip").innerHTML=
+    cell("grip LT",isFinite(res.SFslipLT)?f(res.SFslipLT,2):"∞",`${f(res.FaxLT,0)} N axial`,col(res.SFslipLT*(2/Math.max(inp.SFt,.5))))+
+    cell("ears",f(res.SFflange,2),`σ ${f(res.sigmaF,1)} MPa`,col(res.SFflange),res.SFflange===worst)+
+    cell("crown",f(res.SFcrown,2),`σ ${f(res.sigmaCrown,1)} MPa`,col(res.SFcrown),res.SFcrown===worst)+
+    cell(inp.hollow?"tube":"bore",f(res.SFcyl,2),`σ ${f(res.sigmaCyl,1)} MPa`,col(res.SFcyl),res.SFcyl===worst);
+  $("warns").innerHTML=res.warns.filter(w=>w.level!=="info").slice(0,2)
+    .map(w=>`<div class="warn ${w.level}">${w.text}</div>`).join("");
+
+  requestAnimationFrame(tick);
+}
+
+/* ── pointer: grab a bolt head to tighten, else orbit ── */
+function pos(ev){const r=cv.getBoundingClientRect();return [ev.clientX-r.left,ev.clientY-r.top]};
+cv.addEventListener("pointerdown",(ev)=>{
+  cv.setPointerCapture(ev.pointerId);
+  const [x,y]=pos(ev);
+  const hit=boltScreen.find(b=>Math.hypot(b.sx-x,b.sy-y)<26);
+  if(hit){ grabbing=true; dragY0=y; dragT0=torque; cv.classList.add("grabbing"); $("hint").textContent="pull down to tighten · release to settle"; }
+  else { view.drag=true; view.lx=ev.clientX; view.ly=ev.clientY; cv.classList.add("grabbing"); }
+});
+cv.addEventListener("pointermove",(ev)=>{
+  if(grabbing){
+    const [,y]=pos(ev);
+    const span=+$("T").max;
+    torque=Math.max(0,Math.min(span,dragT0+(y-dragY0)/90*span*0.55));
+    target=torque; $("T").value=torque;
+  } else if(view.drag){
+    view.yaw+=(ev.clientX-view.lx)*0.008;
+    view.pitch=Math.max(-1.25,Math.min(1.0,view.pitch+(ev.clientY-view.ly)*0.006));
+    view.lx=ev.clientX; view.ly=ev.clientY;
+  }
+});
+const release=()=>{ if(grabbing) $("hint").textContent="drag a bolt head to tighten · drag elsewhere to orbit";
+  grabbing=false; view.drag=false; cv.classList.remove("grabbing"); };
+cv.addEventListener("pointerup",release); cv.addEventListener("pointercancel",release);
+
+$("T").addEventListener("input",()=>{target=+$("T").value; playing=false;});
+$("play").addEventListener("click",()=>{ lastT=0; torque=0; playT=0; playing=true; target=+$("T").value; });
+for(const id of ["fx","cut","spin"]) $(id).addEventListener("click",()=>{
+  $(id).classList.toggle("on"); if(id==="spin") spinning=$("spin").classList.contains("on");
+});
+document.querySelectorAll("input,select").forEach(el=>{ if(el.id!=="T") el.addEventListener("input",()=>{
+  // re-range the torque slider from the new geometry's event ladder
+  const probe=CLAMP.solve({...read(),T:Math.max(torque,0.5)});
+  const evs=probe.events.filter(e=>isFinite(e.T)).map(e=>e.T);
+  const tmax=Math.max(2,Math.ceil(Math.min(1.4*Math.max(...evs,1),40)));
+  if(+$("T").max!==tmax) $("T").max=tmax;
+})});
+
+// first paint: a short tighten so the motion introduces itself
+$("T").dispatchEvent(new Event("input"));
+if(!reduced){ torque=0; playT=0; playing=true; target=1.2; }
+tick();
+</script>
+</body>
+</html>
