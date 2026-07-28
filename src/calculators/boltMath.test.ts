@@ -4,6 +4,9 @@ import {
   memberStiffness,
   jointResults,
   recommendedTorque,
+  coneRadiusAtDepth,
+  conePressureAtDepth,
+  flowLineStateAtDepth,
   THREADS,
   CLASSES,
   PLATE_MATERIALS,
@@ -79,6 +82,112 @@ describe("memberStiffness (Shigley 30° pressure cone)", () => {
     const a = memberStiffness(8, 6, 68.9, 14, 200);
     const b = memberStiffness(8, 14, 200, 6, 68.9);
     expect(a / b).toBeCloseTo(1, 6);
+  });
+});
+
+describe("pressure-cone load distribution", () => {
+  const GRIP = 20; // 8 + 12 mm
+
+  it("widens at 30° from each bearing face to mid-grip", () => {
+    const r0 = coneRadiusAtDepth(6, 0, GRIP);
+    const rMid = coneRadiusAtDepth(6, GRIP / 2, GRIP);
+    expect(r0).toBeCloseTo(1.5 * 6 * 0.5, 9); // starts at the washer face, dw/2
+    expect(rMid - r0).toBeCloseTo((GRIP / 2) * Math.tan(Math.PI / 6), 9);
+  });
+
+  it("is symmetric top-to-bottom — the cone converges back to the nut", () => {
+    for (const z of [0, 3, 7, 10, 14, 20]) {
+      expect(coneRadiusAtDepth(6, z, GRIP)).toBeCloseTo(coneRadiusAtDepth(6, GRIP - z, GRIP), 9);
+    }
+  });
+
+  it("peaks at the bearing faces and decays to a minimum at mid-grip", () => {
+    const F = 8000;
+    const samples = Array.from({ length: 21 }, (_, i) => conePressureAtDepth(6, F, (i / 20) * GRIP, GRIP));
+    const mid = samples[10];
+    expect(samples[0]).toBeGreaterThan(mid);
+    expect(samples[20]).toBeGreaterThan(mid);
+    expect(Math.min(...samples)).toBeCloseTo(mid, 9);
+    // monotonic decay over the top half
+    for (let i = 1; i <= 10; i++) expect(samples[i]).toBeLessThanOrEqual(samples[i - 1] + 1e-9);
+  });
+
+  it("matches the head bearing pressure at the surface", () => {
+    const j = jointResults(M6, C88, 0.2, 9, 10, STEEL, 10, STEEL, 0);
+    expect(conePressureAtDepth(6, j.F, 0, 20)).toBeCloseTo(j.pHead, 3);
+  });
+
+  it("matches the reported interface pressure at the plate boundary", () => {
+    const j = jointResults(M6, C88, 0.2, 9, 8, STEEL, 12, STEEL, 400);
+    // interface sits 8 mm down in a 20 mm grip; clamp force there is Fm
+    expect(conePressureAtDepth(6, j.Fm, 8, 20)).toBeCloseTo(j.pInt, 3);
+  });
+
+  it("scales linearly with clamp force", () => {
+    const a = conePressureAtDepth(6, 1000, 5, GRIP);
+    const b = conePressureAtDepth(6, 3000, 5, GRIP);
+    expect(b / a).toBeCloseTo(3, 9);
+    expect(conePressureAtDepth(6, 0, 5, GRIP)).toBe(0);
+  });
+
+  it("spreads load better in a thicker stack — lower mid-grip pressure", () => {
+    const thin = conePressureAtDepth(6, 8000, 5, 10);
+    const thick = conePressureAtDepth(6, 8000, 15, 30);
+    expect(thick).toBeLessThan(thin);
+  });
+});
+
+describe("flow-line coloring inside the clamped materials", () => {
+  const T1 = 8;
+  const T2 = 12;
+  const F = 5000;
+  const st = (z: number, m1 = PA12, m2 = STEEL) => flowLineStateAtDepth(8, F, z, T1, m1, T2, m2);
+
+  it("reads each depth against the material actually there", () => {
+    // Same pressure either side of the interface, but very different margins:
+    // the soft plate is near its limit while the steel one is nowhere near.
+    const soft = st(7.9);
+    const hard = st(8.1);
+    // Pressure is continuous across the interface (differs only by the cone
+    // widening over that 0.2 mm) …
+    expect(Math.abs(soft.pressure / hard.pressure - 1)).toBeLessThan(0.05);
+    expect(soft.ratio).toBeGreaterThan(hard.ratio * 5); // margin is not
+    expect(hard.ratio).toBeLessThan(0.3);
+  });
+
+  it("flags the soft plate as over its limit while steel stays safe", () => {
+    expect(st(0).ratio).toBeGreaterThan(1); // PA12 under the head: crushing
+    expect(st(T1 + T2).ratio).toBeLessThan(1); // steel at the nut: fine
+  });
+
+  it("swaps which half is hot when the materials swap", () => {
+    const softTop = st(1, PA12, STEEL);
+    const softBottom = st(T1 + T2 - 1, PA12, STEEL);
+    const flippedTop = st(1, STEEL, PA12);
+    const flippedBottom = st(T1 + T2 - 1, STEEL, PA12);
+    expect(softTop.ratio).toBeGreaterThan(flippedTop.ratio);
+    expect(flippedBottom.ratio).toBeGreaterThan(softBottom.ratio);
+  });
+
+  it("brightness peaks at both bearing faces and dips at mid-grip", () => {
+    expect(st(0).bright).toBeCloseTo(1, 9);
+    expect(st(T1 + T2).bright).toBeCloseTo(1, 9);
+    const mid = st((T1 + T2) / 2).bright;
+    expect(mid).toBeLessThan(0.6); // load is genuinely diluted in the middle
+    expect(mid).toBeGreaterThan(0);
+  });
+
+  it("dims everything to zero when the joint separates", () => {
+    const s = flowLineStateAtDepth(8, 0, 4, T1, PA12, T2, STEEL);
+    expect(s.pressure).toBe(0);
+    expect(s.ratio).toBe(0);
+    expect(s.bright).toBe(0);
+  });
+
+  it("shows a thicker stack spreading load further — dimmer middle", () => {
+    const thin = flowLineStateAtDepth(8, F, 5, 5, STEEL, 5, STEEL).bright;
+    const thick = flowLineStateAtDepth(8, F, 20, 20, STEEL, 20, STEEL).bright;
+    expect(thick).toBeLessThan(thin);
   });
 });
 

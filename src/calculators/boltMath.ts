@@ -69,6 +69,8 @@ export const PLATE_MATERIALS: Record<string, PlateMaterial> = {
   "Ti-6Al-4V": { E: 114, sy: 880, pG: 900, tone: "#4c4a42" },
   "FR-4 PCB (glass-epoxy)": { E: 12, sy: 300, pG: 60, tone: "#2f4a3c" },
   "POM / Delrin": { E: 3.1, sy: 70, pG: 90, tone: "#4e4c44" },
+  ABS: { E: 2.2, sy: 45, pG: 55, tone: "#4c4644" },
+  "ABS-PC blend": { E: 2.4, sy: 55, pG: 65, tone: "#4a4548" },
   "Nylon 12 (PA12)": { E: 1.7, sy: 48, pG: 50, tone: "#464a40" },
   "Nylon 12 GF30 (glass-filled)": { E: 6.0, sy: 110, pG: 110, tone: "#4a4e42" },
   "Nylon 6/6 (PA66, dry)": { E: 2.8, sy: 80, pG: 70, tone: "#484c42" },
@@ -160,6 +162,54 @@ export function memberStiffness(dMm: number, t1Mm: number, E1Gpa: number, t2Mm: 
 export function bearingArea(dMm: number): number {
   const d = dMm / 1000;
   return (Math.PI / 4) * (Math.pow(DW_RATIO * d, 2) - Math.pow(DHOLE_RATIO * d, 2));
+}
+
+// Radius of the pressure cone at depth z (mm) below the head bearing face,
+// for a grip of gripMm. The cone widens at 30° from under the head to the
+// grip midplane, then narrows back to the nut face — so the load spreads out
+// and converges again, and the same clamp force is carried by a much larger
+// area in the middle than at the two bearing surfaces.
+export function coneRadiusAtDepth(dMm: number, zMm: number, gripMm: number): number {
+  const grip = Math.max(gripMm, 1e-9);
+  const z = Math.max(0, Math.min(grip, zMm));
+  const spread = Math.min(z, grip - z);
+  return (DW_RATIO * dMm) / 2 + spread * CONE_TAN;
+}
+
+// Local compressive pressure inside the clamped members at depth z (mm),
+// carrying clamp force F (N). Highest at the two bearing faces where the
+// cone is narrowest, lowest at mid-grip where it is widest — this is the
+// load distribution the 3D viewer draws as flow lines.
+export function conePressureAtDepth(dMm: number, FN: number, zMm: number, gripMm: number): number {
+  const R = coneRadiusAtDepth(dMm, zMm, gripMm) / 1000; // m
+  const rh = (DHOLE_RATIO * dMm) / 2 / 1000;
+  const A = Math.PI * (R * R - rh * rh);
+  return A > 0 ? Math.max(0, FN) / A : 0;
+}
+
+// What a load-flow line should look like at depth z: `ratio` is the local
+// pressure against the limit of whichever plate that depth falls in (hue —
+// how close THAT material is to crushing), `bright` is the pressure relative
+// to its peak at the bearing faces (how concentrated the load is there, so
+// the spread stays visible even in a joint far from its limit).
+export function flowLineStateAtDepth(
+  dMm: number,
+  clampN: number,
+  zMm: number,
+  t1Mm: number,
+  m1: PlateMaterial,
+  t2Mm: number,
+  m2: PlateMaterial,
+): { ratio: number; bright: number; pressure: number } {
+  const grip = Math.max(t1Mm, 0) + Math.max(t2Mm, 0);
+  const p = conePressureAtDepth(dMm, clampN, zMm, grip);
+  const pG = (zMm <= t1Mm ? m1.pG : m2.pG) * 1e6;
+  const pPeak = conePressureAtDepth(dMm, clampN, 0, grip);
+  return {
+    pressure: p,
+    ratio: pG > 0 ? p / pG : 0,
+    bright: pPeak > 0 ? p / pPeak : 0,
+  };
 }
 
 // Recommended tightening torque for the *assembled joint*, not just the bolt.

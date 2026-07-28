@@ -37,3 +37,20 @@ export const COMPRESSION_STOPS: Stops = [
 export function signedStressColor(signed: number) {
   return signed >= 0 ? rampColor(TENSION_STOPS, signed) : rampColor(COMPRESSION_STOPS, -signed);
 }
+
+// Severity ramp for material under compression, as a fraction of its own
+// permissible pressure. Keeps the toolkit's compression identity (green →
+// teal → blue) while it is healthy, then breaks to amber and red as the
+// material approaches and exceeds its limit — so "heavily loaded but fine"
+// and "being crushed" never look alike.
+const COMPRESSION_SEVERITY_STOPS: Stops = [
+  [0.0, NEUTRAL_RGB],
+  [0.4, [0.2, 0.58, 0.68]], // teal — comfortably loaded
+  [0.7, [0.27, 0.46, 0.9]], // blue — working hard
+  [0.95, [0.92, 0.62, 0.24]], // amber — at the limit
+  [1.15, [0.95, 0.25, 0.25]], // red — crushing
+];
+
+export function compressionSeverityColor(ratio: number) {
+  return rampColor(COMPRESSION_SEVERITY_STOPS, Math.max(0, ratio));
+}

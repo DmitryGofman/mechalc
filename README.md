@@ -10,7 +10,7 @@ yielding.
 | Route | Calculator | Status |
 | --- | --- | --- |
 | `/flexure-calculator` | **Cantilever Flexure** — stiffness, force, peak bending stress and yield safety factor for a rectangular flexure blade; bend the 3D beam interactively | ready |
-| `/bolt-calculator` | **Bolted Joint — Screw Strength** — torque → preload, VDI 2230-style reduced (von Mises) stress, plus the full clamped-sandwich model: per-plate materials, Shigley pressure-cone member stiffness, load sharing, separation and bearing-crush checks; tighten the 3D nut and watch the pressure cones | ready |
+| `/bolt-calculator` | **Bolted Joint — Screw Strength** — torque → preload, VDI 2230-style reduced (von Mises) stress, plus the full clamped-sandwich model: per-plate materials, Shigley pressure-cone member stiffness, load sharing, separation and bearing-crush checks; tighten the 3D nut and watch the load-flow lines spread through the plates | ready |
 | `/beam-calculator` | **Beam on Two Supports** — center-load stiffness, force and peak stress for a span held at both ends, pinned (48EI/L³) or built-in (192EI/L³); press the middle of the 3D beam and the stress colors trace the bending-moment diagram | ready |
 | `/buckling-calculator` | **Column Buckling** — Euler critical load for all four classical end conditions (K = 0.5 / 0.7 / 1.0 / 2.0) with the Johnson parabola for short columns; push the 3D column's load platen and watch the initial imperfection amplify by 1/(1−P/Pcr) into the mode shape | ready |
 | — | Shaft in Torsion · Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
@@ -76,6 +76,14 @@ and thickness — giving joint stiffness ratio `C = kb/(kb+km)`, external-load
 sharing `Fb = Fi + C·P`, separation load, interface pressure, and bearing-pressure
 (crushing) checks against per-material permissible pressures pG. Target 60–75% of
 proof preload; K scatters ±25% between real joints.
+
+The 3D view draws the **load distribution inside the clamped materials** as flow
+lines following the pressure cone: local pressure `p(z) = F / [π(R(z)² − rh²)]`
+with `R(z) = dw/2 + min(z, L−z)·tan30°`, so it peaks at the two bearing faces and
+is diluted at mid-grip. Line hue is that pressure against the pG of whichever
+plate the depth falls in (a mixed stack shows one half hot, the other cool under
+the same force); line brightness is pressure relative to its peak, so the spread
+stays legible far from the limit.
 
 Material and fastener values are typical reference figures — verify before
 production use.
