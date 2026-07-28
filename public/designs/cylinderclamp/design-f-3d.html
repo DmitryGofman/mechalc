@@ -47,6 +47,12 @@
   .btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
   .btn.on{border-color:var(--blue);color:var(--blue)}
   .btnrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .tabbar{display:flex;gap:2px;border-bottom:1px solid var(--line2);margin:12px 0 4px}
+  .tabbtn{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;cursor:pointer;
+     background:none;border:none;border-bottom:2px solid transparent;color:var(--faint);padding:8px 12px}
+  .tabbtn:hover{color:var(--dim)} .tabbtn.on{color:var(--blue);border-bottom-color:var(--blue)}
+  .tabbtn:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+  .tabpane{display:none} .tabpane.on{display:block}
 
   .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px}
   .s{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:7px 8px;min-width:0}
@@ -139,6 +145,12 @@
     for real. Drag anywhere else to orbit.</div>
   </div>
 
+  <div class="tabbar" role="tablist">
+    <button class="tabbtn on" id="tabModel" data-t="model" role="tab" aria-selected="true">Model</button>
+    <button class="tabbtn" id="tabTheory" data-t="theory" role="tab" aria-selected="false">Theory &amp; report</button>
+  </div>
+
+  <div class="tabpane on" data-t="model">
   <div id="wrap">
     <canvas id="view"></canvas>
     <div id="hud"></div>
@@ -162,6 +174,7 @@
     <button class="btn" id="cut">Half section</button>
     <button class="btn" id="spin">Auto-spin</button>
     <button class="btn on" id="smode">Stress colours</button>
+    <button class="btn on" id="ascale">Auto scale</button>
     <span style="flex:1"></span>
     <span class="bar" style="margin:0;padding:4px 9px;gap:6px">
       <span class="lab">OPACITY</span>
@@ -177,8 +190,7 @@
 
   <div class="strip" id="strip"></div>
   <div class="legend">
-    <span id="lgTens"><i style="background:linear-gradient(90deg,#4fb477,#d98c38,#d64545)"></i>tension</span>
-    <span id="lgComp"><i style="background:linear-gradient(90deg,#4fb477,#349bb0,#456fe6)"></i>compression</span>
+    <span><i style="background:linear-gradient(90deg,#456fe6,#349bb0,#4fb477,#d98c38,#d64545)"></i><span id="lgTxt">—</span></span>
     <span><i style="background:#4a8cd1"></i>bolt force</span>
     <span><i style="background:#4fb477"></i>bore reaction</span>
   </div>
@@ -212,7 +224,10 @@
     </div>
   </details>
 
-  <div class="theory">
+  </div><!-- /model pane -->
+
+  <div class="tabpane" data-t="theory">
+  <div class="theory" style="margin-top:6px;border-top:none;padding-top:4px">
     <div class="lab">HOW IT WORKS — THE DIMENSIONS</div>
     <svg id="dims" viewBox="0 0 400 250" role="img" aria-label="Dimensioned cross-section of the clamp"></svg>
     <p><b>One height dimension.</b> The body is a flat block, so you set <b>H</b> — its height above the split face —
@@ -225,6 +240,16 @@
     <h3>Why the crown carries more moment than the ear</h3>
     <div class="deriv" id="deriv"></div>
 
+    <h3>How the deflection δ is calculated</h3>
+    <div id="defl"></div>
+    <p><b>Why the outer ends of the flanges carry nothing.</b> Past the bolt line there is no load left to
+    carry — the material outboard of the bolt is an <em>overhang</em>, so its bending moment is zero and it
+    colours neutral. It is not a modelling gap: that material is there to hold the bolt head and to give you
+    something to grip, not to carry bending. Between the bore wall and the bolt the moment ramps up as
+    <span class="mth">${V("M")} = ${V("F")}·(${V("a")} − |${V("z")}|)</span>, and it peaks over the bore where
+    the section is thinnest. If you want the ears to work harder, move the bolt closer to the bore (smaller
+    <b>e</b>) — that shortens the lever on the crown too.</p>
+
     <div class="lab" style="margin-top:18px">CALCULATION REPORT</div>
     <div id="report"></div>
     <p style="margin-top:12px"><b>Where the constants come from.</b> The nut factor <b>K</b> lumps thread and
@@ -234,6 +259,8 @@
     (45–60% for printed polymers) is a typical stress-relaxation figure, not a measured one for your print settings.
     Calibrate against one bench pull-test before trusting absolute numbers.</p>
   </div>
+
+  </div><!-- /theory pane -->
 
   <div class="note"><strong>What you're watching:</strong> deflections are real but tiny — <b>SPLIT ×</b> magnifies the flange gap and every
   deflection by the same factor, so the halves close in true proportion and meet exactly when the joint bottoms out. Ears rotate down toward the split plane, the tube squashes vertically and bulges sideways, and the
@@ -340,6 +367,7 @@ function buildScene(inp,res,ex){
   const maxDim=Math.max(2*half,W,2*(g2+H));
   const s=3.3/maxDim;
   const cut=$("cut").classList.contains("on");
+  const opaque=(+$("op").value)>=100;
 
   const oval=Math.min((res.dOval||0)*ex,R*0.3);
   const lift=Math.max(0,(g2-oval/2))*ex;          // rigid separation of each half
@@ -365,21 +393,30 @@ function buildScene(inp,res,ex){
   // surfaces in tension (red), bore surfaces in compression (blue), neutral
   // axis green — so it slides smoothly instead of stepping between bands.
   const stressMode=$("smode").classList.contains("on");
-  const shade=(z,y)=> stressMode
-    ? CLAMP.stressRGB(CLAMP.bodyStressRatio(inp,res,z,y))
-    : (Math.abs(z)>R ? mix(earC) : mix(crownC));
+  const shade=(z,y)=> stressMode ? stressAt(z,y) : (Math.abs(z)>R ? mix(earC) : mix(crownC));
 
   // ── the two halves: sweep the local profile along X ──
-  const prof=densify(halfProfile(R,half,g2,H,16),Math.max(2.5,(half+H)/9));
-  const NX=Math.max(6,Math.min(2*nSide+6,14));
+  const prof=densify(halfProfile(R,half,g2,H,20),Math.max(1.6,(half+H)/26));
+  const NX=unev>0?10:4;   // geometry only varies along X when the ears sag between bolts
   const x0=cut?0:-W/2;
-  const pt=(zi,xi,up)=>{
-    const [z,ly]=prof[zi];
+  const ptAt=(z,ly,xi,up)=>{
     const x=x0+(W/2-x0)*xi/NX;
     const drop=bend*zShape(Math.abs(z))*xMult(x);
     const y=lift+ly-drop;                          // local → world, then mirror
     return [x*s,(up?y:-y)*s,z*s];
   };
+  const pt=(zi,xi,up)=>ptAt(prof[zi][0],prof[zi][1],xi,up);
+
+  // Colour scale. "Auto" normalises to the peak stress present right now, so
+  // the gradient stays readable even when the part is nowhere near yield;
+  // the legend prints the real MPa at each end so it never misleads.
+  const auto=$("ascale").classList.contains("on");
+  let sMax=1e-6;
+  for(let i=0;i<=24;i++) for(let j=0;j<=12;j++)
+    sMax=Math.max(sMax,Math.abs(CLAMP.bodyStressRatio(inp,res,-half+2*half*i/24,H*j/12)));
+  const sDiv=auto?sMax:1;
+  scaleMPa=sDiv*CLAMP.CLAMP_MATS[inp.mat].sy;
+  const stressAt=(z,y)=>CLAMP.stressRGB(CLAMP.bodyStressRatio(inp,res,z,y)/sDiv);
   for(const up of [true,false]){
     const O=[0,(up?1:-1)*(lift+H/2)*s,0];       // centroid of this half
     for(let i=0;i<prof.length;i++){
@@ -391,9 +428,21 @@ function buildScene(inp,res,ex){
         poly(up?[A,B,C,D2]:[D2,C,B,A],c,O);
       }
     }
+    // End faces carry the whole cross-section, so mesh them and colour each
+    // cell by its own stress — this is where the gradient through the section
+    // (tension at the top, compression at the bore) is actually visible.
+    const NZ=24, NY=12;
     for(const k of [0,NX]){
-      const face=prof.map((_,i)=>pt(i,k,up));
-      poly((k===0)===up?face:face.slice().reverse(),stressMode?CLAMP.stressRGB(0):govC,O);
+      if(!stressMode){ const face=prof.map((_,i)=>pt(i,k,up));
+        poly((k===0)===up?face:face.slice().reverse(),govC,O); continue; }
+      for(let i=0;i<NZ;i++) for(let j=0;j<NY;j++){
+        const z0=-half+2*half*i/NZ, z1=-half+2*half*(i+1)/NZ;
+        const y0=H*j/NY, y1=H*(j+1)/NY;
+        const zc=(z0+z1)/2, yc=(y0+y1)/2;
+        if(zc*zc+(yc+g2)*(yc+g2)<R*R) continue;    // this cell is inside the bore
+        const q=[ptAt(z0,y0,k,up),ptAt(z1,y0,k,up),ptAt(z1,y1,k,up),ptAt(z0,y1,k,up)];
+        poly((k===0)===up?q:q.slice().reverse(),stressAt(zc,yc),O);
+      }
     }
   }
 
@@ -405,6 +454,8 @@ function buildScene(inp,res,ex){
   const outer=xs.map(x=>ring(ry,rz,x));
   const OC=[0,0,0];
   for(let k=0;k<NL;k++) for(let i=0;i<NA;i++){const j=(i+1)%NA;
+    const xm=Math.abs((xs[k]+xs[k+1])/2), ym=Math.abs((outer[k][i][1]+outer[k+1][j][1])/2);
+    if(opaque && xm<W/2*s && ym>lift*s) continue;   // buried in the body: not visible
     poly([outer[k][i],outer[k][j],outer[k+1][j],outer[k+1][i]],cylC,[(xs[k]+xs[k+1])/2,0,0]);}
   if(inp.hollow){
     const inner=xs.map(x=>ring(ry-tw*s,rz-tw*s,x));
@@ -424,8 +475,15 @@ function buildScene(inp,res,ex){
       const cz=zs*(R+inp.e)*s, cx=bx*s;
       const drop=bend*zShape(R+inp.e)*xMult(bx)*s;
       const yT=yTop*s-drop, yB=-yTop*s+drop;
-      for(let k=0;k<6;k++)                                   // shank in slices, same reason
-        frustumY(cx,cz,yB+(yT-yB)*k/6,yB+(yT-yB)*(k+1)/6,rSh,rSh,boltC,12);
+      // Slice the shank, and when the body is opaque draw only the slices you
+      // could actually see: above the block, below it, or crossing the gap.
+      // Painter's-algorithm sorting can never get a buried bolt right — the
+      // honest fix is not to draw it. That is the shank "jumping out".
+      for(let k=0;k<8;k++){
+        const ya=yB+(yT-yB)*k/8, yb2=yB+(yT-yB)*(k+1)/8, ym=Math.abs((ya+yb2)/2);
+        if(opaque && ym>lift*s && ym<(lift+H)*s) continue;
+        frustumY(cx,cz,ya,yb2,rSh,rSh,boltC,12);
+      }
       frustumY(cx,cz,yT,yT+hHd,rHd,rHd,bearC,6);
       frustumY(cx,cz,yB-hHd*1.15,yB,rHd,rHd,bearC,6);
       boltScreen.push({x:cx,y:yT+hHd,z:cz});
@@ -485,6 +543,7 @@ function newell(p){
 }
 
 function draw(){
+  if(!wrap.offsetParent) return;   // Model tab not visible — nothing to paint
   const Wp=wrap.clientWidth, Hp=wrap.clientHeight||320;
   const dpr=Math.min(devicePixelRatio||1,2);
   if(cv.width!==Wp*dpr||cv.height!==Hp*dpr){cv.width=Wp*dpr;cv.height=Hp*dpr;}
@@ -633,6 +692,31 @@ const eqn=(lead,sym,sub,res,cls,cmt)=>
   `<span class="res ${cls||""}">${res}</span></span>${cmt?`<span class="cmt">${cmt}</span>`:""}</div>`;
 const sfCls=(sf)=>sf>=2?"":sf>=1.2?"warn":"bad";
 
+function renderDeflection(inp,res){
+  const f=CLAMP.fmt, n3=(v)=>v.toFixed(3), R=inp.D/2;
+  const cm=CLAMP.CLAMP_MATS[inp.mat], cy=CLAMP.CYL_MATS[inp.cyl];
+  const I=res.b*Math.pow(res.H,3)/12, Rm=(inp.D-Math.min(inp.tw,R))/2, tw=Math.min(inp.tw,R);
+  $("defl").innerHTML=
+    eqn("Second moment of the ear section",
+      `${V("I")} = ${FR(`${V("b")}·${V("H")}³`,"12")}`,
+      FR(`${f(res.b,1)} × ${f(res.H,1)}³`,"12"), `${f(I,0)} mm⁴`)+
+    eqn("Ear tip deflection — a cantilever of length e",
+      `δ<sub>ear</sub> = ${FR(`${V("F")}·${V("e")}³`,`3·${V("E")}·${V("I")}`)}`,
+      FR(`${Math.round(res.Fb)} × ${f(inp.e,1)}³`,`3 × ${f(cm.E,0)} × ${f(I,0)}`), `${n3(res.dFl)} mm`,"",
+      "Each ear bends like a little cantilever built in at the bore wall, loaded at the bolt. Both halves do it, so the two faces approach each other by twice this.")+
+    (inp.hollow?eqn("Tube ovalization — a ring under a diametral pinch",
+      `δ<sub>oval</sub> = ${FR(`0.149·λ·${V("q")}·${V("R")}<sub>m</sub>³`,`${V("E")}<sub>cyl</sub>·${V("I")}<sub>ring</sub>`)}`,
+      `λ = 0.20 · R<sub>m</sub> = ${f(Rm,1)} mm · I<sub>ring</sub> = t³/12 = ${f(Math.pow(tw,3)/12,3)} mm⁴/mm`,
+      `${n3(res.dOval)} mm`,"",
+      "Roark's thin-ring result. Only the non-uniform share λ of the clamp load bends the ring — uniform pressure is pure hoop compression and squashes nothing.")
+      :`<div class="eqn"><span class="lead">Tube ovalization</span><span class="mth">solid rod — none</span></div>`)+
+    eqn("Gap consumed, and what is left",
+      `${V("g")}<sub>left</sub> = gap − (2δ<sub>ear</sub> + δ<sub>oval</sub>)`,
+      `${f(inp.gap,2)} − (2×${n3(res.dFl)} + ${n3(res.dOval)})`,
+      res.bottomed?"0 — SHUT":`${f(res.gapRemain,2)} mm`,res.bottomed?"bad":"",
+      `These are the real numbers — hundredths of a millimetre. In the 3D view the split and every deflection are magnified by the same SPLIT × factor, which is why the halves still meet exactly when this reaches zero.`);
+}
+
 function renderReport(inp,res,rec,spec){
   const f=CLAMP.fmt, R=inp.D/2, n2=(v)=>v.toFixed(2), n0=(v)=>Math.round(v).toLocaleString("en-US");
   const cm=CLAMP.CLAMP_MATS[inp.mat], cy=CLAMP.CYL_MATS[inp.cyl];
@@ -721,7 +805,7 @@ function renderReport(inp,res,rec,spec){
 }
 
 
-let res=null, inp=null, lastSig="";
+let res=null, inp=null, lastSig="", scaleMPa=1;
 function tick(){
   // spring the torque toward its target so dragging/playing feels physical
   if(playing){
@@ -767,7 +851,7 @@ function tick(){
   // pure churn. Refresh only when an input or the torque actually changes.
   const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
   if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
-    renderReport(inp,res,rec,CLAMP.boltSpec(inp)); }
+    renderReport(inp,res,rec,CLAMP.boltSpec(inp)); renderDeflection(inp,res); }
 
   requestAnimationFrame(tick);
 }
@@ -799,8 +883,13 @@ cv.addEventListener("pointerup",release); cv.addEventListener("pointercancel",re
 
 $("T").addEventListener("input",()=>{target=+$("T").value; playing=false;});
 $("play").addEventListener("click",()=>{ lastT=0; torque=0; playT=0; playing=true; target=+$("T").value; });
+document.querySelectorAll(".tabbtn").forEach(t=>t.addEventListener("click",()=>{
+  document.querySelectorAll(".tabbtn").forEach(x=>{const on=x===t;x.classList.toggle("on",on);x.setAttribute("aria-selected",on)});
+  document.querySelectorAll(".tabpane").forEach(x=>x.classList.toggle("on",x.dataset.t===t.dataset.t));
+  lastSig="";   // force the report/drawing to refresh when Theory is revealed
+}));
 $("useRec").addEventListener("click",()=>{ if(+$("T").max<recT) $("T").max=Math.ceil(recT*1.4); $("T").value=recT; target=recT; playing=false; });
-for(const id of ["fx","cut","spin","smode"]) $(id).addEventListener("click",()=>{
+for(const id of ["fx","cut","spin","smode","ascale"]) $(id).addEventListener("click",()=>{
   $(id).classList.toggle("on"); if(id==="spin") spinning=$("spin").classList.contains("on");
 });
 document.querySelectorAll("input,select").forEach(el=>{ if(el.id!=="T") el.addEventListener("input",()=>{
