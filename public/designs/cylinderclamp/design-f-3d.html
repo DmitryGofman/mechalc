@@ -242,6 +242,9 @@
 
     <h3>How the deflection δ is calculated</h3>
     <div id="defl"></div>
+    <h3>Why so much of the part sits near zero</h3>
+    <p id="whyGreen"></p>
+
     <p><b>Why the outer ends of the flanges carry nothing.</b> Past the bolt line there is no load left to
     carry — the material outboard of the bolt is an <em>overhang</em>, so its bending moment is zero and it
     colours neutral. It is not a modelling gap: that material is there to hold the bolt head and to give you
@@ -416,13 +419,22 @@ function buildScene(inp,res,ex){
     sMax=Math.max(sMax,Math.abs(CLAMP.bodyStressRatio(inp,res,-half+2*half*i/24,H*j/12)));
   const sDiv=auto?sMax:1;
   scaleMPa=sDiv*CLAMP.CLAMP_MATS[inp.mat].sy;
-  const stressAt=(z,y)=>CLAMP.stressRGB(CLAMP.bodyStressRatio(inp,res,z,y)/sDiv);
+  // Bending stress spans a huge range on this part — the crown runs ~6x the
+  // ear, and every section passes through zero at its own neutral axis. On a
+  // straight linear ramp that leaves most of the body sitting at green. Auto
+  // scale therefore applies a √ transfer (standard FEA post-processing), which
+  // expands the low end so the whole field reads while keeping the ordering
+  // and the sign intact. The legend states the real MPa at the ends.
+  const curve=(r)=>auto?Math.sign(r)*Math.sqrt(Math.abs(r)):r;
+  const stressAt=(z,y)=>CLAMP.stressRGB(curve(CLAMP.bodyStressRatio(inp,res,z,y)/sDiv));
   for(const up of [true,false]){
     const O=[0,(up?1:-1)*(lift+H/2)*s,0];       // centroid of this half
     for(let i=0;i<prof.length;i++){
       const j=(i+1)%prof.length;
       let c=shade((prof[i][0]+prof[j][0])/2,(prof[i][1]+prof[j][1])/2);
-      if(Math.abs(prof[i][1])<1e-9&&Math.abs(prof[j][1])<1e-9) c=c.map(v=>v*0.34); // flange face
+      // flange (mating) face: keep it darker so the split still reads, but let
+      // its own stress through instead of painting it a flat slab of grey
+      if(Math.abs(prof[i][1])<1e-9&&Math.abs(prof[j][1])<1e-9) c=c.map(v=>v*0.62);
       for(let k=0;k<NX;k++){
         const A=pt(i,k,up),B=pt(j,k,up),C=pt(j,k+1,up),D2=pt(i,k+1,up);
         poly(up?[A,B,C,D2]:[D2,C,B,A],c,O);
@@ -717,6 +729,23 @@ function renderDeflection(inp,res){
       `These are the real numbers — hundredths of a millimetre. In the 3D view the split and every deflection are magnified by the same SPLIT × factor, which is why the halves still meet exactly when this reaches zero.`);
 }
 
+function renderWhyGreen(inp,res){
+  const f=CLAMP.fmt, R=inp.D/2, a=R+inp.e;
+  const ratio=res.sigmaF>0?res.sigmaCrown/res.sigmaF:Infinity;
+  $("whyGreen").innerHTML=
+    `Two reasons, and both are real rather than a gap in the model. <b>First, every bent section passes through
+     zero at its own neutral axis.</b> Bending puts one face in tension and the opposite face in compression, so
+     the middle of the wall is genuinely unstressed — that green band through the middle of the cut face is
+     physics, not missing data. <b>Second, the ear is far stiffer than the crown.</b> Both are cut from the same
+     flat block, but the crown is the block <em>minus the bore</em>: ${f(res.tc,1)} mm deep against
+     ${f(res.H,1)} mm, and section strength goes as depth squared. Same block, same load, and the crown still
+     carries <b>${f(ratio,1)}×</b> the stress of the ear — ${f(res.sigmaCrown,1)} MPa against
+     ${f(res.sigmaF,1)} MPa. Turning the torque up scales both together, so the picture never evens out; the
+     ratio is set by geometry alone. To load the ears harder, bring the bolt in towards the bore (smaller
+     <b>e</b>) or trim the overhang past it. <b>Auto scale</b> applies a √ transfer that expands the low end so
+     you can read the weak field; switch it off for a straight linear ramp against yield.`;
+}
+
 function renderReport(inp,res,rec,spec){
   const f=CLAMP.fmt, R=inp.D/2, n2=(v)=>v.toFixed(2), n0=(v)=>Math.round(v).toLocaleString("en-US");
   const cm=CLAMP.CLAMP_MATS[inp.mat], cy=CLAMP.CYL_MATS[inp.cyl];
@@ -825,6 +854,11 @@ function tick(){
 
   $("Tval").textContent=torque.toFixed(2)+" N·m";
   $("exv").textContent="×"+ex;
+  $("opv").textContent=$("op").value+"%";
+  $("lgTxt").textContent=$("smode").classList.contains("on")
+    ? `−${f(scaleMPa,1)} … 0 … +${f(scaleMPa,1)} MPa` +
+      ($("ascale").classList.contains("on")?" · √ scale, low stress expanded":" · linear vs yield")
+    : "colour = safety factor of that part";
   $("hud").innerHTML=`T <b>${torque.toFixed(2)} N·m</b> → <b>${f(res.Fb,0)} N</b>/bolt<br>
     on cylinder <b>${f(res.Fcl,0)} N</b> · p <b>${f(res.p,2)} MPa</b><br>
     grip <b>${f(res.FaxLT,0)} N</b> · gap <b>${res.bottomed?"SHUT":f(res.gapRemain,2)+" mm"}</b>`;
@@ -851,7 +885,7 @@ function tick(){
   // pure churn. Refresh only when an input or the torque actually changes.
   const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
   if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
-    renderReport(inp,res,rec,CLAMP.boltSpec(inp)); renderDeflection(inp,res); }
+    renderReport(inp,res,rec,CLAMP.boltSpec(inp)); renderDeflection(inp,res); renderWhyGreen(inp,res); }
 
   requestAnimationFrame(tick);
 }
