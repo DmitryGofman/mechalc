@@ -174,7 +174,7 @@
     <button class="btn" id="cut">Half section</button>
     <button class="btn" id="spin">Auto-spin</button>
     <button class="btn on" id="smode">Stress colours</button>
-    <button class="btn on" id="ascale">Auto scale</button>
+    <button class="btn on" id="ascale">√ Contrast</button>
     <span style="flex:1"></span>
     <span class="bar" style="margin:0;padding:4px 9px;gap:6px">
       <span class="lab">OPACITY</span>
@@ -385,11 +385,13 @@ function buildScene(inp,res,ex){
   const tone=hex2rgb(CLAMP.CLAMP_MATS[inp.mat].tone);
   const earC=hex2rgb(col(res.SFflange)), crownC=hex2rgb(col(res.SFcrown));
   const stressOn=$("smode").classList.contains("on");
-  const cylC=stressOn?CLAMP.stressRGB(-Math.min(res.sigmaCyl/(CLAMP.CYL_MATS[inp.cyl].sy||1),1.4)):hex2rgb(col(res.SFcyl));
+  const cv0=Math.min(res.sigmaCyl/(CLAMP.CYL_MATS[inp.cyl].sy||1),1.9);
+  const cylC=stressOn?CLAMP.stressRGB(-($("ascale").classList.contains("on")?Math.sqrt(cv0):cv0)):hex2rgb(col(res.SFcyl));
   const STEEL=[0.62,0.66,0.70], ARROW=[0.29,0.55,0.82], REACT=[0.31,0.71,0.47];
   const steely=(c)=>c.map((v,i)=>v*0.55+STEEL[i]*0.45);
-  const boltC=steely(stressOn?CLAMP.stressRGB(Math.min(res.vm/(CLAMP.CLASSES[inp.cls].sp||1),1.4)):hex2rgb(col(res.SFbolt)));
-  const bearC=steely(stressOn?CLAMP.stressRGB(Math.min(res.pHead/(CLAMP.CLAMP_MATS[inp.mat].pG||1),1.4)):hex2rgb(col(res.SFbear)));
+  const cvt=(r)=>$("ascale").classList.contains("on")?Math.sqrt(Math.min(r,1.9)):Math.min(r,1.4);
+  const boltC=steely(stressOn?CLAMP.stressRGB(cvt(res.vm/(CLAMP.CLASSES[inp.cls].sp||1))):hex2rgb(col(res.SFbolt)));
+  const bearC=steely(stressOn?CLAMP.stressRGB(cvt(res.pHead/(CLAMP.CLAMP_MATS[inp.mat].pG||1))):hex2rgb(col(res.SFbear)));
   const mix=(c)=>c.map((v,i)=>v*0.78+tone[i]*0.22);
   const govC=mix(res.SFflange<=res.SFcrown?earC:crownC);
   // Two colour modes. STRESS paints the real signed bending field — outer
@@ -410,22 +412,20 @@ function buildScene(inp,res,ex){
   };
   const pt=(zi,xi,up)=>ptAt(prof[zi][0],prof[zi][1],xi,up);
 
-  // Colour scale. "Auto" normalises to the peak stress present right now, so
-  // the gradient stays readable even when the part is nowhere near yield;
-  // the legend prints the real MPa at each end so it never misleads.
-  const auto=$("ascale").classList.contains("on");
-  let sMax=1e-6;
-  for(let i=0;i<=24;i++) for(let j=0;j<=12;j++)
-    sMax=Math.max(sMax,Math.abs(CLAMP.bodyStressRatio(inp,res,-half+2*half*i/24,H*j/12)));
-  const sDiv=auto?sMax:1;
-  scaleMPa=sDiv*CLAMP.CLAMP_MATS[inp.mat].sy;
-  // Bending stress spans a huge range on this part — the crown runs ~6x the
-  // ear, and every section passes through zero at its own neutral axis. On a
-  // straight linear ramp that leaves most of the body sitting at green. Auto
-  // scale therefore applies a √ transfer (standard FEA post-processing), which
-  // expands the low end so the whole field reads while keeping the ordering
-  // and the sign intact. The legend states the real MPa at the ends.
-  const curve=(r)=>auto?Math.sign(r)*Math.sqrt(Math.abs(r)):r;
+  // Colour scale — ALWAYS against yield, never against the live peak.
+  // Every stress here is linear in torque, so normalising by the current
+  // maximum divides the torque straight back out and the picture freezes no
+  // matter how hard you tighten. Fixing the denominator at yield keeps the
+  // colours meaningful in absolute terms and makes them respond to the wrench.
+  const sDiv=1;
+  scaleMPa=CLAMP.CLAMP_MATS[inp.mat].sy;
+  // Readability is a separate concern from scale: the crown runs several times
+  // the ear stress, so a linear ramp buries the weak field. A √ transfer
+  // (standard FEA post-processing) expands the low end while preserving order,
+  // sign AND the response to torque — doubling the load still visibly darkens
+  // everything, it just starts from a readable base.
+  const contrast=$("ascale").classList.contains("on");
+  const curve=(r)=>contrast?Math.sign(r)*Math.sqrt(Math.abs(r)):r;
   const stressAt=(z,y)=>CLAMP.stressRGB(curve(CLAMP.bodyStressRatio(inp,res,z,y)/sDiv));
   for(const up of [true,false]){
     const O=[0,(up?1:-1)*(lift+H/2)*s,0];       // centroid of this half
@@ -443,17 +443,26 @@ function buildScene(inp,res,ex){
     // End faces carry the whole cross-section, so mesh them and colour each
     // cell by its own stress — this is where the gradient through the section
     // (tension at the top, compression at the bore) is actually visible.
-    const NZ=24, NY=12;
+    const NZ=36, NY=9;   // columns follow the bore contour, so NZ sets its smoothness
     for(const k of [0,NX]){
       if(!stressMode){ const face=prof.map((_,i)=>pt(i,k,up));
         poly((k===0)===up?face:face.slice().reverse(),govC,O); continue; }
-      for(let i=0;i<NZ;i++) for(let j=0;j<NY;j++){
+      // A rectangular grid with in-bore cells dropped voxelises the hole into
+      // steps. Instead map the mesh to the section: each column runs from the
+      // bore surface (or the flange face outboard of it) up to the top, so the
+      // bottom edge lands exactly on the circle and the bore reads as a curve.
+      const yBore=(z)=>Math.abs(z)<R?Math.max(Math.sqrt(Math.max(R*R-z*z,0))-g2,0):0;
+      for(let i=0;i<NZ;i++){
         const z0=-half+2*half*i/NZ, z1=-half+2*half*(i+1)/NZ;
-        const y0=H*j/NY, y1=H*(j+1)/NY;
-        const zc=(z0+z1)/2, yc=(y0+y1)/2;
-        if(zc*zc+(yc+g2)*(yc+g2)<R*R) continue;    // this cell is inside the bore
-        const q=[ptAt(z0,y0,k,up),ptAt(z1,y0,k,up),ptAt(z1,y1,k,up),ptAt(z0,y1,k,up)];
-        poly((k===0)===up?q:q.slice().reverse(),stressAt(zc,yc),O);
+        const a0=yBore(z0), a1=yBore(z1);
+        if(a0>=H-1e-6&&a1>=H-1e-6) continue;       // bore taller than the body here
+        for(let j=0;j<NY;j++){
+          const t0=j/NY, t1=(j+1)/NY;
+          const q=[ptAt(z0,a0+(H-a0)*t0,k,up), ptAt(z1,a1+(H-a1)*t0,k,up),
+                   ptAt(z1,a1+(H-a1)*t1,k,up), ptAt(z0,a0+(H-a0)*t1,k,up)];
+          const zc=(z0+z1)/2, ac=(a0+a1)/2, yc=ac+(H-ac)*(t0+t1)/2;
+          poly((k===0)===up?q:q.slice().reverse(),stressAt(zc,yc),O);
+        }
       }
     }
   }
@@ -856,8 +865,8 @@ function tick(){
   $("exv").textContent="×"+ex;
   $("opv").textContent=$("op").value+"%";
   $("lgTxt").textContent=$("smode").classList.contains("on")
-    ? `−${f(scaleMPa,1)} … 0 … +${f(scaleMPa,1)} MPa` +
-      ($("ascale").classList.contains("on")?" · √ scale, low stress expanded":" · linear vs yield")
+    ? `−${f(scaleMPa,0)} … 0 … +${f(scaleMPa,0)} MPa (yield)` +
+      ($("ascale").classList.contains("on")?" · √ contrast":" · linear")
     : "colour = safety factor of that part";
   $("hud").innerHTML=`T <b>${torque.toFixed(2)} N·m</b> → <b>${f(res.Fb,0)} N</b>/bolt<br>
     on cylinder <b>${f(res.Fcl,0)} N</b> · p <b>${f(res.p,2)} MPa</b><br>
