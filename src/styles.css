@@ -185,3 +185,176 @@ input[type="number"] {
     gap: 6px;
   }
 }
+
+/* ── Cylinder Clamp calculator ──────────────────────────────────────────
+   Tabs, the 3D stage, the read-out panels, CSS-typeset maths, and the
+   print stylesheet that turns the page into an exportable document. */
+.clamp-page { --mono: "JetBrains Mono", "SF Mono", Menlo, monospace; }
+.tabbar { display: flex; gap: 2px; border-bottom: 1px solid #141c22; margin: 12px 0 4px; flex-wrap: wrap; }
+.tabbtn { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+  cursor: pointer; background: none; border: none; border-bottom: 2px solid transparent;
+  color: #46515c; padding: 8px 12px; }
+.tabbtn:hover { color: #8b97a3; }
+.tabbtn.on { color: #3a78c2; border-bottom-color: #3a78c2; }
+.tabbtn:focus-visible { outline: 2px solid #3a78c2; outline-offset: -2px; }
+.tabpane { display: none; } .tabpane.on { display: block; }
+
+.clamp-stage { position: relative; width: 100%; height: 340px; border-radius: 3px; overflow: hidden;
+  background: #0b1015; border: 1px solid #141c22; }
+.clamp-stage canvas { width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+.clamp-stage canvas:active { cursor: grabbing; }
+.clamp-hud { position: absolute; top: 9px; left: 11px; font-family: var(--mono); font-size: 10px;
+  color: #8b97a3; line-height: 1.65; pointer-events: none; text-shadow: 0 1px 5px #000; }
+.clamp-hud b { color: #e8edf1; font-weight: 600; }
+.clamp-hint { position: absolute; bottom: 7px; left: 0; right: 0; text-align: center;
+  font-family: var(--mono); font-size: 8.5px; color: #46515c; pointer-events: none; text-shadow: 0 1px 4px #000; }
+@media (max-width: 520px) { .clamp-stage { height: 290px; } }
+
+.btnrow { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
+.clamp-rec { border: 1px solid #4fb477; border-radius: 3px; background: #0b1015; padding: 11px 13px;
+  margin-top: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.clamp-legend { display: flex; justify-content: center; margin-top: 8px; font-family: var(--mono);
+  font-size: 8.5px; color: #8b97a3; text-align: center; }
+.clamp-legend i { width: 13px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
+
+.clamp-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+.clamp-cell { background: #0b1015; border: 1px solid #141c22; border-radius: 3px; padding: 7px 8px; min-width: 0; }
+.clamp-cell .k { font-family: var(--mono); font-size: 7.5px; letter-spacing: .1em; text-transform: uppercase;
+  color: #6b7884; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.clamp-cell .n { font-family: var(--mono); font-size: 14px; font-weight: 600; margin-top: 3px;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clamp-cell .u { font-family: var(--mono); font-size: 8px; color: #46515c; margin-top: 1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.clamp-warn { font-size: 10px; line-height: 1.5; padding: 7px 8px; border-left: 2px solid; border-radius: 2px;
+  margin-top: 6px; background: #0d1319; color: #8b97a3; }
+.clamp-warn.bad { border-color: #d65c5c; color: #e0a3a3; }
+.clamp-warn.warn { border-color: #d9a441; color: #e6c98a; }
+
+.clamp-form { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-top: 9px; }
+.clamp-fld { min-width: 0; } .clamp-fld.wide { grid-column: 1 / -1; }
+.clamp-fld label { display: flex; align-items: baseline; font-size: 8.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: #6b7884; font-family: var(--mono); margin-bottom: 3px; white-space: nowrap; }
+.clamp-fld label span { text-transform: none; letter-spacing: 0; color: #46515c; margin-left: auto; padding-left: 5px; }
+.clamp-fld input, .clamp-fld select { width: 100%; background: #0e1419; border: 1px solid #1f2a33;
+  border-radius: 2px; color: #e8edf1; padding: 7px 8px; font-family: var(--mono); font-size: 13px; outline: none; }
+.clamp-fld input:focus, .clamp-fld select:focus { border-color: #3a78c2; }
+.clamp-fld input[readonly] { color: #6b7884; background: #0a0f14; border-style: dashed; cursor: default; }
+.clamp-chk { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9.5px;
+  color: #8b97a3; cursor: pointer; padding: 4px 0; align-self: end; }
+.clamp-chk.wide { grid-column: 1 / -1; }
+.clamp-chk input { accent-color: #3a78c2; }
+.clamp-details { border: 1px solid #141c22; border-radius: 3px; background: #0b1015; margin-top: 8px; }
+.clamp-details summary { cursor: pointer; font-family: var(--mono); font-size: 8.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: #6b7884; padding: 8px 11px; user-select: none; }
+.clamp-details .clamp-form { padding: 0 11px 11px; margin-top: 0; }
+
+.clamp-ref, .clamp-cap { background: #0b1015; border: 1px solid #141c22; border-radius: 3px;
+  padding: 10px 13px; margin-top: 8px; font-family: var(--mono); font-size: 9.5px; color: #8b97a3; line-height: 1.75; }
+.clamp-ref b, .clamp-cap b { color: #e8edf1; }
+.clamp-ref .hdr, .clamp-cap .hdr { color: #6b7884; letter-spacing: .14em; display: block; margin-bottom: 5px; font-size: 8.5px; }
+.clamp-cap table { width: 100%; border-collapse: collapse; font-size: 10px; }
+.clamp-cap th { font-size: 8px; letter-spacing: .1em; color: #46515c; font-weight: 400; text-align: right; padding: 0 0 4px 6px; }
+.clamp-cap th:first-child { text-align: left; }
+.clamp-cap td { padding: 5px 0 5px 6px; border-top: 1px solid #141c22; color: #8b97a3; text-align: right;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.clamp-cap td:first-child { text-align: left; color: #6b7884; }
+.clamp-cap td b { color: #e8edf1; font-size: 11.5px; }
+.clamp-cap .foot { font-size: 9px; color: #46515c; line-height: 1.7; margin-top: 8px; padding-top: 7px; border-top: 1px solid #141c22; }
+.clamp-cap .foot b { color: #8b97a3; }
+.clamp-cmp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+@media (max-width: 420px) { .clamp-cmp { grid-template-columns: 1fr 1fr; } }
+
+.expbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; background: #0b1015;
+  border: 1px solid #141c22; border-radius: 3px; padding: 9px 12px; margin-bottom: 4px; }
+.clamp-theory { margin-top: 10px; }
+.clamp-theory .lab { font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+  color: #3a78c2; margin-bottom: 10px; }
+.clamp-theory h3 { font-size: 12px; font-weight: 600; margin: 16px 0 6px; color: #c2ccd4; }
+.clamp-theory h4 { font-size: 12px; margin: 0 0 5px; color: #c2ccd4; font-weight: 600; }
+.clamp-theory p { font-size: 11px; color: #8b97a3; line-height: 1.75; margin: 8px 0 0; }
+.clamp-theory p b { color: #c2ccd4; }
+.clamp-dims svg { width: 100%; height: auto; display: block; background: #0b1015; border: 1px solid #141c22; border-radius: 3px; }
+
+/* maths, typeset with CSS — vertical-align:middle puts the fraction's rule on
+   the surrounding text's midline, so symbols sit level with the bar */
+.mth { font-family: "STIX Two Math", "Cambria Math", Georgia, "Times New Roman", serif;
+  font-size: 13.5px; color: #e8edf1; line-height: 1.35; }
+.mi { font-style: italic; }
+.frac { display: inline-flex; flex-direction: column; vertical-align: middle; text-align: center; margin: 0 4px; }
+.frac > span:first-child { border-bottom: 1px solid currentColor; padding: 0 7px 3px; line-height: 1.25; }
+.frac > span:last-child { padding: 3px 7px 0; line-height: 1.25; }
+.eqn { margin: 14px 0 18px; overflow-x: auto; padding-bottom: 2px; }
+.eqn .lead { font-family: var(--mono); font-size: 8.5px; letter-spacing: .16em; text-transform: uppercase;
+  color: #3a78c2; display: block; margin-bottom: 5px; }
+.eqn .sub { color: #6b7884; font-size: 12.5px; }
+.eqn .res { color: #4fb477; font-weight: 600; }
+.eqn .res.bad { color: #d65c5c; } .eqn .res.warn { color: #d9a441; }
+.eqn .cmt { font-family: system-ui, sans-serif; font-size: 10px; color: #46515c; display: block; margin-top: 3px; line-height: 1.6; }
+table.rep { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10px; margin: 6px 0 4px; }
+table.rep th { text-align: left; font-weight: 400; color: #6b7884; font-size: 8.5px; letter-spacing: .12em;
+  text-transform: uppercase; padding: 5px 6px; border-bottom: 1px solid #1f2a33; }
+table.rep td { padding: 5px 6px; border-bottom: 1px solid #141c22; color: #8b97a3; font-variant-numeric: tabular-nums; }
+table.rep td.v { text-align: right; color: #e8edf1; font-weight: 600; white-space: nowrap; }
+table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
+
+.tip { border-left: 2px solid #1f2a33; padding: 2px 0 2px 12px; margin: 14px 0; }
+.tip.key { border-left-color: #4fb477; } .tip.warn { border-left-color: #d9a441; } .tip.bad { border-left-color: #d65c5c; }
+.tipnum { font-family: var(--mono); font-size: 9.5px; color: #46515c; line-height: 1.9; background: #0d1319;
+  border-left: 2px solid #1f2a33; border-radius: 2px; padding: 7px 10px; margin: 7px 0; }
+.tipnum b { color: #8b97a3; }
+.clamp-note { font-size: 10.5px; color: #8b97a3; line-height: 1.65; margin-top: 14px;
+  border-top: 1px solid #1f2a33; padding-top: 10px; }
+.clamp-note strong { color: #c2ccd4; }
+
+/* ── PDF export ─────────────────────────────────────────────────────────
+   No PDF library can be loaded, so export goes through the browser's own
+   print-to-PDF: unfold every tab, drop the interactive furniture, switch to
+   ink-friendly colours, and break pages between sections not through
+   equations. pf-brief prints only the one-page bench sheet. */
+.printhead, #clampSummary { display: none; }
+@media print {
+  @page { margin: 16mm 14mm; }
+  body { background: #fff; color: #111; }
+  .flexure-shell { max-width: none; padding: 0; }
+  .clamp-page .tabpane { display: block; }
+  .tabbar, .clamp-stage, .btnrow, .expbar, .clamp-legend, .clamp-form,
+  .clamp-details, .clamp-note, .clamp-warn, .clamp-cmp { display: none !important; }
+  .printhead { display: block; border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 14px; }
+  .printhead h1 { font-size: 17px; margin: 0 0 3px; }
+  .printhead .meta { font-family: var(--mono); font-size: 9px; color: #555; line-height: 1.6; }
+  .flexure-header { display: none; }
+  .clamp-rec, .clamp-ref, .clamp-cap, .clamp-theory, .tipnum, table.rep td, table.rep th { background: #fff; }
+  .clamp-rec { border-color: #0a6b3d; }
+  .clamp-ref, .clamp-cap { border-color: #ccc; color: #333; }
+  .clamp-cap td { color: #333; } .clamp-cap td:first-child { color: #555; } .clamp-cap td b { color: #111; }
+  .clamp-theory .lab, .eqn .lead { color: #14459b; }
+  .eqn .res { color: #0a6b3d; } .eqn .res.bad { color: #a01d1d; } .eqn .res.warn { color: #8a5a00; }
+  .mth, .eqn .sub { color: #111; } .eqn .cmt, .tipnum { color: #444; }
+  .clamp-theory p, .clamp-theory h3, .clamp-theory h4 { color: #222; }
+  table.rep td { color: #333; border-bottom-color: #ddd; }
+  table.rep th { color: #555; border-bottom-color: #999; }
+  table.rep td.v, table.rep tr.hi td { color: #111; } table.rep tr.hi { background: #f0f0f0; }
+  .clamp-strip { page-break-inside: avoid; }
+  .clamp-theory h3 { page-break-after: avoid; }
+  .eqn, table.rep { page-break-inside: avoid; }
+  .clamp-page .tabpane[data-t="theory"], .clamp-page .tabpane[data-t="preload"],
+  .clamp-page .tabpane[data-t="tips"] { page-break-before: always; }
+  /* full report: everything, no summary sheet */
+  body.pf-full #clampSummary { display: none !important; }
+  /* one-pager: only the header and the bench sheet */
+  body.pf-brief .tabpane, body.pf-brief .clamp-strip, body.pf-brief .clamp-rec,
+  body.pf-brief .clamp-ref, body.pf-brief .clamp-cap { display: none !important; }
+  body.pf-brief #clampSummary { display: block !important; }
+  #clampSummary .headline { border: 2px solid #0a6b3d; border-radius: 3px; padding: 9px 12px; margin-bottom: 10px;
+    display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+  #clampSummary .headline .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: #0a6b3d; }
+  #clampSummary .headline .w { font-family: var(--mono); font-size: 9.5px; color: #333; }
+}
+@media print {
+  #clampSummary h2 { font-size: 12px; margin: 12px 0 4px; color: #111;
+    border-bottom: 1px solid #999; padding-bottom: 3px; }
+  #clampSummary .eqs { font-family: var(--mono); font-size: 9px; color: #333; line-height: 1.85; }
+  #clampSummary table.rep { margin: 4px 0 2px; }
+  #clampSummary table.rep td { padding: 3px 6px; }
+}

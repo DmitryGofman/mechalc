@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cylinder Clamp Calculator — Design Prototypes</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:780px;margin:0 auto;padding:28px 16px 48px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 4px;font-size:24px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.8;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  a.card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:16px;text-decoration:none;color:var(--ink);min-height:150px;transition:border-color .15s,transform .15s}
+  a.card:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .tag{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--blue);margin-bottom:7px}
+  .card h2{margin:0 0 7px;font-size:15.5px;font-weight:600}
+  .card p{margin:0;font-size:12px;color:var(--dim);line-height:1.65;flex:1}
+  .card .for{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)}
+  .theory{margin-top:28px;border-top:1px solid var(--line);padding-top:18px}
+  .theory .lab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
+  .theory p{font-size:12.5px;color:var(--dim);line-height:1.8;margin:0 0 10px}
+  .theory strong{color:#c2ccd4}
+  @media(max-width:520px){
+    .shell{padding:16px 10px 40px}
+    h1{font-size:18px} .sub{font-size:9.5px}
+    .card p{font-size:11px} .card h2{font-size:14px}
+    .chain{font-size:7.8px;padding:9px 10px}
+    .theory p{font-size:11px}
+  }
+  .chain{font-family:var(--mono);font-size:10.5px;color:var(--mid);line-height:2;background:var(--panel);
+         border:1px solid var(--line2);border-radius:3px;padding:12px 14px;overflow-x:auto;white-space:pre}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="kicker">MECHCALC · DESIGN STUDY</div>
+  <h1>Cylinder Clamp — Split Pillow Block</h1>
+  <div class="sub">Four interaction prototypes for one calculator: a printed or machined two-piece clamp gripping a
+  cylinder (solid or hollow) with 2–6 bolts. Same physics engine under all four (clamp-engine.js) — what differs is how
+  you drive it.</div>
+
+  <div class="cards">
+    <a class="card" href="design-a-panel.html">
+      <div class="tag">DESIGN A</div><h2>Control Panel</h2>
+      <p>The toolkit's classic form: every input on the left, every consequence stacked on the right, deformed
+      cross-section below. Nothing hidden, nothing sequenced.</p>
+      <div class="for">for: final design checks, documenting a chosen setup</div>
+    </a>
+    <a class="card" href="design-b-wrench.html">
+      <div class="tag">DESIGN B</div><h2>Tightening Simulator</h2>
+      <p>One big torque slider is the wrench. An event ladder lists — in torque order — grip goal met, ears yield,
+      tube crushes, gap bottoms, bolt proof. Find the torque window between "holds" and "breaks".</p>
+      <div class="for">for: picking a torque spec, building intuition</div>
+    </a>
+    <a class="card" href="design-c-advisor.html">
+      <div class="tag">DESIGN C</div><h2>Bolt-Count Advisor</h2>
+      <p>Inverted flow: state the job (axial load, torque, safety factor) and it works backwards to required torque for
+      2 vs 4 vs 6 bolts, side by side, with each configuration's failure checks. Answers "do I need two or four?"</p>
+      <div class="for">for: the first minutes of a new design</div>
+    </a>
+    <a class="card" href="design-f-3d.html">
+      <div class="tag">DESIGN F</div><h2>3D Clamp · grab it</h2>
+      <p>The assembly in 3D — orbit it, drag a bolt head to tighten, watch the ears bend and the flange gap close until
+      it shuts. Every surface painted by its own safety factor. Half-section and force arrows on toggles.</p>
+      <div class="for">for: seeing what the numbers mean, showing someone else</div>
+    </a>
+    <a class="card" href="design-e-fbd.html">
+      <div class="tag">DESIGN E</div><h2>Statics View · phone-first</h2>
+      <p>The whole clamp reduced to the statics-course free-body diagram: cap as a beam, cylinder as the pin support
+      (triangle), bolts as two closing forces — with the live bending-moment diagram. The most compact of the five.</p>
+      <div class="for">for: quick checks on a phone, thinking in first principles</div>
+    </a>
+    <a class="card" href="design-d-section.html">
+      <div class="tag">DESIGN D</div><h2>Live Section</h2>
+      <p>The deformed cross-section is the interface: click the tube, ears or bolts to edit that part; drag torque and watch
+      ears bend, the tube ovalize and the gap close, every part painted with its own safety factor.</p>
+      <div class="for">for: exploring geometry, explaining a failure to someone</div>
+    </a>
+  </div>
+
+  <div class="theory">
+    <div class="lab">THE SHARED MODEL — HOW EVERYTHING INTERCONNECTS</div>
+    <div class="chain">wrench torque ─► preload F=T/(K·d) ─► clamp force ─► pressure p=ΣF/(D·W) ─► grip η·μ·π·ΣF
+                     │                                  │
+                     ├─► ear bending σ=6Fe/(b·tf²) ──┐  ├─► tube hoop pR/t + ovalization
+                     ├─► head bearing on plastic     │  │
+                     └─► bolt von Mises vs proof     ▼  ▼
+                                            gap budget: g − (2δ_ear + δ_oval)
+                                            gap closes ⇒ grip stops growing
+   plastics: creep gives back 40–55% of preload ⇒ every grip number shown fresh AND long-term</div>
+    <p><strong>The five failure modes checked everywhere:</strong> flange (ear) bending in the clamp; bearing crush under the
+    bolt head (the printed-part killer — washers double-checked); tube wall crush/ovalization for hollow cylinders; bolt proof
+    stress; and slip — grip below the duty. Plus the geometric one: the flange <strong>gap bottoming out</strong>, after which
+    torque stops buying grip entirely.</p>
+    <p><strong>Materials:</strong> PC-ABS, PLA, PETG, ASA, Nylon 12 (FDM &amp; MJF) with in-plane strengths and creep-retention
+    factors; aluminum 5052 / 6061-T6; mild and alloy steel. Cylinders: steel/stainless/aluminum tube or solid rod, hard chromed
+    rod. All typical reference values — verify before production use.</p>
+  </div>
+</div>
+</body>
+</html>
