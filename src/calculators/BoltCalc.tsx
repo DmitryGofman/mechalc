@@ -11,7 +11,6 @@ import {
   TARGET_PRELOAD_FRACTION,
   flowLineStateAtDepth,
   DW_RATIO,
-  DHOLE_RATIO,
 } from "./boltMath";
 import type { ThreadSpec, BoltClass, PlateMaterial, JointResults } from "./boltMath";
 
@@ -68,9 +67,7 @@ function Bolt3D({
     plateMats: THREE.MeshStandardMaterial[];
     plateTones: THREE.Color[];
     coneMat: THREE.MeshBasicMaterial | null;
-    flowColor: THREE.BufferAttribute | null;
-    flowDepth: Float32Array | null; // depth (mm) of each flow-line vertex
-    flowMat: THREE.LineBasicMaterial | null;
+    coneDepths: Array<{ color: THREE.BufferAttribute; depth: Float32Array }> | null;
     arcGroup: THREE.Group | null;
     arcMat: THREE.MeshBasicMaterial | null;
     proxy: THREE.Mesh | null;
@@ -90,9 +87,7 @@ function Bolt3D({
     plateMats: [],
     plateTones: [],
     coneMat: null,
-    flowColor: null,
-    flowDepth: null,
-    flowMat: null,
+    coneDepths: null,
     arcGroup: null,
     arcMat: null,
     proxy: null,
@@ -191,7 +186,7 @@ function Bolt3D({
       // with clamp — and pushed toward warning-red if its bearing limit is
       // exceeded (crushing under the head/nut).
       // Subtle overall tint only — the per-depth detail now lives in the flow
-      // lines, so the bulk plate color stays close to its material tone.
+      // cone gradient, so the bulk plate color stays close to its material tone.
       const squeezeTint = Math.min(util, 1.2) * 0.28;
       const bearOver = [1 / Math.max(r.nBear1, 1e-6), 1 / Math.max(r.nBear2, 1e-6)];
       parts.plateMats.forEach((m, i) => {
@@ -207,26 +202,27 @@ function Bolt3D({
         cb = cb * (1 - over) + 0.2 * over;
         m.color.setRGB(cr, cg, cb);
       });
-      // Pressure cones fade in with clamp force.
-      if (parts.coneMat) {
-        parts.coneMat.opacity = 0.06 + Math.min(util, 1) * 0.22;
-      }
-      // Load-flow lines: color every vertex by the LOCAL pressure at its depth
-      // against the limit of whichever plate it is passing through. Bright at
-      // the two bearing faces where the cone is narrow, fading through the
-      // middle where the same force is spread over a much larger area.
-      if (parts.flowColor && parts.flowDepth) {
+      // Pressure cone: fade the whole thing in with clamp force, and shade it
+      // along its height by the local pressure at that depth — hue against the
+      // limit of the plate the depth falls in, alpha-like brightness against
+      // the peak at the bearing faces, so the concentration at head and nut
+      // and the dilution at mid-grip read as a gradient on the cone itself.
+      if (parts.coneMat) parts.coneMat.opacity = 0.13 + Math.min(util, 1) * 0.45;
+      if (parts.coneDepths) {
         const clamp = Math.max(r.Fm, 0); // what the plates actually still feel
-        const col = parts.flowColor;
-        const depth = parts.flowDepth;
-        for (let i = 0; i < col.count; i++) {
-          const s = flowLineStateAtDepth(P.thread.d, clamp, depth[i], P.t1, P.m1, P.t2, P.m2);
-          const c = compressionSeverityColor(s.ratio);
-          const bright = 0.35 + 0.65 * Math.min(1, s.bright);
-          col.setXYZ(i, c.r * bright, c.g * bright, c.b * bright);
+        for (const { color, depth } of parts.coneDepths) {
+          for (let i = 0; i < color.count; i++) {
+            const s = flowLineStateAtDepth(P.thread.d, clamp, depth[i], P.t1, P.m1, P.t2, P.m2);
+            const c = compressionSeverityColor(s.ratio);
+            // Gentle range: the hue already carries "how close to the limit",
+            // so brightness only needs to hint at the concentration. Any
+            // stronger and the wide mid-grip band — the most visible part of
+            // the cone — fades out entirely.
+            const bright = 0.58 + 0.42 * Math.min(1, s.bright);
+            color.setXYZ(i, c.r * bright, c.g * bright, c.b * bright);
+          }
+          color.needsUpdate = true;
         }
-        col.needsUpdate = true;
-        if (parts.flowMat) parts.flowMat.opacity = Math.min(0.9, 0.1 + util * 0.85);
       }
       if (parts.nutMat) {
         const c = signedStressColor(Math.min(util * 0.55, 1.3)); // nut sees part of the load
@@ -588,79 +584,46 @@ function Bolt3D({
     mkPlate(t1V, t2V + t1V / 2, m1.tone);
     mkPlate(t2V, t2V / 2, m2.tone);
 
-    // Shigley pressure cones: clamp force spreads at 30° from under the head
-    // to the grip midplane, then contracts to the nut face. Drawn as two
-    // translucent frusta inside the plates (they squash with the group).
+    // ── Shigley pressure cone, shaded by the load it carries ──────
+    // Clamp force spreads at 30° from under the head to the grip midplane,
+    // then contracts to the nut face. Two translucent frusta, exactly the
+    // clean silhouette as before — but now finely segmented along their
+    // height and shaded per-vertex by the LOCAL pressure at that depth
+    // against the limit of whichever plate the depth falls in. So the
+    // distribution shows up as a smooth gradient on the cone itself: intense
+    // at the two bearing faces where the load is concentrated, washed out at
+    // mid-grip where the same force is spread over a much larger area, and
+    // hot in a soft plate while the steel half beside it stays cool.
     const dwV = DW_RATIO * d * scale;
     const DmidV = Math.min(dwV + gripMm * Math.tan(Math.PI / 6) * scale, plateW * 0.92);
     const coneMat = new THREE.MeshBasicMaterial({
-      color: 0x3a78c2,
+      vertexColors: true,
       transparent: true,
       opacity: 0.1,
       depthWrite: false,
       side: THREE.DoubleSide,
     });
-    const coneTop = new THREE.Mesh(new THREE.CylinderGeometry(dwV / 2, DmidV / 2, gripV / 2, 32, 1, true), coneMat);
-    coneTop.position.y = gripV * 0.75;
-    plateGroup.add(coneTop);
-    const coneBot = new THREE.Mesh(new THREE.CylinderGeometry(DmidV / 2, dwV / 2, gripV / 2, 32, 1, true), coneMat);
-    coneBot.position.y = gripV * 0.25;
-    plateGroup.add(coneBot);
-
-    // ── Load-flow lines ───────────────────────────────────────────
-    // Streamlines of the clamp force through the plates. Each starts on the
-    // head's bearing annulus, fans outward at the cone's 30° until mid-grip,
-    // then converges back onto the nut's annulus — the actual path the load
-    // takes through the material. Every vertex is colored by the LOCAL
-    // pressure at that depth relative to the surrounding plate's own limit,
-    // so you can see the load concentrated at the two bearing faces and
-    // diluted in the middle, and see the two materials react differently to
-    // the very same force. Built once; only the colors update per frame.
-    const NAZ = 16; // streamlines around the circumference
-    const NRAD = 3; // starting radii across the bearing annulus
-    const NSEG = 28; // samples down the grip
-    const flowPos: number[] = [];
-    const flowDepth: number[] = []; // z in mm for each vertex, for coloring
-    for (let a = 0; a < NAZ; a++) {
-      const ang = (a / NAZ) * Math.PI * 2;
-      const ca = Math.cos(ang);
-      const sa = Math.sin(ang);
-      for (let q = 0; q < NRAD; q++) {
-        // start between the hole edge and the washer-face edge
-        const f = (q + 0.5) / NRAD;
-        const r0Mm = (DHOLE_RATIO * d) / 2 + f * ((DW_RATIO - DHOLE_RATIO) * d) / 2;
-        let prev: [number, number, number] | null = null;
-        for (let i = 0; i <= NSEG; i++) {
-          const zMm = (i / NSEG) * gripMm;
-          // spread this streamline outward with the cone, from its own start
-          const spread = Math.min(zMm, gripMm - zMm) * Math.tan(Math.PI / 6);
-          const rMm = r0Mm + spread;
-          const rV = Math.min(rMm * scale, plateW * 0.47);
-          const p: [number, number, number] = [ca * rV, gripV - (zMm / gripMm) * gripV, sa * rV];
-          if (prev) {
-            flowPos.push(...prev, ...p);
-            flowDepth.push(((i - 1) / NSEG) * gripMm, zMm);
-          }
-          prev = p;
-        }
+    const HSEG = 24; // height segments — enough for a smooth gradient
+    const coneDepths: Array<{ color: THREE.BufferAttribute; depth: Float32Array }> = [];
+    const mkCone = (rTop: number, rBot: number, centerY: number) => {
+      const g = new THREE.CylinderGeometry(rTop, rBot, gripV / 2, 48, HSEG, true);
+      const pos = g.attributes.position as THREE.BufferAttribute;
+      const colorAttr = new THREE.BufferAttribute(new Float32Array(pos.count * 3), 3);
+      colorAttr.setUsage(THREE.DynamicDrawUsage);
+      g.setAttribute("color", colorAttr);
+      // Depth of each vertex below the head face, in mm.
+      const depths = new Float32Array(pos.count);
+      for (let i = 0; i < pos.count; i++) {
+        const yGroup = centerY + pos.getY(i); // 0 at nut face … gripV at head
+        depths[i] = ((gripV - yGroup) / gripV) * gripMm;
       }
-    }
-    const flowGeo = new THREE.BufferGeometry();
-    flowGeo.setAttribute("position", new THREE.Float32BufferAttribute(flowPos, 3));
-    const flowColor = new THREE.BufferAttribute(new Float32Array((flowPos.length / 3) * 3), 3);
-    flowColor.setUsage(THREE.DynamicDrawUsage);
-    flowGeo.setAttribute("color", flowColor);
-    // Additive blending so the lines glow through the translucent plates
-    // instead of being muddied by whatever tint sits in front of them.
-    const flowMat = new THREE.LineBasicMaterial({
-      vertexColors: true,
-      transparent: true,
-      opacity: 0,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-    const flowLines = new THREE.LineSegments(flowGeo, flowMat);
-    plateGroup.add(flowLines);
+      const mesh = new THREE.Mesh(g, coneMat);
+      mesh.position.y = centerY;
+      plateGroup.add(mesh);
+      coneDepths.push({ color: colorAttr, depth: depths });
+    };
+    mkCone(dwV / 2, DmidV / 2, gripV * 0.75); // head → midplane, widening
+    mkCone(DmidV / 2, dwV / 2, gripV * 0.25); // midplane → nut, narrowing
 
     // Nut: hex prism, seated — it stays put and only spins.
     const nutMat = new THREE.MeshStandardMaterial({ color: 0x8b97a3, ...steel });
@@ -728,9 +691,7 @@ function Bolt3D({
     parts.plateMats = plateMats;
     parts.plateTones = plateTones;
     parts.coneMat = coneMat;
-    parts.flowColor = flowColor;
-    parts.flowDepth = new Float32Array(flowDepth);
-    parts.flowMat = flowMat;
+    parts.coneDepths = coneDepths;
     parts.arcGroup = arcGroup;
     parts.arcMat = arcMat;
     parts.proxy = proxy;
@@ -768,9 +729,9 @@ function Bolt3D({
           lineHeight: 1.6,
         }}
       >
-        flow lines = clamp load through the plates · bright where it concentrates
-        at the bearing faces, faint mid-grip where it spreads · teal → blue →
-        red as each material nears its own limit
+        the cone is the clamp load spreading through the plates · shaded by local
+        pressure — intense at the bearing faces, washed out mid-grip where it
+        spreads · teal → blue → red as each material nears its own limit
       </div>
     </div>
   );
@@ -1343,17 +1304,15 @@ export default function BoltCalc() {
             }}
           >
             <strong style={{ color: "#c2ccd4" }}>Reading the load distribution.</strong> The clamp force
-            does not travel straight down the bolt line — it spreads into the plates as a cone, and the 3D
-            view draws that as flow lines running from the head&apos;s bearing face, bulging outward to
-            their widest at mid-grip, then converging back onto the nut. Because the same force is carried
-            by a much larger area in the middle than at the two bearing faces, local pressure is highest
-            right under the head and nut and lowest at mid-grip — that is exactly why fasteners crush the
-            surface long before they crush the core, and why a washer (bigger bearing area) fixes it. Each
-            line is colored against the limit of whichever plate it is passing through at that depth, so in
-            a mixed stack you can watch the soft half go amber and red while the steel half stays cool
-            under the identical force. Line brightness tracks how concentrated the load is, so the
-            spreading stays visible even in a joint nowhere near its limit. A thicker stack spreads the
-            cone further and dilutes the middle more.
+            does not travel straight down the bolt line — it spreads into the plates as a cone, widening
+            from the head&apos;s bearing face to its widest at mid-grip and converging back onto the nut.
+            The 3D view shades that cone by the local pressure at each depth. Because the same force is
+            carried by a much larger area in the middle than at the two bearing faces, pressure is highest
+            right under the head and nut and lowest at mid-grip — exactly why fasteners crush the surface
+            long before they crush the core, and why a washer (bigger bearing area) fixes it. Each depth is
+            colored against the limit of whichever plate it falls in, so in a mixed stack the soft half
+            shifts toward amber and red while the steel half beside it stays cool under the identical
+            force. A thicker stack spreads the cone further and dilutes the middle more.
           </p>
           <p
             style={{
