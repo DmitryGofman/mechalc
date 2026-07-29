@@ -99,9 +99,13 @@ function Impact3D({
 
   const APPROACH = 0.5, CONTACT = 2.1, AFTER = 1.6; // playback seconds
 
-  // Restart playback whenever the sim result or replay key changes.
+  // Restart playback whenever the sim result or replay key changes — and
+  // bring the camera back home so the action is never off-screen (easy to
+  // lose the view after touch-scrolling past the canvas on a phone).
   useEffect(() => {
     clockRef.current = { start: performance.now(), spawned: false };
+    stateRef.current.yaw = 0.95;
+    stateRef.current.pitch = -0.14;
     // Clear any fragments from the previous run.
     const fg = fragGroupRef.current;
     if (fg) {
@@ -315,11 +319,14 @@ function Impact3D({
               const pet = petalsRef.current;
               if (pet && r.outcome === "perforate-petal") pet.visible = true;
             }
+            // The exited projectile and plug glide out but come to rest still
+            // in frame, so the end state tells the story on its own.
             const vVis = 1.5 + 2.2 * Math.min(1, r.vr / 500);
-            if (proj) proj.position.x = -hv / 2 + last.delta * scale + Math.min(ta, AFTER) * vVis;
+            if (proj)
+              proj.position.x = Math.min(-hv / 2 + last.delta * scale + Math.min(ta, AFTER) * vVis, 2.35);
             const cap = capRef.current;
             if (cap && r.plugMass > 0 && !pr.brittle) {
-              cap.position.x = hv / 2 + Math.min(ta, AFTER) * vVis * 0.92 + 0.05;
+              cap.position.x = Math.min(hv / 2 + Math.min(ta, AFTER) * vVis * 0.92 + 0.05, 1.75);
             } else if (cap && pr.brittle) {
               cap.visible = false;
             }
@@ -331,7 +338,10 @@ function Impact3D({
             }
           } else if (r.vRebound > 0.5 && proj) {
             const vVis = 0.8 + 1.6 * Math.min(1, r.vRebound / 200);
-            proj.position.x = -hv / 2 + last.delta * scale - rProjV - Math.min(ta, AFTER) * vVis;
+            proj.position.x = Math.max(
+              -hv / 2 + last.delta * scale - rProjV - Math.min(ta, AFTER) * vVis,
+              -2.55,
+            );
           }
           const proxy = proxyRef.current;
           if (proxy && proj) proxy.position.copy(proj.position);
@@ -344,17 +354,23 @@ function Impact3D({
     animate();
 
     const onResize = () => {
-      const wd = mount.clientWidth;
+      const wd = mount.clientWidth || 320;
       const ht = mount.clientHeight || 340;
       camera.aspect = wd / ht;
       camera.updateProjectionMatrix();
       renderer.setSize(wd, ht);
     };
     window.addEventListener("resize", onResize);
+    // Iframes (the published artifact) and mobile layout shifts don't always
+    // fire window resize — observe the mount itself.
+    const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(onResize) : null;
+    ro?.observe(mount);
 
     // ── pointer controls: orbit empty space, slingshot the projectile ──
+    // pan-y keeps vertical swipes scrolling the page on touch screens —
+    // otherwise scrolling past the canvas silently spins the camera away.
     const el = renderer.domElement;
-    el.style.touchAction = "none";
+    el.style.touchAction = "pan-y";
     el.style.cursor = "grab";
     const raycaster = new THREE.Raycaster();
     const ndc = new THREE.Vector2();
@@ -404,7 +420,8 @@ function Impact3D({
       e.preventDefault();
       s.yaw += (e.clientX - s.lx) * 0.01;
       s.pitch += (e.clientY - s.ly) * 0.01;
-      s.pitch = Math.max(-1.4, Math.min(1.4, s.pitch));
+      // Never let the sheet go fully edge-on — it vanishes on a dark screen.
+      s.pitch = Math.max(-0.95, Math.min(0.95, s.pitch));
       s.lx = e.clientX;
       s.ly = e.clientY;
     };
@@ -435,6 +452,7 @@ function Impact3D({
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", onResize);
+      ro?.disconnect();
       el.removeEventListener("pointerdown", down);
       el.removeEventListener("pointermove", move);
       el.removeEventListener("pointerup", up);
@@ -541,7 +559,13 @@ function Impact3D({
 
     const plateMesh = new THREE.Mesh(
       geo,
-      new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.3, roughness: 0.55, side: THREE.DoubleSide }),
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        metalness: 0.3,
+        roughness: 0.55,
+        side: THREE.DoubleSide,
+        emissive: 0x161b20, // never fully black, even on dim mobile GPUs
+      }),
     );
     pivot.add(plateMesh);
 
@@ -573,7 +597,7 @@ function Impact3D({
         : new THREE.BoxGeometry(rProjV * 2, rProjV * 2, rProjV * 2);
     const proj = new THREE.Mesh(
       projGeo,
-      new THREE.MeshStandardMaterial({ color: projColor, metalness: 0.6, roughness: 0.35 }),
+      new THREE.MeshStandardMaterial({ color: projColor, metalness: 0.6, roughness: 0.35, emissive: 0x14181c }),
     );
     proj.position.x = -3.1;
     pivot.add(proj);
