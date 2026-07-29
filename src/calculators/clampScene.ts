@@ -166,8 +166,15 @@ export function buildScene(inp: CM.ClampInput, res: CM.ClampResult, o: SceneOpts
   };
   const pt = (zi: number, xi: number, up: boolean) => ptAt(prof[zi][0], prof[zi][1], xi, up);
 
+  // Orientation reference for back-face culling: the centroid of the half as
+  // actually built. Half section trims it to x ∈ [0, W/2], so the centroid
+  // moves to W/4 — leave it at 0 and the cut face lies exactly in the plane
+  // through its own reference point, "outward" degenerates to a 0·0 dot, and
+  // the sign falls out of rounding error. Half the cells then cull and the
+  // face reads as scattered holes onto the background.
+  const xMid = ((x0 + W / 2) / 2) * s;
   for (const up of [true, false]) {
-    const O = [0, (up ? 1 : -1) * (lift + H / 2) * s, 0];
+    const O = [xMid, (up ? 1 : -1) * (lift + H / 2) * s, 0];
     for (let i = 0; i < prof.length; i++) {
       const j = (i + 1) % prof.length;
       let c = shade((prof[i][0] + prof[j][0]) / 2, (prof[i][1] + prof[j][1]) / 2);
@@ -353,7 +360,13 @@ export function drawScene(
       // then a back face, and dropping it removes the see-through flicker.
       const fc = [0, 1, 2].map((k) => pp.reduce((t, p) => t + p[3 + k], 0) / pp.length);
       const ov = rot(q.o);
-      if (nx * (fc[0] - ov[0]) + ny * (fc[1] - ov[1]) + nz * (fc[2] - ov[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      const rx = fc[0] - ov[0], ry2 = fc[1] - ov[1], rz2 = fc[2] - ov[2];
+      // Compare as a cosine, not a raw dot: a face lying edge-on to its own
+      // reference point gives a vanishing dot whose sign is pure noise, and
+      // flipping on that is what speckles a flat surface. Below the threshold
+      // keep the winding the builder authored.
+      const den = Math.hypot(nx, ny, nz) * Math.hypot(rx, ry2, rz2);
+      if (den > 0 && (nx * rx + ny * ry2 + nz * rz2) / den < -1e-6) { nx = -nx; ny = -ny; nz = -nz; }
       if (nx * fc[0] + ny * fc[1] + nz * (fc[2] - view.dist) > 0) continue;
     } else if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const nl = Math.hypot(nx, ny, nz) || 1;

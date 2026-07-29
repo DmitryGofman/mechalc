@@ -517,9 +517,13 @@ export default function ClampCalc() {
               : <>
                 <b style={{ color: "#e8edf1" }}>safe to tighten to this</b> — the most this joint takes with
                 SF {rec.margin.toFixed(1)} on {rec.governing}. Grips {f(recRes.FaxLT, 0)} N long-term.<br />
-                {rec.ok
-                  ? <>Your duty needs {n2(rec.Tneed)} N·m — <span style={{ color: "#4fb477" }}>covered, {(rec.T / rec.Tneed).toFixed(1)}× over</span>.</>
-                  : <><span style={{ color: "#cf9f52" }}>Grip is short:</span> your duty needs {n2(rec.Tneed)} N·m per bolt.{" "}
+                {dutyEq <= 0
+                  ? <span style={{ color: "#46515c" }}>No load entered below, so this is capacity only.</span>
+                  : rec.ok
+                    ? <>Holding your {f(inp.Freq, 0)} N + {f(inp.Treq, 1)} N·m at SF {f(inp.SFt, 1)} takes {n2(rec.Tneed)} N·m/bolt
+                      — <span style={{ color: "#4fb477" }}>covered, {(rec.T / Math.max(rec.Tneed, 1e-9)).toFixed(1)}× over</span>.</>
+                    : <><span style={{ color: "#cf9f52" }}>Grip is short:</span> holding your {f(inp.Freq, 0)} N + {f(inp.Treq, 1)} N·m
+                      at SF {f(inp.SFt, 1)} would take {n2(rec.Tneed)} N·m/bolt.{" "}
                     {rec.Tneed > rec.Tclose
                       ? <>The gap shuts at {n2(rec.Tclose)} N·m, so no amount of torque gets there — add bolts, raise μ, or widen the gap.</>
                       : rec.Tneed <= rec.Tyield
