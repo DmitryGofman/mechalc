@@ -380,6 +380,30 @@
     };
   }
 
+  // ── Curved-beam cross-check on the crown ───────────────────────────────────
+  // The crown is not a straight beam: it is a curved segment whose centre of
+  // curvature is the bore. Straight-beam theory puts the neutral axis at
+  // mid-depth; in a curved member it shifts toward the bore and the stress
+  // distribution goes hyperbolic. Winkler-Bach gives the honest surface values,
+  // and the gap between the two is a measure of how much the main model is off.
+  function curvedBeam(inp, res) {
+    const ri = inp.D / 2, ro = ri + res.tc, h = res.tc, A = res.b * h;
+    if (!(ri > 0 && ro > ri && A > 0)) return null;
+    const rn = h / Math.log(ro / ri);      // neutral-axis radius
+    const rc = (ri + ro) / 2;              // centroid radius
+    const ecc = rc - rn;                   // shift toward the bore
+    if (!(ecc > 1e-9)) return null;
+    const perM_in = (rn - ri) / (A * ecc * ri);
+    const perM_out = Math.abs(rn - ro) / (A * ecc * ro);
+    const perM_straight = h / 2 / ((res.b * Math.pow(h, 3)) / 12);
+    return {
+      ri, ro, h, rn, rc, ecc, roRi: ro / ri, slenderness: rc / h,
+      sigIn: res.Mcrown * perM_in, sigOut: res.Mcrown * perM_out,
+      sigStraight: res.Mcrown * perM_straight,
+      ratioIn: perM_in / perM_straight, ratioOut: perM_out / perM_straight,
+    };
+  }
+
   // ── Fastener-side tightening spec ──────────────────────────────────────────
   // The classic bolted-joint answer, same as the toolkit's bolt calculator:
   // what torque suits THIS fastener, capped by what the CONNECTED material can
@@ -564,5 +588,5 @@
   }
 
   return { THREADS, CLASSES, KFACT, CLAMP_MATS, CYL_MATS, MU, ETA, LAMBDA, DESIGN_MARGIN,
-    defaults, solve, recommend, boltSpec, bodyStressRatio, stressRGB, advise, renderSection, fmt, sfStatus, sfColor };
+    defaults, solve, recommend, boltSpec, curvedBeam, bodyStressRatio, stressRGB, advise, renderSection, fmt, sfStatus, sfColor };
 })();

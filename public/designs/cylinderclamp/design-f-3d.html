@@ -380,6 +380,9 @@
     the section is thinnest. If you want the ears to work harder, move the bolt closer to the bore (smaller
     <b>e</b>) — that shortens the lever on the crown too.</p>
 
+    <h3>Where this model stops being right</h3>
+    <div id="limits"></div>
+
     <div class="lab" style="margin-top:18px">CALCULATION REPORT</div>
     <div id="report"></div>
     <p style="margin-top:12px"><b>Where the constants come from.</b> The nut factor <b>K</b> lumps thread and
@@ -1166,6 +1169,53 @@ function renderPreload(inp,res,spec){
      not certified data. Verify against your own fasteners and a bench test before production.</p>`;
 }
 
+function renderLimits(inp,res){
+  const f=CLAMP.fmt, cb=CLAMP.curvedBeam(inp,res), R=inp.D/2;
+  const zb=Math.sqrt(Math.max(R*R-res.g2*res.g2,0));
+  $("limits").innerHTML=
+    `<p><b>1 · The crown is a curved member, and this model treats it as straight.</b> Straight-beam theory puts
+     the neutral axis at mid-depth. In a curved bar it sits closer to the centre of curvature and the stress goes
+     hyperbolic rather than linear. The usual test is the slenderness ratio r<sub>c</sub>/h — below about 5 you
+     are meant to use curved-beam theory.`+
+    (cb?` Yours is <b style="color:${cb.slenderness<5?"var(--amber)":"var(--dim)"}">${cb.slenderness.toFixed(2)}</b>,
+     so it is firmly in that territory.</p>`+
+     `<table class="rep"><tr><th>Crown stress at the same moment</th><th style="text-align:right">MPa</th><th style="text-align:right">vs straight</th></tr>
+       <tr class="hi"><td>Straight beam — what this tool reports</td><td class="v">${f(cb.sigStraight,1)}</td><td class="v">1.00×</td></tr>
+       <tr><td>Winkler-Bach, bore surface</td><td class="v">${f(cb.sigIn,1)}</td><td class="v" style="color:var(--amber)">${cb.ratioIn.toFixed(2)}×</td></tr>
+       <tr><td>Winkler-Bach, outer surface</td><td class="v">${f(cb.sigOut,1)}</td><td class="v">${cb.ratioOut.toFixed(2)}×</td></tr>
+       <tr><td>Neutral axis shifted toward the bore by</td><td class="v">${f(cb.ecc,2)} mm</td><td class="v">—</td></tr></table>`+
+     `<p>So the straight-beam figure is not noise-level wrong — it is biased, by roughly <b>−20% on one surface
+      and +33% on the other</b>, and the neutral axis is <b>${f(cb.ecc,2)} mm</b> off where the simple model puts
+      it. Read the reported crown stress as the mid-range of a band that wide. It sits inside the ±25% that
+      friction and nut-factor scatter already impose, which is why the tool still uses it — but it is a known
+      bias, not a random one.</p>`:`</p>`)+
+
+    `<p><b>2 · Is there a discontinuity where the flange meets the crown?</b> Not in the maths. The section depth
+     is continuous: the bore surface reaches the flange face at z = ${f(zb,2)} mm and the depth is clamped there,
+     so it runs smoothly from ${f(res.tc,1)} mm over the bore out to the full ${f(res.H,1)} mm. The bending moment
+     is smooth through z = R as well, because the distributed bore reaction fades to zero exactly there. You can
+     see both in the stress colouring — it grades continuously, with no step.</p>
+     <p>The real part is another matter. Where the bore breaks out into the flange face there is a <b>sharp
+     re-entrant corner</b>, and beam theory has no concept of a notch — it will happily report a smooth field
+     through a geometry that concentrates stress <b>two to three times</b> locally. <em>That corner, not the
+     crown mid-span, is usually where these parts actually crack.</em> It is why the Design tips call for a
+     relief hole or a generous fillet at the root of the slot. Treat the reported crown stress as the nominal and
+     the corner as needing its own margin.</p>
+
+     <p><b>3 · Should the flanges be in compression against each other?</b> Good instinct, and the answer turns on
+     the gap. <b>Before it closes: no.</b> The two faces never touch, so there is nothing to compress — the gap
+     exists precisely to guarantee that the only load path is bolt → ear → crown → cylinder, and that all the
+     bolt force goes into gripping. Locally, yes, there is compression <em>under the bolt head</em> into the ear,
+     and that is modelled as the bearing check.</p>
+     <p><b>Once the gap shuts, your intuition is exactly right.</b> The faces come into contact and start carrying
+     compression directly, bolt to bolt, and from that point extra torque is shared between flange-on-flange
+     contact and the cylinder instead of going into grip. That is why the clamp force is capped at closure and the
+     grip curve goes flat — ${res.bottomed?`<b style="color:var(--red)">which is happening right now</b>`
+     :`your joint reaches it at <b>${res.Tclose.toFixed(2)} N·m</b> per bolt`}. What this model does <em>not</em>
+     do is resolve how the contact pressure distributes across those faces afterwards; it simply stops crediting
+     the extra torque. Past closure, treat the numbers as "no further grip" rather than as an accurate picture.</p>`;
+}
+
 function renderWhyGreen(inp,res){
   const f=CLAMP.fmt, R=inp.D/2, a=R+inp.e;
   const ratio=res.sigmaF>0?res.sigmaCrown/res.sigmaF:Infinity;
@@ -1369,7 +1419,7 @@ function tick(){
   // pure churn. Refresh only when an input or the torque actually changes.
   const sig=JSON.stringify(inp)+"|"+torque.toFixed(3);
   if(sig!==lastSig){ lastSig=sig; drawDims(inp,res); renderTheory(inp,res);
-    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); renderPreload(inp,res,spec); renderTips(inp,res); }
+    renderReport(inp,res,rec,spec); renderDeflection(inp,res); renderWhyGreen(inp,res); renderPreload(inp,res,spec); renderTips(inp,res); renderLimits(inp,res); }
 
   requestAnimationFrame(tick);
 }
