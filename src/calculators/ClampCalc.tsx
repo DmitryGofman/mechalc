@@ -303,7 +303,7 @@ function summaryHTML(inp: CM.ClampInput, r: CM.ClampResult, rec: CM.Recommendati
     `<td class="v" style="color:${CM.sfColor(sf)}">${isFinite(sf) ? sf.toFixed(2) : "∞"}</td></tr>`;
   return `<div class="headline"><span class="n">${n2(rec.T)} N·m</span>
       <span class="w">recommended per bolt · ${inp.N} bolts · limited by ${rec.governing}<br>
-      keeps safety factor ${rec.margin.toFixed(1)} below first yield (${n2(rec.Tyield)} N·m)${rec.ok ? "" : " · <b>duty not met</b>"}</span></div>
+      keeps safety factor ${rec.margin.toFixed(1)} below first yield (${n2(rec.Tyield)} N·m)${rec.ok ? "" : `<br><b>Grip short of duty</b> — the duty asks ${n2(rec.Tneed)} N·m per bolt, which this joint cannot reach safely.`}</span></div>
 
     <h2>Geometry</h2><table class="rep">
       ${row("Cylinder", `Ø${f(inp.D, 1)} mm ${inp.hollow ? `× ${f(inp.tw, 1)} wall` : "solid"} · ${inp.cyl}`)}
@@ -370,6 +370,9 @@ export default function ClampCalc() {
 
   const res = useMemo(() => CM.solve({ ...inp, T: torque }), [inp, torque]);
   const rec = useMemo(() => CM.recommend(inp), [inp]);
+  // The joint at the recommended torque — so the card can quote the grip you
+  // actually get there, not the grip at wherever the slider happens to sit.
+  const recRes = useMemo(() => CM.solve({ ...inp, T: rec.T }), [inp, rec.T]);
   const spec = useMemo(() => CM.boltSpec(inp), [inp]);
 
   const cvRef = useRef<HTMLCanvasElement>(null);
@@ -440,6 +443,10 @@ export default function ClampCalc() {
   const gripCol = CM.sfColor(res.SFslipLT * (2 / Math.max(inp.SFt, 0.5)));
   const dutyEq = Math.max(0, inp.Freq) + (inp.Treq > 0 ? (2000 * inp.Treq) / inp.D : 0);
   const scaleMPa = CM.CLAMP_MATS[inp.mat].sy;
+  // Three distinct states, and they are not the same failure: green = safe and
+  // the duty is covered; amber = the torque is perfectly safe but the grip it
+  // buys falls short of the duty; red = the geometry leaves no room at all.
+  const recAccent = rec.T <= 0 ? "#d65c5c" : rec.ok ? "#4fb477" : "#cf9f52";
 
   const lab: React.CSSProperties = { fontFamily: M, fontSize: 8.5, letterSpacing: ".14em", color: "#6b7884", textTransform: "uppercase" };
   const btn = (on: boolean): React.CSSProperties => ({
@@ -499,17 +506,34 @@ export default function ClampCalc() {
           </span>
         </div>
 
-        <div className="clamp-rec" style={{ borderColor: rec.ok ? "#4fb477" : "#d65c5c" }}>
-          <span style={{ fontFamily: M, fontSize: 22, fontWeight: 600, color: rec.ok ? "#4fb477" : "#d65c5c", whiteSpace: "nowrap" }}>
+        <div className="clamp-rec" style={{ borderColor: recAccent }}>
+          <span style={{ fontFamily: M, fontSize: 22, fontWeight: 600, color: recAccent, whiteSpace: "nowrap" }}>
             {n2(rec.T)} N·m
           </span>
           <span style={{ fontFamily: M, fontSize: 9.5, color: "#8b97a3", lineHeight: 1.65, flex: 1, minWidth: 150 }}>
-            {rec.ok
-              ? <>recommended per bolt · limited by <b style={{ color: "#e8edf1" }}>{rec.governing}</b><br />
-                keeps SF {rec.margin.toFixed(1)} below first yield ({n2(rec.Tyield)} N·m) · duty needs {n2(rec.Tneed)} N·m</>
-              : <><b style={{ color: "#e8edf1" }}>no safe torque</b> — the duty needs {n2(rec.Tneed)} N·m but {rec.governing} limits you to {n2(rec.T)}.</>}
+            {rec.T <= 0
+              ? <><b style={{ color: "#e8edf1" }}>nothing left to give</b> — {rec.governing} is already at its limit
+                with the bolts barely snug. Change the geometry or the material.</>
+              : <>
+                <b style={{ color: "#e8edf1" }}>safe to tighten to this</b> — the most this joint takes with
+                SF {rec.margin.toFixed(1)} on {rec.governing}. Grips {f(recRes.FaxLT, 0)} N long-term.<br />
+                {rec.ok
+                  ? <>Your duty needs {n2(rec.Tneed)} N·m — <span style={{ color: "#4fb477" }}>covered, {(rec.T / rec.Tneed).toFixed(1)}× over</span>.</>
+                  : <><span style={{ color: "#cf9f52" }}>Grip is short:</span> your duty needs {n2(rec.Tneed)} N·m per bolt.{" "}
+                    {rec.Tneed > rec.Tclose
+                      ? <>The gap shuts at {n2(rec.Tclose)} N·m, so no amount of torque gets there — add bolts, raise μ, or widen the gap.</>
+                      : rec.Tneed <= rec.Tyield
+                        ? <>You would reach it at {n2(rec.Tneed)} N·m, which is SF {(rec.Tyield / rec.Tneed).toFixed(2)} on {rec.governing} instead of {rec.margin.toFixed(1)} — accept that, or add bolts / raise H / shorten e.</>
+                        : <>Even at first yield ({n2(rec.Tyield)} N·m) it falls short — add bolts, raise H, shorten e, or lower the duty.</>}</>}
+              </>}
           </span>
           <button style={btn(false)} onClick={() => setTorque(rec.T)}>Use it</button>
+        </div>
+        <div className="clamp-hintline">
+          <b>Safe torque</b> = min of three things: what the <b>body</b> takes at SF {rec.margin.toFixed(1)} ({n2(rec.Tyield / rec.margin)} N·m,
+          first yield in {rec.limits[0].key} at {n2(rec.Tyield)}), what the <b>{inp.thread} {inp.cls.split(" ")[0]} bolt</b> wants
+          as preload ({n2(rec.Tbolt65)} N·m, 65% of proof), and where the <b>flange gap shuts</b> ({n2(rec.Tclose)} N·m, past which
+          grip stops growing). It is a limit on the part, not a promise about grip — grip is the line above.
         </div>
 
         <div className="btnrow">

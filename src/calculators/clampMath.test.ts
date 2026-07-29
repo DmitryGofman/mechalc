@@ -155,6 +155,39 @@ describe("recommended torque", () => {
     expect(rec.ok).toBe(false);
     expect(rec.Tneed).toBeGreaterThan(rec.T);
   });
+
+  // The number on the card is a limit on the PART. The duty inputs decide only
+  // whether that limit is enough — they must never move the limit itself, or
+  // the "safe torque" reads as a grip promise and the not-ok state looks like
+  // the torque has become unsafe.
+  it("is a structural allowance the duty inputs cannot move", () => {
+    const light = recommend({ ...defaults(), Freq: 0, Treq: 0, SFt: 1 });
+    const heavy = recommend({ ...defaults(), Freq: 40000, Treq: 500, SFt: 4 });
+    expect(heavy.T).toBeCloseTo(light.T, 9);
+    expect(heavy.governing).toBe(light.governing);
+    expect(light.ok).toBe(true);
+    expect(heavy.ok).toBe(false);
+    expect(heavy.Tneed).toBeGreaterThan(light.Tneed);
+  });
+
+  // The not-ok state still hands back a usable torque — the joint is safe at
+  // it, it just doesn't grip hard enough. Only a joint with no room at all
+  // returns zero, and that is a different message.
+  it("still returns a safe torque when the grip falls short", () => {
+    const rec = recommend({ ...defaults(), Freq: 40000, Treq: 500 });
+    expect(rec.T).toBeGreaterThan(0);
+    expect(solve({ ...defaults(), Freq: 40000, Treq: 500, T: rec.T }).SFstruct)
+      .toBeGreaterThanOrEqual(rec.margin - 1e-6);
+  });
+
+  // Past gap closure the flanges carry the load, so extra torque buys no grip.
+  // A duty beyond that point is unreachable at any torque, not merely at this
+  // safety factor — the two need different advice.
+  it("flags a duty that no torque can reach once the gap shuts", () => {
+    const rec = recommend({ ...defaults(), gap: 0.1, Freq: 40000, Treq: 500 });
+    expect(rec.ok).toBe(false);
+    expect(rec.Tneed).toBeGreaterThan(rec.Tclose);
+  });
 });
 
 describe("fastener-side spec", () => {

@@ -189,7 +189,10 @@ input[type="number"] {
 /* ── Cylinder Clamp calculator ──────────────────────────────────────────
    Tabs, the 3D stage, the read-out panels, CSS-typeset maths, and the
    print stylesheet that turns the page into an exportable document. */
-.clamp-page { --mono: "JetBrains Mono", "SF Mono", Menlo, monospace; }
+/* The shell sets no colour of its own, so anything that doesn't spell one out
+   inherits the UA default — black on a near-black panel. Give the page an ink
+   colour once; print flips it back below. */
+.clamp-page { --mono: "JetBrains Mono", "SF Mono", Menlo, monospace; color: #e8edf1; }
 .tabbar { display: flex; gap: 2px; border-bottom: 1px solid #141c22; margin: 12px 0 4px; flex-wrap: wrap; }
 .tabbtn { font-family: var(--mono); font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
   cursor: pointer; background: none; border: none; border-bottom: 2px solid transparent;
@@ -213,6 +216,11 @@ input[type="number"] {
 .btnrow { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; align-items: center; }
 .clamp-rec { border: 1px solid #4fb477; border-radius: 3px; background: #0b1015; padding: 11px 13px;
   margin-top: 8px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+/* What "safe torque" actually means, spelled out under the card so the number
+   is never mistaken for a grip promise. */
+.clamp-hintline { font-family: var(--mono); font-size: 8.5px; color: #6b7884; line-height: 1.8;
+  padding: 7px 13px 0; }
+.clamp-hintline b { color: #8b97a3; font-weight: 600; }
 .clamp-legend { display: flex; justify-content: center; margin-top: 8px; font-family: var(--mono);
   font-size: 8.5px; color: #8b97a3; text-align: center; }
 .clamp-legend i { width: 13px; height: 8px; border-radius: 2px; display: inline-block; margin-right: 5px; vertical-align: -1px; }
@@ -316,6 +324,7 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
 @media print {
   @page { margin: 16mm 14mm; }
   body { background: #fff; color: #111; }
+  .clamp-page { color: #111; }
   .flexure-shell { max-width: none; padding: 0; }
   .clamp-page .tabpane { display: block; }
   .tabbar, .clamp-stage, .btnrow, .expbar, .clamp-legend, .clamp-form,
@@ -326,6 +335,7 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   .flexure-header { display: none; }
   .clamp-rec, .clamp-ref, .clamp-cap, .clamp-theory, .tipnum, table.rep td, table.rep th { background: #fff; }
   .clamp-rec { border-color: #0a6b3d; }
+  .clamp-hintline { color: #444; padding: 6px 0 0; } .clamp-hintline b { color: #111; }
   .clamp-ref, .clamp-cap { border-color: #ccc; color: #333; }
   .clamp-cap td { color: #333; } .clamp-cap td:first-child { color: #555; } .clamp-cap td b { color: #111; }
   .clamp-theory .lab, .eqn .lead { color: #14459b; }
@@ -344,6 +354,7 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   body.pf-full #clampSummary { display: none !important; }
   /* one-pager: only the header and the bench sheet */
   body.pf-brief .tabpane, body.pf-brief .clamp-strip, body.pf-brief .clamp-rec,
+  body.pf-brief .clamp-hintline,
   body.pf-brief .clamp-ref, body.pf-brief .clamp-cap { display: none !important; }
   body.pf-brief #clampSummary { display: block !important; }
   #clampSummary .headline { border: 2px solid #0a6b3d; border-radius: 3px; padding: 9px 12px; margin-bottom: 10px;
