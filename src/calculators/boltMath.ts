@@ -187,6 +187,16 @@ export function conePressureAtDepth(dMm: number, FN: number, zMm: number, gripMm
   return A > 0 ? Math.max(0, FN) / A : 0;
 }
 
+// How strongly the pressure cone should register, 0…1. The cone IS the clamp
+// load, so it fades in from nothing as the joint is tightened and saturates
+// around the recommended preload. Keyed to clamp force rather than bolt
+// utilization, so a plate-limited joint (plastic, PCB) reaches full presence
+// at its own much lower working torque instead of staying invisible.
+export function coneVisibility(clampN: number, recommendedPreloadN: number): number {
+  if (!(recommendedPreloadN > 0)) return 0;
+  return Math.min(1, Math.max(0, clampN) / recommendedPreloadN);
+}
+
 // What a load-flow line should look like at depth z: `ratio` is the local
 // pressure against the limit of whichever plate that depth falls in (hue —
 // how close THAT material is to crushing), `bright` is the pressure relative

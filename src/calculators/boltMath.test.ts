@@ -7,6 +7,7 @@ import {
   coneRadiusAtDepth,
   conePressureAtDepth,
   flowLineStateAtDepth,
+  coneVisibility,
   THREADS,
   CLASSES,
   PLATE_MATERIALS,
@@ -188,6 +189,37 @@ describe("flow-line coloring inside the clamped materials", () => {
     const thin = flowLineStateAtDepth(8, F, 5, 5, STEEL, 5, STEEL).bright;
     const thick = flowLineStateAtDepth(8, F, 20, 20, STEEL, 20, STEEL).bright;
     expect(thick).toBeLessThan(thin);
+  });
+});
+
+describe("coneVisibility (the cone fades in with the clamp load)", () => {
+  it("is completely absent at zero clamp", () => {
+    expect(coneVisibility(0, 8000)).toBe(0);
+  });
+
+  it("ramps proportionally and saturates at the recommended preload", () => {
+    expect(coneVisibility(2000, 8000)).toBeCloseTo(0.25, 9);
+    expect(coneVisibility(4000, 8000)).toBeCloseTo(0.5, 9);
+    expect(coneVisibility(8000, 8000)).toBeCloseTo(1, 9);
+    expect(coneVisibility(20000, 8000)).toBe(1); // clamped, never over-bright
+  });
+
+  it("never goes negative when an external load has separated the joint", () => {
+    expect(coneVisibility(-500, 8000)).toBe(0);
+  });
+
+  it("reaches full presence at each material's own working torque", () => {
+    // A plastic joint runs at a fraction of the steel torque — keyed to clamp
+    // force, both still saturate at their own recommendation.
+    const steel = recommendedTorque(M6, C88, 0.2, STEEL, STEEL);
+    const nylon = recommendedTorque(M6, C88, 0.2, PA12, PA12);
+    expect(nylon.F).toBeLessThan(steel.F / 3); // very different preloads …
+    expect(coneVisibility(steel.F, steel.F)).toBeCloseTo(1, 9); // … same full cone
+    expect(coneVisibility(nylon.F, nylon.F)).toBeCloseTo(1, 9);
+  });
+
+  it("degrades safely if there is no recommendation to scale against", () => {
+    expect(coneVisibility(5000, 0)).toBe(0);
   });
 });
 

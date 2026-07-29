@@ -10,6 +10,7 @@ import {
   jointResults,
   TARGET_PRELOAD_FRACTION,
   flowLineStateAtDepth,
+  coneVisibility,
   DW_RATIO,
 } from "./boltMath";
 import type { ThreadSpec, BoltClass, PlateMaterial, JointResults } from "./boltMath";
@@ -207,12 +208,19 @@ function Bolt3D({
       // limit of the plate the depth falls in, alpha-like brightness against
       // the peak at the bearing faces, so the concentration at head and nut
       // and the dilution at mid-grip read as a gradient on the cone itself.
-      if (parts.coneMat) parts.coneMat.opacity = 0.13 + Math.min(util, 1) * 0.45;
+      // The cone IS the clamp load, so it fades in from nothing with that
+      // load — invisible at zero torque, fully present around the recommended
+      // one. Driven by clamp force (not bolt utilization) so a plate-limited
+      // plastic joint reaches full visibility at its own much lower torque.
+      const clampN = Math.max(r.Fm, 0);
+      if (parts.coneMat) {
+        const Frec = r.TrecJoint / Math.max(P.K * (P.thread.d / 1000), 1e-9);
+        parts.coneMat.opacity = 0.6 * coneVisibility(clampN, Frec);
+      }
       if (parts.coneDepths) {
-        const clamp = Math.max(r.Fm, 0); // what the plates actually still feel
         for (const { color, depth } of parts.coneDepths) {
           for (let i = 0; i < color.count; i++) {
-            const s = flowLineStateAtDepth(P.thread.d, clamp, depth[i], P.t1, P.m1, P.t2, P.m2);
+            const s = flowLineStateAtDepth(P.thread.d, clampN, depth[i], P.t1, P.m1, P.t2, P.m2);
             const c = compressionSeverityColor(s.ratio);
             // Gentle range: the hue already carries "how close to the limit",
             // so brightness only needs to hint at the concentration. Any
