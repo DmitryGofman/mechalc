@@ -45,7 +45,7 @@ const REFINED: CalcCard[] = [
     ready: true,
   },
   {
-    href: `${import.meta.env.BASE_URL}designs/cylinderclamp/design-f-3d.html`,
+    route: "/clamp-calculator",
     tag: "Fasteners",
     title: "Cylinder Clamp — Split Collar",
     desc: "How many bolts and how tight, for a two-piece clamp on a rod or tube. Recommended torque from the bolt, the body material and the geometry at once; crown & ear bending, bearing, tube crush, gap closure and creep-derated grip. Drag a bolt head to tighten the 3D model and watch the stress field. Theory, design tips and a one-page or full PDF report.",
