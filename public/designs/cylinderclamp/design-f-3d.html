@@ -361,9 +361,9 @@
     the cylinder, in N·m: a lever hanging off it, a reaction torque. <b>Grip safety factor</b> is how much
     margin you want over that duty — 2 means the joint should hold twice what you expect.</p>
     <p>They are combined by converting the twist into the equivalent axial force it puts on the friction
-    interface, <span class="mth">${V("F")}<sub>eq</sub> = 2${V("T")}<sub>duty</sub>/${V("D")}</span>, then adding
+    interface, <span class="mth"><span class="mi">F</span><sub>eq</sub> = 2<span class="mi">T</span><sub>duty</sub>/<span class="mi">D</span></span>, then adding
     the two. That is conservative — it assumes the worst case where both act at once and in the same sense. The
-    grip that resists them is friction only, <span class="mth">${V("F")}<sub>ax</sub> = ${V("η")}·${V("μ")}·π·Σ${V("F")}</span>,
+    grip that resists them is friction only, <span class="mth"><span class="mi">F</span><sub>ax</sub> = <span class="mi">η</span>·<span class="mi">μ</span>·π·Σ<span class="mi">F</span></span>,
     checked <em>after</em> creep has relaxed the preload. Friction alone should never be the sole safeguard on
     something that hurts when it slips — add a key, a pin or a shoulder.</p>
 
@@ -376,7 +376,7 @@
     carry — the material outboard of the bolt is an <em>overhang</em>, so its bending moment is zero and it
     colours neutral. It is not a modelling gap: that material is there to hold the bolt head and to give you
     something to grip, not to carry bending. Between the bore wall and the bolt the moment ramps up as
-    <span class="mth">${V("M")} = ${V("F")}·(${V("a")} − |${V("z")}|)</span>, and it peaks over the bore where
+    <span class="mth"><span class="mi">M</span> = <span class="mi">F</span>·(<span class="mi">a</span> − |<span class="mi">z</span>|)</span>, and it peaks over the bore where
     the section is thinnest. If you want the ears to work harder, move the bolt closer to the bore (smaller
     <b>e</b>) — that shortens the lever on the crown too.</p>
 
@@ -489,15 +489,20 @@ function densify(p,maxLen){
   return out;
 }
 
-function halfProfile(R,half,g2,H,arcN){
-  const zb=Math.sqrt(Math.max(R*R-g2*g2,1e-6));
-  const phi0=Math.asin(Math.max(-1,Math.min(g2/R,1)));
+function halfProfile(R,half,g2,H,arcN,rz,ry){
+  // The bore is in CONTACT with the cylinder, so it takes the cylinder's
+  // deformed shape: as the tube is squeezed it goes elliptical (wider across,
+  // shorter vertically) and the bore follows it. Leaving the bore a perfect
+  // circle while the tube inside ovalizes is what made the arc look rigid.
+  rz=rz||R; ry=ry||R;
+  const zb=Math.sqrt(Math.max(rz*rz*(1-(g2/ry)*(g2/ry)),1e-6));
+  const phi0=Math.asin(Math.max(-1,Math.min(g2/ry,1)));
   const p=[[half,0],[zb,0]];
   for(let i=0;i<=arcN;i++){                       // bore arc, right → left over the top
     const phi=phi0+(Math.PI-2*phi0)*i/arcN;
-    p.push([R*Math.cos(phi),-g2+R*Math.sin(phi)]);
+    p.push([rz*Math.cos(phi),-g2+ry*Math.sin(phi)]);
   }
-  p.push([-zb,0],[-half,0],[-half,H],[-R,H],[R,H],[half,H]);
+  p.push([-zb,0],[-half,0],[-half,H],[-rz,H],[rz,H],[half,H]);
   return p;
 }
 
@@ -546,14 +551,28 @@ function buildScene(inp,res,ex){
   const shade=(z,y)=> stressMode ? stressAt(z,y) : (Math.abs(z)>R ? mix(earC) : mix(crownC));
 
   // ── the two halves: sweep the local profile along X ──
-  const prof=densify(halfProfile(R,half,g2,H,20),Math.max(1.6,(half+H)/26));
+  const prof=densify(halfProfile(R,half,g2,H,20,R+oval/2,R-oval/2),Math.max(1.6,(half+H)/26));
   const NX=unev>0?10:4;   // geometry only varies along X when the ears sag between bolts
   const x0=cut?0:-W/2;
   const ptAt=(z,ly,xi,up)=>{
     const x=x0+(W/2-x0)*xi/NX;
-    const drop=bend*zShape(Math.abs(z))*xMult(x);
-    const y=lift+ly-drop;                          // local → world, then mirror
-    return [x*s,(up?y:-y)*s,z*s];
+    const m=xMult(x);
+    // Full beam kinematics: the neutral axis follows the deflection curve δ(z),
+    // and each section ROTATES about it by θ(z). That rotation is what takes the
+    // bore out of round — with the vertical term alone the hole just translates
+    // and keeps its radius. Applied as a true rotation (sin/cos) rather than the
+    // small-angle shear, so the section keeps its length and the body still
+    // reads as a solid block at high SPLIT × magnification.
+    const drop=bend*zShape(Math.abs(z))*m;
+    const yn=res.dfNA(z), eta=ly-yn;
+    // Displacements scale with SPLIT ×, but a rotation cannot: real θ here is
+    // about 1.7°, and 12× would swing it to 20° and shear the body out of shape.
+    // Magnify it gently and clamp, so it adds the out-of-round without distorting.
+    const PHI_MAX=0.085;
+    const phi=Math.max(-PHI_MAX,Math.min(PHI_MAX,Math.sqrt(ex)*res.dfSlope(z)*m));
+    const zz=z - eta*Math.sin(phi);
+    const y=lift+yn+eta*Math.cos(phi)-drop;        // local → world, then mirror
+    return [x*s,(up?y:-y)*s,zz*s];
   };
   const pt=(zi,xi,up)=>ptAt(prof[zi][0],prof[zi][1],xi,up);
 

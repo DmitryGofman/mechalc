@@ -163,7 +163,7 @@
     const aBolt = D / 2 + e;
     const halfW = D / 2 + e + 1.7 * d;
     const NSEG = 240;
-    const shapeZ = [0], shapeD = [0];
+    const shapeZ = [0], shapeD = [0], shapeT = [0];
     {
       const dz = halfW / NSEG;
       let th = 0, dd = 0;
@@ -179,17 +179,30 @@
         th += kappa * dz;
         shapeZ.push((i + 1) * dz);
         shapeD.push(dd);
+        shapeT.push(th);
       }
     }
     const dFl = shapeD[NSEG];                       // ear-tip deflection, mm
     const cFl = Fb > 0 ? dFl / Fb : 0;              // mm per N of bolt force
-    // normalised bending shape δ(z)/δ(tip), for the 3D view
-    const dfShape = (z) => {
+    // Sampler over the integrated curves, for the 3D view.
+    const samp = (arr, z) => {
       const az = Math.min(Math.abs(z), halfW);
       const i = Math.min(Math.floor((az / halfW) * NSEG), NSEG - 1);
       const t = (az / halfW) * NSEG - i;
-      const v = shapeD[i] + (shapeD[i + 1] - shapeD[i]) * t;
-      return dFl > 0 ? v / dFl : 0;
+      return arr[i] + (arr[i + 1] - arr[i]) * t;
+    };
+    // normalised deflection δ(z)/δ(tip)
+    const dfShape = (z) => (dFl > 0 ? samp(shapeD, z) / dFl : 0);
+    // section rotation θ(z) in radians. Euler-Bernoulli kinematics: plane
+    // sections stay plane and ROTATE, so material off the neutral axis also
+    // moves along the beam by −θ·(y−y_na). Without this term every hole keeps
+    // its radius no matter how hard the part bends, which is not what happens.
+    const dfSlope = (z) => samp(shapeT, z) * Math.sign(z || 1);
+    // neutral axis height at z, measured from the flange face
+    const dfNA = (z) => {
+      const az = Math.abs(z);
+      const yLo = az < D / 2 ? Math.max(Math.sqrt(Math.max((D / 2) ** 2 - az * az, 0)) - g2, 0) : 0;
+      return (yLo + H) / 2;
     };
 
     // 3b) Cap crown bending — the "see-saw" statics model: the cap is a beam
@@ -304,7 +317,7 @@
     return {
       d, As, Fb, Ftot, sigma, tau, vm, SFbolt, Trec,
       b, Zf, sigmaF, SFflange, cFl, dFl,
-      H, tf, tc, tcRaw, g2, Zc, Mcrown, sigmaCrown, SFcrown, aBolt, halfW, dfShape,
+      H, tf, tc, tcRaw, g2, Zc, Mcrown, sigmaCrown, SFcrown, aBolt, halfW, dfShape, dfSlope, dfNA,
       Rm, cOval, dOval, cClose, Fclose, Tclose, bottomed, Fcl, closure, gapRemain,
       p, hoop, bend, sigmaCyl, SFcyl,
       dw, Abear, pHead, SFbear,
