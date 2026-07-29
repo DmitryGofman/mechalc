@@ -131,10 +131,27 @@ function Impact3D({
     scene.background = new THREE.Color("#0b1015");
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     camera.position.set(0, 0, 7.2);
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Mobile GPUs (especially iOS Safari in embedded frames) drop WebGL
+    // contexts under memory pressure — skip MSAA at high pixel densities,
+    // cap the backing-store ratio, and survive context loss.
+    const dpr = window.devicePixelRatio || 1;
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: dpr < 2,
+        powerPreference: "default",
+      });
+    } catch {
+      mount.textContent = "3D view unavailable — WebGL could not start on this device.";
+      mount.style.cssText += "display:flex;align-items:center;justify-content:center;color:#6b7884;font:11px monospace;";
+      return;
+    }
+    renderer.setPixelRatio(Math.min(dpr, 1.5));
     renderer.setSize(width, height);
     mount.appendChild(renderer.domElement);
+    renderer.domElement.addEventListener("webglcontextlost", (e) => {
+      e.preventDefault(); // allow the browser to restore the context
+    });
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.55));
     const key = new THREE.DirectionalLight(0xffffff, 0.9);
@@ -353,9 +370,13 @@ function Impact3D({
     };
     animate();
 
+    let lastW = width, lastH = height;
     const onResize = () => {
       const wd = mount.clientWidth || 320;
       const ht = mount.clientHeight || 340;
+      if (wd === lastW && ht === lastH) return; // avoid observer feedback loops
+      lastW = wd;
+      lastH = ht;
       camera.aspect = wd / ht;
       camera.updateProjectionMatrix();
       renderer.setSize(wd, ht);
