@@ -29,8 +29,11 @@ export default function App() {
   if (!route) return <Home />; // home, plus fallback for unknown paths
 
   return (
-    <div style={{ background: "#080c10", minHeight: "100vh" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "16px 16px 0" }}>
+    // Classed so the print stylesheet can neutralise them: an inline dark
+    // background paints straight over @media print's white page, which is what
+    // turned exported PDFs into black slabs.
+    <div className="app-shell" style={{ background: "#080c10", minHeight: "100vh" }}>
+      <div className="app-crumb" style={{ maxWidth: 760, margin: "0 auto", padding: "16px 16px 0" }}>
         <Link
           to="/"
           style={{

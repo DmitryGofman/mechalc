@@ -16,36 +16,28 @@
 // Units: mm, N, MPa (N/mm²). Torque in/out is N·m.
 // Reference values (ISO 898-1, Shigley, VDI 2230, Roark) — verify before use.
 
-export type ThreadSpec = { d: number; p: number; As: number };
+// Threads, bolt property classes, nut factors, the bearing annulus and the
+// preload target all come from the toolkit's shared fastener module, so this
+// calculator and the bolted-joint calculator answer "how tight?" with the same
+// numbers and the same formula. Only the clamp-specific data lives below.
+import {
+  CLASSES,
+  NUT_FACTORS,
+  THREADS,
+  TARGET_PRELOAD_FRACTION,
+  fastenerSpec,
+  preloadForTorque,
+  torqueForPreload,
+} from "./fasteners";
+import type { BoltClass, FastenerSpec, ThreadSpec } from "./fasteners";
 
-// ISO metric coarse threads: nominal diameter, pitch, tensile stress area.
-export const THREADS: Record<string, ThreadSpec> = {
-  M3: { d: 3, p: 0.5, As: 5.03 },
-  M4: { d: 4, p: 0.7, As: 8.78 },
-  M5: { d: 5, p: 0.8, As: 14.2 },
-  M6: { d: 6, p: 1.0, As: 20.1 },
-  M8: { d: 8, p: 1.25, As: 36.6 },
-  M10: { d: 10, p: 1.5, As: 58.0 },
-};
+export { CLASSES, THREADS, TARGET_PRELOAD_FRACTION };
+export type { BoltClass, ThreadSpec };
+export const KFACT = NUT_FACTORS;
 
-// Bolt property classes. sp = proof strength, sy = 0.2% offset yield, MPa.
-// Both are tabulated in ISO 898-1; proof runs 0.88–0.91 of yield.
-export type BoltClass = { sp: number; sy: number };
-export const CLASSES: Record<string, BoltClass> = {
-  "4.8 (low-carbon)": { sp: 310, sy: 340 },
-  "8.8 (Q&T steel)": { sp: 580, sy: 640 },
-  "10.9 (alloy Q&T)": { sp: 830, sy: 940 },
-  "12.9 (alloy Q&T)": { sp: 970, sy: 1100 },
-  "A2-70 (stainless)": { sp: 410, sy: 450 },
-};
-
-// Nut factor K for T = K·F·d. Scatters ±25% between real joints.
-export const KFACT: Record<string, number> = {
-  "Dry, plain (K≈0.20)": 0.2,
-  "Zinc plated, dry (K≈0.22)": 0.22,
-  "Oiled (K≈0.15)": 0.15,
-  "Anti-seize (K≈0.12)": 0.12,
-};
+// The clamp only offers the small end of the thread range — a split collar on a
+// rod this size is not held together by M20.
+export const CLAMP_THREADS = ["M3", "M4", "M5", "M6", "M8", "M10"] as const;
 
 // Clamp-body materials. E MPa; sy = strength MPa (printed: in-plane XY);
 // pG = permissible bearing pressure under the head; creep = fraction of
@@ -94,7 +86,6 @@ export const MU: Record<string, number> = {
 export const ETA = 0.75; // contact efficiency — real bore pressure is not uniform
 export const LAMBDA = 0.2; // share of clamp load treated as an ovalizing pinch
 export const DW = 1.5, DW_WASHER = 2.2, DH = 1.06; // head / washer / hole ratios × d
-export const TARGET_PRELOAD_FRACTION = 0.65; // preload target vs proof (see the app's preload theory)
 export const DESIGN_MARGIN = 1.5; // keep the governing structural check at SF ≥ this
 const NSEG = 240; // stations for the deflection integration
 
@@ -126,7 +117,7 @@ export function defaults(): ClampInput {
     D: 25, hollow: true, tw: 2, cyl: "Steel tube (S235 / DOM)",
     // Body is a FLAT block set by ONE height H; both bending sections follow.
     mat: "PC-ABS (FDM)", W: 40, H: 26, e: 9, gap: 2.0, washer: true,
-    N: 4, thread: "M5", cls: "8.8 (Q&T steel)", Kname: "Dry, plain (K≈0.20)", T: 1.2,
+    N: 4, thread: "M5", cls: "8.8 (medium-carbon, Q&T)", Kname: "Dry steel, plain (K ≈ 0.20)", T: 1.2,
     muName: "Printed plastic ↔ steel, dry (μ≈0.30)", Freq: 400, Treq: 3, SFt: 2,
   };
 }
@@ -186,8 +177,8 @@ export function solve(inp: ClampInput): ClampResult {
   const d = th.d, As = th.As;
   const R = D / 2;
 
-  // 1) Torque → preload, per bolt (N·m → N·mm).
-  const Fb = K > 0 ? (1000 * T) / (K * d) : 0;
+  // 1) Torque → preload, per bolt, through the shared nut-factor relation.
+  const Fb = preloadForTorque(K, d, T);
   const Ftot = N * Fb;
 
   // 2) Bolt: direct tension plus the torsion thread friction leaves in the
@@ -197,7 +188,7 @@ export function solve(inp: ClampInput): ClampResult {
   const tau = (16 * (0.5 * 1000 * Math.abs(T))) / (Math.PI * ds ** 3);
   const vm = Math.sqrt(sigma * sigma + 3 * tau * tau);
   const SFbolt = vm > 0 ? cl.sp / vm : Infinity;
-  const Trec = (K * d * As * TARGET_PRELOAD_FRACTION * cl.sp) / 1000;
+  const Trec = torqueForPreload(K, d, TARGET_PRELOAD_FRACTION * cl.sp * As);
 
   // 3) Ear bending: the ear alone, a short cantilever from the bore wall to
   //    the bolt line, over the slice of width each bolt commands.
@@ -370,26 +361,27 @@ export function solve(inp: ClampInput): ClampResult {
 // The classic bolted-joint answer: what suits THIS fastener, capped by what
 // the connected material takes under the head. Independent of the clamp's
 // bending checks — a plastic body usually needs far less.
-export type BoltSpec = {
-  d: number; As: number; F65: number; T65: number;
-  dw: number; Abear: number; Fbear: number; Tbear: number;
-  T: number; pG: number; sp: number; K: number; governs: string;
+export type BoltSpec = FastenerSpec & {
+  dw: number; pG: number; sp: number; K: number;
 };
 
 export function boltSpec(inp: ClampInput): BoltSpec {
-  const th = THREADS[inp.thread], cl = CLASSES[inp.cls];
-  const cm = CLAMP_MATS[inp.mat], K = KFACT[inp.Kname];
-  const d = th.d, As = th.As;
-  const F65 = TARGET_PRELOAD_FRACTION * cl.sp * As;
-  const T65 = (K * d * F65) / 1000;
-  const dw = (inp.washer ? DW_WASHER : DW) * d;
-  const Abear = (Math.PI / 4) * (dw * dw - (DH * d) ** 2);
-  const Fbear = cm.pG * Abear;
-  const Tbear = (K * d * Fbear) / 1000;
+  // Straight through to the shared fastener spec — this is the number the
+  // bolted-joint calculator shows for the same thread, grade, finish and
+  // permissible bearing pressure, and it has to stay that way.
+  const spec = fastenerSpec({
+    thread: THREADS[inp.thread],
+    cls: CLASSES[inp.cls],
+    K: KFACT[inp.Kname],
+    pG: CLAMP_MATS[inp.mat].pG,
+    washer: inp.washer,
+  });
   return {
-    d, As, F65, T65, dw, Abear, Fbear, Tbear,
-    T: Math.min(T65, Tbear), pG: cm.pG, sp: cl.sp, K,
-    governs: Tbear < T65 ? "bearing on the clamped material" : "bolt proof strength",
+    ...spec,
+    dw: (inp.washer ? DW_WASHER : DW) * spec.d,
+    pG: CLAMP_MATS[inp.mat].pG,
+    sp: CLASSES[inp.cls].sp,
+    K: KFACT[inp.Kname],
   };
 }
 

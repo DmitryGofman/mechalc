@@ -318,23 +318,35 @@ const LIGHT = (() => {
   return l.map((v) => v / n);
 })();
 
+// `opts` exists for the report snapshot: an offscreen canvas has no layout box
+// to measure and no successive frames to ease the camera into, so size, pixel
+// density, paper background and an immediate camera settle all have to be
+// stated rather than inferred.
+export type DrawOpts = {
+  width?: number;
+  height?: number;
+  scale?: number; // device pixels per CSS pixel — raise it for print
+  background?: string;
+  settle?: boolean; // snap the camera home instead of easing toward it
+};
+
 export function drawScene(
-  cv: HTMLCanvasElement, scene: BuiltScene, view: View, alpha: number,
+  cv: HTMLCanvasElement, scene: BuiltScene, view: View, alpha: number, opts?: DrawOpts,
 ): number[][] {
   const wrap = cv.parentElement;
-  const Wp = (wrap?.clientWidth ?? cv.clientWidth) || 300;
-  const Hp = (wrap?.clientHeight ?? cv.clientHeight) || 300;
+  const Wp = opts?.width ?? ((wrap?.clientWidth ?? cv.clientWidth) || 300);
+  const Hp = opts?.height ?? ((wrap?.clientHeight ?? cv.clientHeight) || 300);
   const ctx = cv.getContext("2d");
   if (!ctx) return [];
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = opts?.scale ?? Math.min(window.devicePixelRatio || 1, 2);
   if (cv.width !== Wp * dpr || cv.height !== Hp * dpr) { cv.width = Wp * dpr; cv.height = Hp * dpr; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#0b1015";
+  ctx.fillStyle = opts?.background ?? "#0b1015";
   ctx.fillRect(0, 0, Wp, Hp);
 
   const fl = Math.min(Wp, Hp) * 0.92;
   const want = Math.max(2.6, (scene.fitR * fl) / (0.34 * Math.min(Wp, Hp)));
-  view.dist += (want - view.dist) * 0.18;
+  view.dist = opts?.settle ? want : view.dist + (want - view.dist) * 0.18;
 
   const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
   const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);

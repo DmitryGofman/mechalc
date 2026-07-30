@@ -17,14 +17,21 @@ const eqn = (lead: string, sym: string, sub: string, res: string, cls = "", cmt 
   `<span class="res ${cls}">${res}</span></span>${cmt ? `<span class="cmt">${cmt}</span>` : ""}</div>`;
 
 /* ── dimensioned drawing: every dimension outside the part ────────────── */
-function dimsSVG(inp: CM.ClampInput, r: CM.ClampResult) {
+// `forPrint` swaps the palette for ink on paper. The colours are baked into the
+// SVG's own fill/stroke attributes, so a print stylesheet cannot reach them —
+// the diagram used to export as a full page of black.
+function dimsSVG(inp: CM.ClampInput, r: CM.ClampResult, forPrint = false) {
   const R = inp.D / 2, g2 = r.g2, H = r.H, e = inp.e, dB = r.d;
   const half = R + e + 1.7 * dB, top = g2 + H, bad = r.tcRaw < 0.5;
   const VW = 400, VH = 272, ML = 52, MR = 54, MT = 44, MB = 50;
   const sc = Math.min((VW - ML - MR) / (2 * half), (VH - MT - MB) / (2 * top));
   const cx = ML + (VW - ML - MR) / 2, cyv = MT + (VH - MT - MB) / 2;
   const X = (z: number) => cx + z * sc, Y = (y: number) => cyv - y * sc;
-  const INK = "#8b97a3", THIN = "#46515c", ACC = "#3a78c2", GRN = bad ? "#d65c5c" : "#4fb477", AMB = "#d9a441";
+  const INK = forPrint ? "#333" : "#8b97a3";
+  const THIN = forPrint ? "#777" : "#46515c";
+  const ACC = forPrint ? "#14459b" : "#3a78c2";
+  const GRN = bad ? (forPrint ? "#a01d1d" : "#d65c5c") : forPrint ? "#0a6b3d" : "#4fb477";
+  const AMB = forPrint ? "#8a5a00" : "#d9a441";
   const txt = (x: number, y: number, s: string, c = INK, size = 8.5, anc = "middle") =>
     `<text x="${x}" y="${y}" font-size="${size}" fill="${c}" text-anchor="${anc}" font-family="monospace">${s}</text>`;
   const ah = (x: number, y: number, dx: number, dy: number, c: string) => {
@@ -205,7 +212,7 @@ function preloadHTML(inp: CM.ClampInput, r: CM.ClampResult, spec: CM.BoltSpec, r
       <tr><td><b>Shigley</b> — permanent connections</td><td class="v">0.90 · F<sub>p</sub></td></tr>
       <tr><td><b>VDI 2230</b></td><td class="v">≈0.90 of yield ÷ α<sub>A</sub></td></tr>
       <tr class="hi"><td><b>This calculator</b></td><td class="v">0.65 · F<sub>p</sub></td></tr></table>
-    <p style="color:#e6c98a"><b>Do not cite 0.65 as Shigley.</b> Shigley's figure is 0.75 or 0.90; VDI 2230 does not
+    <p class="pn warn"><b>Do not cite 0.65 as Shigley.</b> Shigley's figure is 0.75 or 0.90; VDI 2230 does not
     work in "% of proof" at all. <b>0.65 is this tool's own conservative choice</b>, at the low end of the common
     60–75% band. Here is why.</p>
 
@@ -221,7 +228,7 @@ function preloadHTML(inp: CM.ClampInput, r: CM.ClampResult, spec: CM.BoltSpec, r
       <tr><td>25% low — grabbier than assumed</td><td class="v" style="color:var(--red)">${loK.toFixed(2)}</td></tr>
       <tr><td>as assumed</td><td class="v">0.65</td></tr>
       <tr><td>25% high — slipperier</td><td class="v">${hiK.toFixed(2)}</td></tr></table>
-    <p style="color:#e0a3a3"><b>Be clear-eyed:</b> at the unlucky end, ${loK.toFixed(2)} of proof <em>plus</em> torsion
+    <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end, ${loK.toFixed(2)} of proof <em>plus</em> torsion
     reaches roughly <b>${((vmR * loK) / 0.65 * 100).toFixed(0)}%</b> of proof — the bolt yields. Dropping the target
     buys margin, not certainty. That is the weakness of torque control, and why joints that matter use angle control
     past snug or measure bolt stretch. Treat every preload figure here as ±25%.</p>
@@ -365,6 +372,9 @@ export default function ClampCalc() {
   const [forces, setForces] = useState(true);
   const [cut, setCut] = useState(false);
   const [spin, setSpin] = useState(false);
+  // Non-null only while an export is in flight: it carries which document to
+  // build and the 3D snapshot to embed in it.
+  const [printDoc, setPrintDoc] = useState<{ brief: boolean; img: string } | null>(null);
 
   const set = <K extends keyof CM.ClampInput>(k: K, v: CM.ClampInput[K]) => setInp((s) => ({ ...s, [k]: v }));
 
@@ -374,6 +384,10 @@ export default function ClampCalc() {
   // actually get there, not the grip at wherever the slider happens to sit.
   const recRes = useMemo(() => CM.solve({ ...inp, T: rec.T }), [inp, rec.T]);
   const spec = useMemo(() => CM.boltSpec(inp), [inp]);
+  // The same fastener under the other head assumption, so the reference can show
+  // both and the washer stops looking like a difference in method.
+  const specBare = useMemo(() => CM.boltSpec({ ...inp, washer: false }), [inp]);
+  const specWashered = useMemo(() => CM.boltSpec({ ...inp, washer: true }), [inp]);
 
   const cvRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<View>({ yaw: -0.7, pitch: -0.26, dist: 5.2 });
@@ -432,13 +446,49 @@ export default function ClampCalc() {
   };
   const onUp = () => { dragRef.current.mode = null; };
 
-  const exportPDF = (brief: boolean) => {
-    document.body.classList.add(brief ? "pf-brief" : "pf-full");
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      window.print();
-      setTimeout(() => document.body.classList.remove("pf-brief", "pf-full"), 300);
-    }));
+  // ── Report snapshot ──────────────────────────────────────────────────────
+  // The viewer's own canvas is sized to its layout box and to the screen's
+  // pixel ratio, so lifting it straight into a document gives a picture that is
+  // soft the moment the page is printed or opened on a desktop. Render the same
+  // scene again offscreen, at print density, on paper white.
+  const snapshot = (brief: boolean): string => {
+    const cv = document.createElement("canvas");
+    const scene = buildScene({ ...inp, T: torque }, res, {
+      ex, stressMode, contrast, forces, cut, opaque: opacity >= 100,
+    });
+    const view: View = { ...viewRef.current };
+    // The bench sheet has one page to spend, so it gets a letterbox crop; the
+    // full report can afford a taller figure. Scale 2 either way, which puts the
+    // printed figure above 300 dpi instead of at screen resolution.
+    drawScene(cv, scene, view, opacity / 100, {
+      width: 1100, height: brief ? 460 : 700, scale: 2, background: "#ffffff", settle: true,
+    });
+    return cv.toDataURL("image/png");
   };
+
+  // Printing renders a document of its own rather than re-skinning the live UI.
+  // Re-skinning was the bug: inline dark backgrounds beat any @media print rule
+  // that lacks !important, so panels, the app shell and the dimension diagram
+  // all survived as black slabs with unreadable text on them.
+  const exportPDF = (brief: boolean) => {
+    setPrintDoc({ brief, img: snapshot(brief) });
+  };
+
+  useEffect(() => {
+    if (!printDoc) return;
+    let done = false;
+    const finish = () => { if (!done) { done = true; setPrintDoc(null); } };
+    // Chrome blocks inside print(); Safari returns immediately, so afterprint is
+    // the signal that the document may be torn down. The timeout is only a
+    // backstop for browsers that never fire it.
+    window.addEventListener("afterprint", finish);
+    // Two frames: one to mount the print document, one to lay it out.
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.print();
+      setTimeout(finish, 1500);
+    }));
+    return () => { window.removeEventListener("afterprint", finish); cancelAnimationFrame(raf); };
+  }, [printDoc]);
 
   const gripCol = CM.sfColor(res.SFslipLT * (2 / Math.max(inp.SFt, 0.5)));
   const dutyEq = Math.max(0, inp.Freq) + (inp.Treq > 0 ? (2000 * inp.Treq) / inp.D : 0);
@@ -458,16 +508,6 @@ export default function ClampCalc() {
 
   return (
     <div className="flexure-shell clamp-page" style={{ maxWidth: 620, margin: "0 auto" }}>
-      <div className="printhead">
-        <h1>Cylinder Clamp — design calculation</h1>
-        <div className="meta">
-          Ø{f(inp.D, 1)} {inp.hollow ? `× ${f(inp.tw, 1)} wall tube` : "solid rod"} · {inp.cyl}<br />
-          body {inp.mat} · H {f(res.H, 1)} · W {f(inp.W, 1)} · e {f(inp.e, 1)} · gap {f(inp.gap, 2)} mm (crown tc {f(res.tc, 1)})<br />
-          {inp.N} × {inp.thread} grade {inp.cls.split(" ")[0]} · {inp.Kname} · applied {n2(torque)} N·m/bolt<br />
-          typical reference values — verify before production
-        </div>
-      </div>
-
       <div className="flexure-header" style={{ marginBottom: 12, paddingBottom: 10, borderBottom: "1px solid #1f2a33" }}>
         <div>
           <div style={{ fontFamily: M, fontSize: 9, letterSpacing: ".25em", color: "#3a78c2" }}>FASTENERS</div>
@@ -569,7 +609,13 @@ export default function ClampCalc() {
         </div>
 
         <div className="clamp-strip">
-          {([["grip LT", isFinite(res.SFslipLT) ? f(res.SFslipLT, 2) : "∞", `${f(res.FaxLT, 0)} N axial`, gripCol, false],
+          {/* Three of these four are the part checking itself against yield. The
+              first is the only one that needs a load from you, so when the load
+              box is empty it reports capacity and stays neutral instead of
+              colouring an SF nobody asked for. */}
+          {([dutyEq > 0
+            ? ["won't slip", isFinite(res.SFslipLT) ? f(res.SFslipLT, 2) : "∞", `SF vs your ${f(dutyEq, 0)} N`, gripCol, false]
+            : ["holds", f(res.FaxLT, 0), "N long-term", "#8b97a3", false],
           ["ears", res.SFflange.toFixed(2), `σ ${f(res.sigmaF, 1)} MPa`, CM.sfColor(res.SFflange), res.SFflange === res.SFstruct],
           ["crown", res.SFcrown.toFixed(2), `σ ${f(res.sigmaCrown, 1)} MPa`, CM.sfColor(res.SFcrown), res.SFcrown === res.SFstruct],
           [inp.hollow ? "tube" : "bore", res.SFcyl.toFixed(2), `σ ${f(res.sigmaCyl, 1)} MPa`, CM.sfColor(res.SFcyl), res.SFcyl === res.SFstruct],
@@ -578,6 +624,16 @@ export default function ClampCalc() {
               <div className="k">{k}</div><div className="n" style={{ color: c }}>{n}</div><div className="u">{u}</div>
             </div>
           ))}
+        </div>
+        <div className="clamp-hintline">
+          <b>ears</b>, <b>crown</b> and <b>{inp.hollow ? "tube" : "bore"}</b> are safety factors against yield at the
+          torque on the slider — they come from your geometry and materials alone, and red means that part is at or over
+          its limit. The first cell is different: {dutyEq > 0
+            ? <>it divides the <b>{f(res.FaxLT, 0)} N</b> the joint can hold after creep by the <b>{f(dutyEq, 0)} N</b> your
+              load box asks of it, and turns red as that ratio falls below the <b>SF {f(inp.SFt, 1)}</b> you set there.
+              Nothing is wrong with the part when it is red — the grip is simply short of the load you entered.</>
+            : <>with the load box empty there is nothing to check against, so it just reports what the joint can hold.
+              Fill in a pull or a twist at the bottom of the page to turn it into a safety factor.</>}
         </div>
 
         {res.warns.filter((w) => w.level !== "info").slice(0, 2).map((w, i) => (
@@ -593,7 +649,7 @@ export default function ClampCalc() {
           <Ro label="Derived crown tc" unit="mm over bore" v={`${f(res.tc, 2)} mm`} />
           <Sel label="Clamp material" wide v={inp.mat} opts={Object.keys(CM.CLAMP_MATS)} on={(v) => set("mat", v)} />
           <Sel label="Bolts" v={String(inp.N)} opts={["2", "4", "6"]} on={(v) => set("N", +v)} />
-          <Sel label="Thread" v={inp.thread} opts={Object.keys(CM.THREADS)} on={(v) => set("thread", v)} />
+          <Sel label="Thread" v={inp.thread} opts={[...CM.CLAMP_THREADS]} on={(v) => set("thread", v)} />
         </div>
 
         <details className="clamp-details">
@@ -612,11 +668,24 @@ export default function ClampCalc() {
         <div className="clamp-ref">
           <span className="hdr">FASTENER REFERENCE · PER BOLT</span>
           {inp.thread} grade {inp.cls.split(" ")[0]} at 65% of proof: <b>{n2(spec.T65)} N·m</b>
-          {" · "}capped by bearing on {inp.mat} (p<sub>G</sub> {f(spec.pG, 0)} MPa{inp.washer ? ", washer" : ", bare head"}): <b>{n2(spec.Tbear)} N·m</b><br />
+          {" · "}capped by bearing on {inp.mat} (p<sub>G</sub> {f(spec.pG, 0)} MPa,{" "}
+          {inp.washer ? `washer face ${f(spec.dw, 1)} mm` : `bare head ${f(spec.dw, 1)} mm`}): <b>{n2(spec.Tbear)} N·m</b><br />
           → fastener-side spec <b>{n2(spec.T)} N·m</b>, limited by {spec.governs}.{" "}
           {rec.T < spec.T
             ? <>The clamp body gives out first, so use the <b>{n2(rec.T)} N·m</b> above — the fastener could take {(spec.T / Math.max(rec.T, 1e-6)).toFixed(1)}× more.</>
             : <>Here the fastener is the tighter limit, so do not exceed <b>{n2(spec.T)} N·m</b>.</>}
+          {/* The single biggest reason this used to disagree with the bolted-joint
+              calculator. Show the other assumption's number so the comparison is
+              never apples-to-oranges. */}
+          <div className="sub">
+            Same thread, grade, finish and p<sub>G</sub> as the <b>Bolted Joint</b> calculator — one shared table.
+            The washer is what moves it: {inp.washer
+              ? <>with washers you get <b>{n2(spec.Tbear)} N·m</b>; on a bare head the annulus is 3.3× smaller,
+                so it drops to <b>{n2(specBare.Tbear)} N·m</b>.</>
+              : <>bare-head here gives <b>{n2(spec.Tbear)} N·m</b>; adding washers spreads the load over 3.3× the
+                annulus and raises it to <b>{n2(specWashered.Tbear)} N·m</b>.</>}
+            {" "}Both keep 10% clear of p<sub>G</sub>.
+          </div>
         </div>
 
         <div className="clamp-cap">
@@ -631,9 +700,18 @@ export default function ClampCalc() {
             </tbody>
           </table>
           <div className="foot">
-            Friction only: <b>F<sub>ax</sub> = η·μ·π·ΣF</b> with η 0.75 and μ {f(res.mu, 2)}; twist capacity is that force at
-            the bore radius, <b>T = F<sub>ax</sub>·D/2</b>. Either alone will do it — together they share the same friction.
-            Never rely on friction alone where slipping is dangerous — add a key, pin or shoulder.
+            <b>All outputs — you set nothing here.</b> Every row falls out of the torque on the slider: it becomes
+            preload <b>F = T/(K·d)</b>, ΣF = {inp.N}·F = <b>{f(res.Ftot, 0)} N</b> squeezing the bore, and friction turns
+            that into a hold. <b>F<sub>ax</sub> = η·μ·π·ΣF</b> with η 0.75 for non-uniform bore contact and μ{" "}
+            {f(res.mu, 2)} from the bore-friction setting; the twist figure is that same force at the bore radius,{" "}
+            <b>T = F<sub>ax</sub>·D/2</b>. The “after creep” column multiplies by{" "}
+            <b>{f(res.creep, 2)}</b>, the preload this body retains long-term — that column is the design one.
+            Either row alone will do it; they share the same friction, so you cannot have both at full value.
+            {dutyEq > 0
+              ? <> The green/red here is the same comparison as the first cell above: these capacities against
+                the <b>{f(dutyEq, 0)} N</b> your load box asks for.</>
+              : <> Nothing is being judged — no load entered, so these are plain capacities.</>}
+            {" "}Never rely on friction alone where slipping is dangerous — add a key, pin or shoulder.
           </div>
         </div>
 
@@ -690,10 +768,56 @@ export default function ClampCalc() {
         </div>
       </div>
 
-      {/* the one-page bench sheet, print-only */}
-      <div id="clampSummary" dangerouslySetInnerHTML={{
-        __html: summaryHTML(inp, res, rec, spec, torque),
-      }} />
+      {/* ── The export document ────────────────────────────────────────────
+          Mounted only while printing, and it is the ONLY thing @media print
+          shows. Everything in it is authored for paper — no live controls, no
+          inherited panel colours — so there is nothing left to re-skin and
+          nothing that can survive as a black slab. */}
+      {printDoc && (
+        <div id="clampPrint" className={printDoc.brief ? "brief" : "full"}>
+          <div className="ph">
+            <h1>Cylinder Clamp — {printDoc.brief ? "bench sheet" : "design calculation"}</h1>
+            <div className="meta">
+              Ø{f(inp.D, 1)} {inp.hollow ? `× ${f(inp.tw, 1)} wall tube` : "solid rod"} · {inp.cyl}<br />
+              body {inp.mat} · H {f(res.H, 1)} · W {f(inp.W, 1)} · e {f(inp.e, 1)} · gap {f(inp.gap, 2)} mm (crown t<sub>c</sub> {f(res.tc, 2)})<br />
+              {inp.N} × {inp.thread} grade {inp.cls.split(" ")[0]} · {inp.Kname}{inp.washer ? " · washers" : " · bare heads"} · applied {n2(torque)} N·m/bolt<br />
+              typical reference values — verify before production
+            </div>
+          </div>
+
+          <figure className="fig">
+            <img src={printDoc.img} alt="3D view of the clamp, coloured by stress" />
+            <figcaption>
+              {stressMode
+                ? <>Stress at {n2(torque)} N·m per bolt — blue compression through green to red tension,
+                  scaled to {f(scaleMPa, 0)} MPa yield{contrast ? " with √ contrast" : " linearly"}.</>
+                : <>Coloured by safety factor at {n2(torque)} N·m per bolt.</>}
+              {" "}Split and deflections magnified ×{ex}{cut ? " · half section" : ""}.
+            </figcaption>
+          </figure>
+
+          <div dangerouslySetInnerHTML={{ __html: summaryHTML(inp, res, rec, spec, torque) }} />
+
+          {!printDoc.brief && (
+            <>
+              <h2 className="sec">How it works — the dimensions</h2>
+              <div className="clamp-dims print" dangerouslySetInnerHTML={{ __html: dimsSVG(inp, res, true) }} />
+              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: theoryHTML(inp, res) }} />
+              <h2 className="sec brk">Calculation report</h2>
+              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res, rec, spec, torque) }} />
+              <h2 className="sec brk">Proof strength, preload and where the 65% comes from</h2>
+              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: preloadHTML(inp, res, spec, rec) }} />
+              <h2 className="sec brk">Designing a two-piece clamp — what actually matters</h2>
+              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: tipsHTML(inp, res, rec, spec, torque) }} />
+            </>
+          )}
+
+          <div className="foot">
+            Closed-form design check, not FEA. Deflections and the split are magnified in the figure so the motion is
+            visible. Typical reference values — verify against your own data before production use.
+          </div>
+        </div>
+      )}
 
       <div className="clamp-note">
         <strong>Scope.</strong> Closed-form design check, not FEA. Deflections are magnified by <b>SPLIT ×</b> so the
@@ -706,10 +830,28 @@ export default function ClampCalc() {
 
 /* ── small controls, matching the toolkit's language ──────────────────── */
 function Num({ label, unit, v, on, step }: { label: string; unit: string; v: number; on: (v: number) => void; step: number }) {
+  // While the field has focus it shows exactly what you typed — including
+  // nothing at all. Committing 0 the instant the box was emptied is what made a
+  // cleared field refill with "0" and then read "05" when you typed 5. Only a
+  // parseable number reaches the model; clearing and clicking away restores the
+  // last good value rather than zeroing the design.
+  const [draft, setDraft] = useState<string | null>(null);
   return (
     <div className="clamp-fld">
       <label>{label}<span>{unit}</span></label>
-      <input type="number" step={step} value={v} onChange={(e) => { const n = parseFloat(e.target.value); on(isNaN(n) ? 0 : n); }} />
+      <input
+        type="number"
+        step={step}
+        inputMode="decimal"
+        value={draft ?? String(v)}
+        onChange={(e) => {
+          const t = e.target.value;
+          setDraft(t);
+          const n = parseFloat(t);
+          if (t.trim() !== "" && !Number.isNaN(n)) on(n);
+        }}
+        onBlur={() => setDraft(null)}
+      />
     </div>
   );
 }
