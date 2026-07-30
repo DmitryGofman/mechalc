@@ -4,6 +4,13 @@ import {
   CLAMP_MATS, CLASSES, THREADS, KFACT, ETA, TARGET_PRELOAD_FRACTION,
   type ClampInput,
 } from "./clampMath";
+import {
+  recommendedTorque,
+  CLASSES as BOLT_CLASSES,
+  THREADS as BOLT_THREADS,
+  FRICTION as BOLT_FRICTION,
+  type PlateMaterial,
+} from "./boltMath";
 
 const at = (T: number, over: Partial<ClampInput> = {}) => solve({ ...defaults(), ...over, T });
 
@@ -155,6 +162,39 @@ describe("recommended torque", () => {
     expect(rec.ok).toBe(false);
     expect(rec.Tneed).toBeGreaterThan(rec.T);
   });
+
+  // The number on the card is a limit on the PART. The duty inputs decide only
+  // whether that limit is enough — they must never move the limit itself, or
+  // the "safe torque" reads as a grip promise and the not-ok state looks like
+  // the torque has become unsafe.
+  it("is a structural allowance the duty inputs cannot move", () => {
+    const light = recommend({ ...defaults(), Freq: 0, Treq: 0, SFt: 1 });
+    const heavy = recommend({ ...defaults(), Freq: 40000, Treq: 500, SFt: 4 });
+    expect(heavy.T).toBeCloseTo(light.T, 9);
+    expect(heavy.governing).toBe(light.governing);
+    expect(light.ok).toBe(true);
+    expect(heavy.ok).toBe(false);
+    expect(heavy.Tneed).toBeGreaterThan(light.Tneed);
+  });
+
+  // The not-ok state still hands back a usable torque — the joint is safe at
+  // it, it just doesn't grip hard enough. Only a joint with no room at all
+  // returns zero, and that is a different message.
+  it("still returns a safe torque when the grip falls short", () => {
+    const rec = recommend({ ...defaults(), Freq: 40000, Treq: 500 });
+    expect(rec.T).toBeGreaterThan(0);
+    expect(solve({ ...defaults(), Freq: 40000, Treq: 500, T: rec.T }).SFstruct)
+      .toBeGreaterThanOrEqual(rec.margin - 1e-6);
+  });
+
+  // Past gap closure the flanges carry the load, so extra torque buys no grip.
+  // A duty beyond that point is unreachable at any torque, not merely at this
+  // safety factor — the two need different advice.
+  it("flags a duty that no torque can reach once the gap shuts", () => {
+    const rec = recommend({ ...defaults(), gap: 0.1, Freq: 40000, Treq: 500 });
+    expect(rec.ok).toBe(false);
+    expect(rec.Tneed).toBeGreaterThan(rec.Tclose);
+  });
 });
 
 describe("fastener-side spec", () => {
@@ -252,5 +292,65 @@ describe("robustness across the input space", () => {
     expect(r.Fax).toBe(0);
     expect(r.SFslipLT).toBe(Infinity); // nothing asked of it, nothing to fail
     expect(Number.isNaN(r.gapRemain)).toBe(false);
+  });
+});
+
+// The two fastener calculators used to disagree 2.7× on the bearing-capped
+// torque for an M5 8.8 into a soft polymer: duplicated tables, a washer known
+// to only one of them, and a bearing margin applied in only one. They now share
+// one module, and these tests are what keeps them from drifting again.
+describe("agreement with the bolted-joint calculator", () => {
+  const soft: PlateMaterial = { E: 1.9, sy: 41, pG: 48, tone: "#000" };
+
+  it("gives the same bare-head torque for the same thread, grade, finish and pG", () => {
+    const inp: ClampInput = {
+      ...defaults(), thread: "M5", cls: "8.8 (medium-carbon, Q&T)",
+      Kname: "Dry steel, plain (K ≈ 0.20)", mat: "PC-ABS (FDM)", washer: false,
+    };
+    // The clamp body's pG has to be the one the plate stands in for, or this
+    // compares two different materials rather than two implementations.
+    expect(CLAMP_MATS[inp.mat].pG).toBe(soft.pG);
+    const clamp = boltSpec(inp);
+    const bolt = recommendedTorque(THREADS.M5, CLASSES["8.8 (medium-carbon, Q&T)"], 0.2, soft, soft);
+    expect(clamp.T).toBeCloseTo(bolt.T, 9);
+    expect(clamp.governs).toBe("bearing on the clamped material");
+    expect(bolt.governedBy).toBe("plate");
+  });
+
+  it("agrees on the bolt-governed case too, where bearing is not the limit", () => {
+    const steel: PlateMaterial = { E: 200, sy: 235, pG: 490, tone: "#000" };
+    const inp: ClampInput = {
+      ...defaults(), thread: "M5", cls: "8.8 (medium-carbon, Q&T)",
+      Kname: "Dry steel, plain (K ≈ 0.20)", mat: "Mild steel (S235)", washer: false,
+    };
+    expect(CLAMP_MATS[inp.mat].pG).toBe(steel.pG);
+    const clamp = boltSpec(inp);
+    const bolt = recommendedTorque(THREADS.M5, CLASSES["8.8 (medium-carbon, Q&T)"], 0.2, steel, steel);
+    expect(clamp.T).toBeCloseTo(bolt.T, 9);
+    expect(clamp.governs).toBe("bolt proof strength");
+  });
+
+  it("draws threads, grades and nut factors from the one shared table", () => {
+    expect(CLASSES).toBe(BOLT_CLASSES);
+    expect(THREADS).toBe(BOLT_THREADS);
+    expect(KFACT).toBe(BOLT_FRICTION);
+  });
+
+  // A washer is the one legitimate reason the two can differ, and it is a big
+  // one: 2.2d over 1.5d is ~3.3× the annulus, so the same body takes ~3.3× the
+  // torque. The UI has to say which it assumed.
+  it("explains the remaining gap as the washer, not as a different method", () => {
+    const base = { ...defaults(), thread: "M5", mat: "PC-ABS (FDM)" };
+    const bare = boltSpec({ ...base, washer: false });
+    const washered = boltSpec({ ...base, washer: true });
+    expect(washered.Abear / bare.Abear).toBeCloseTo(3.3, 1);
+    expect(washered.Tbear / bare.Tbear).toBeCloseTo(washered.Abear / bare.Abear, 6);
+  });
+
+  it("keeps the recommendation clear of the bearing limit it is capped by", () => {
+    const spec = boltSpec({ ...defaults(), mat: "PC-ABS (FDM)", washer: false });
+    const r = solve({ ...defaults(), mat: "PC-ABS (FDM)", washer: false, T: spec.T });
+    expect(r.pHead).toBeLessThan(CLAMP_MATS["PC-ABS (FDM)"].pG);
+    expect(r.SFbear).toBeGreaterThan(1);
   });
 });

@@ -166,8 +166,15 @@ export function buildScene(inp: CM.ClampInput, res: CM.ClampResult, o: SceneOpts
   };
   const pt = (zi: number, xi: number, up: boolean) => ptAt(prof[zi][0], prof[zi][1], xi, up);
 
+  // Orientation reference for back-face culling: the centroid of the half as
+  // actually built. Half section trims it to x ∈ [0, W/2], so the centroid
+  // moves to W/4 — leave it at 0 and the cut face lies exactly in the plane
+  // through its own reference point, "outward" degenerates to a 0·0 dot, and
+  // the sign falls out of rounding error. Half the cells then cull and the
+  // face reads as scattered holes onto the background.
+  const xMid = ((x0 + W / 2) / 2) * s;
   for (const up of [true, false]) {
-    const O = [0, (up ? 1 : -1) * (lift + H / 2) * s, 0];
+    const O = [xMid, (up ? 1 : -1) * (lift + H / 2) * s, 0];
     for (let i = 0; i < prof.length; i++) {
       const j = (i + 1) % prof.length;
       let c = shade((prof[i][0] + prof[j][0]) / 2, (prof[i][1] + prof[j][1]) / 2);
@@ -311,23 +318,35 @@ const LIGHT = (() => {
   return l.map((v) => v / n);
 })();
 
+// `opts` exists for the report snapshot: an offscreen canvas has no layout box
+// to measure and no successive frames to ease the camera into, so size, pixel
+// density, paper background and an immediate camera settle all have to be
+// stated rather than inferred.
+export type DrawOpts = {
+  width?: number;
+  height?: number;
+  scale?: number; // device pixels per CSS pixel — raise it for print
+  background?: string;
+  settle?: boolean; // snap the camera home instead of easing toward it
+};
+
 export function drawScene(
-  cv: HTMLCanvasElement, scene: BuiltScene, view: View, alpha: number,
+  cv: HTMLCanvasElement, scene: BuiltScene, view: View, alpha: number, opts?: DrawOpts,
 ): number[][] {
   const wrap = cv.parentElement;
-  const Wp = (wrap?.clientWidth ?? cv.clientWidth) || 300;
-  const Hp = (wrap?.clientHeight ?? cv.clientHeight) || 300;
+  const Wp = opts?.width ?? ((wrap?.clientWidth ?? cv.clientWidth) || 300);
+  const Hp = opts?.height ?? ((wrap?.clientHeight ?? cv.clientHeight) || 300);
   const ctx = cv.getContext("2d");
   if (!ctx) return [];
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const dpr = opts?.scale ?? Math.min(window.devicePixelRatio || 1, 2);
   if (cv.width !== Wp * dpr || cv.height !== Hp * dpr) { cv.width = Wp * dpr; cv.height = Hp * dpr; }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.fillStyle = "#0b1015";
+  ctx.fillStyle = opts?.background ?? "#0b1015";
   ctx.fillRect(0, 0, Wp, Hp);
 
   const fl = Math.min(Wp, Hp) * 0.92;
   const want = Math.max(2.6, (scene.fitR * fl) / (0.34 * Math.min(Wp, Hp)));
-  view.dist += (want - view.dist) * 0.18;
+  view.dist = opts?.settle ? want : view.dist + (want - view.dist) * 0.18;
 
   const cy = Math.cos(view.yaw), sy = Math.sin(view.yaw);
   const cp = Math.cos(view.pitch), sp = Math.sin(view.pitch);
@@ -353,7 +372,13 @@ export function drawScene(
       // then a back face, and dropping it removes the see-through flicker.
       const fc = [0, 1, 2].map((k) => pp.reduce((t, p) => t + p[3 + k], 0) / pp.length);
       const ov = rot(q.o);
-      if (nx * (fc[0] - ov[0]) + ny * (fc[1] - ov[1]) + nz * (fc[2] - ov[2]) < 0) { nx = -nx; ny = -ny; nz = -nz; }
+      const rx = fc[0] - ov[0], ry2 = fc[1] - ov[1], rz2 = fc[2] - ov[2];
+      // Compare as a cosine, not a raw dot: a face lying edge-on to its own
+      // reference point gives a vanishing dot whose sign is pure noise, and
+      // flipping on that is what speckles a flat surface. Below the threshold
+      // keep the winding the builder authored.
+      const den = Math.hypot(nx, ny, nz) * Math.hypot(rx, ry2, rz2);
+      if (den > 0 && (nx * rx + ny * ry2 + nz * rz2) / den < -1e-6) { nx = -nx; ny = -ny; nz = -nz; }
       if (nx * fc[0] + ny * fc[1] + nz * (fc[2] - view.dist) > 0) continue;
     } else if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const nl = Math.hypot(nx, ny, nz) || 1;
