@@ -21,17 +21,19 @@
 // calculator and the bolted-joint calculator answer "how tight?" with the same
 // numbers and the same formula. Only the clamp-specific data lives below.
 import {
+  BEARING_MARGIN,
   CLASSES,
   NUT_FACTORS,
   THREADS,
   TARGET_PRELOAD_FRACTION,
+  bearingArea,
   fastenerSpec,
   preloadForTorque,
   torqueForPreload,
 } from "./fasteners";
 import type { BoltClass, FastenerSpec, ThreadSpec } from "./fasteners";
 
-export { CLASSES, THREADS, TARGET_PRELOAD_FRACTION };
+export { CLASSES, THREADS, TARGET_PRELOAD_FRACTION, bearingArea, BEARING_MARGIN };
 export type { BoltClass, ThreadSpec };
 export const KFACT = NUT_FACTORS;
 

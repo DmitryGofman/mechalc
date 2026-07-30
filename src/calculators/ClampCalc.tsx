@@ -193,6 +193,83 @@ function theoryHTML(inp: CM.ClampInput, r: CM.ClampResult) {
     Past closure the numbers mean "no further grip", not an accurate contact picture.</p>`;
 }
 
+/* ── the material table ───────────────────────────────────────────────────
+   The data behind "how tight?" was only ever visible as a single number for
+   the material you happened to have selected, so there was no way to see where
+   it came from or how another material would compare. This lays the whole
+   table out and works every row through the same chain, at YOUR thread, grade,
+   finish and washer setting — so the columns are the real answer for your
+   joint, not a generic reference. */
+function materialsHTML(inp: CM.ClampInput) {
+  const th = CM.THREADS[inp.thread], cl = CM.CLASSES[inp.cls], K = CM.KFACT[inp.Kname];
+  const Abear = CM.bearingArea(th.d, inp.washer), here = CM.CLAMP_MATS[inp.mat];
+  const rows = Object.keys(CM.CLAMP_MATS).map((m) => {
+    const cm = CM.CLAMP_MATS[m];
+    const s = CM.boltSpec({ ...inp, mat: m });
+    const rc = CM.recommend({ ...inp, mat: m });
+    return { m, cm, s, rc, here: m === inp.mat };
+  });
+  const body = rows.map(({ m, cm, s, rc, here }) =>
+    `<tr${here ? ' class="hi"' : ""}><td>${here ? "<b>" + m + "</b>" : m}</td>` +
+    `<td class="v">${cm.sy}</td><td class="v">${(cm.E / 1000).toFixed(1)}</td>` +
+    `<td class="v">${cm.pG}</td><td class="v">${cm.creep === 1 ? "—" : (cm.creep * 100).toFixed(0) + "%"}</td>` +
+    `<td class="v">${n2(s.Tbear)}</td><td class="v">${n2(s.T)}</td>` +
+    `<td class="v" style="color:${rc.T < s.T ? "#d9a441" : "#4fb477"}">${n2(rc.T)}</td></tr>`).join("");
+  return `<h3 style="margin-top:0">Where the torque for each material comes from</h3>
+    <p>Only one property of the clamp body sets the fastener-side torque: <b>p<sub>G</sub></b>, the permissible
+    surface pressure under the head. Everything else about "how tight" comes from the bolt and the geometry.
+    The chain is three lines long:</p>
+
+    <div class="eqn"><span class="lead">1 · what the head is allowed to push with — the only material-dependent line</span>
+      <span class="mth">${V("F")}<sub>bear</sub> = 0.9 · ${V("p")}<sub>G</sub> · ${V("A")}<sub>bear</sub>
+      = 0.9 × ${here.pG} × ${f(Abear, 1)} = <span class="res">${f(0.9 * here.pG * Abear, 0)} N</span></span>
+      <span class="cmt">p<sub>G</sub> = ${here.pG} MPa for <b>${inp.mat}</b> — this is the one number that changes
+      row to row below. A<sub>bear</sub> is the annulus under the ${inp.washer ? "washer" : "bolt head"}:
+      π/4·(${inp.washer ? "2.2" : "1.5"}d² − 1.06d²) with d = ${th.d} mm, so ${f(Abear, 1)} mm².
+      The 0.9 keeps the recommendation clear of the limit it is capped by.</span></div>
+
+    <div class="eqn"><span class="lead">2 · what the bolt itself wants</span>
+      <span class="mth">${V("F")}<sub>65</sub> = 0.65 · ${V("S")}<sub>p</sub> · ${V("A")}<sub>s</sub>
+      = 0.65 × ${cl.sp} × ${th.As} = <span class="res">${f(0.65 * cl.sp * th.As, 0)} N</span></span>
+      <span class="cmt">Fixed by the fastener — ${inp.thread} grade ${inp.cls.split(" ")[0]} — so it is the same
+      number in every row below.</span></div>
+
+    <div class="eqn"><span class="lead">3 · the lesser of the two, turned into a wrench reading</span>
+      <span class="mth">${V("T")} = ${V("K")}·${V("F")}·${V("d")} = ${K} × ${V("F")} × ${th.d} / 1000</span>
+      <span class="cmt">K = ${K} from “${inp.Kname}”. This is the same relation the Bolted Joint calculator uses;
+      both read the one shared fastener table.</span></div>
+
+    <p>Which is why soft bodies are capped by bearing and metal ones are not: p<sub>G</sub> for a printed polymer is
+    around 50 MPa, for steel around 500. Run at <b>${inp.thread}</b>, grade <b>${inp.cls.split(" ")[0]}</b>,
+    <b>${inp.Kname.replace(/\s*\(.*\)/, "")}</b>, <b>${inp.washer ? "with washers" : "bare heads"}</b> — change any of
+    those and every number in the last three columns moves:</p>
+
+    <table class="rep">
+      <tr><th>Clamp body</th><th style="text-align:right">σ<sub>y</sub><br>MPa</th>
+      <th style="text-align:right">E<br>GPa</th><th style="text-align:right">p<sub>G</sub><br>MPa</th>
+      <th style="text-align:right">preload<br>kept</th><th style="text-align:right">bearing<br>cap N·m</th>
+      <th style="text-align:right">fastener<br>spec N·m</th><th style="text-align:right">use<br>N·m</th></tr>
+      ${body}</table>
+
+    <p><b>Reading the last three columns.</b> <em>Bearing cap</em> is line 1 above turned into torque — how hard you
+    could pull that bolt before the head starts to sink into this material. <em>Fastener spec</em> is the lesser of
+    that and line 2, so it flattens at <b>${n2(CM.boltSpec({ ...inp, mat: "Mild steel (S235)" }).T)} N·m</b> for every
+    metal, where the bolt becomes the limit instead of the body. <em>Use</em> is the number the calculator actually
+    recommends, and it is usually far lower than both — because it also has to survive crown bending, ear bending,
+    the cylinder's own limit and gap closure, at a safety factor of ${CM.DESIGN_MARGIN.toFixed(1)}. Amber means the
+    body's bending, not the fastener, is what holds you back.</p>
+
+    <p><b>σ<sub>y</sub></b> drives the bending checks, <b>E</b> the deflection and how fast the gap closes, and
+    <b>preload kept</b> is the fraction of preload a printed body still has after days of creep — it is why the grip
+    figures have a “fresh” and an “after creep” column, and why the long-term one is the design number.
+    Metals are marked “—”: they do not creep at room temperature.</p>
+
+    <p class="pn warn"><b>These are typical reference values, not certified allowables.</b> Printed strengths are
+    in-plane (XY); across layers expect appreciably less. p<sub>G</sub> for polymers is a short-term surface pressure —
+    they creep badly above it, so it doubles as the long-term clamp limit. Verify against your own material data
+    before production.</p>`;
+}
+
 /* ── preload theory ───────────────────────────────────────────────────── */
 function preloadHTML(inp: CM.ClampInput, r: CM.ClampResult, spec: CM.BoltSpec, rec: CM.Recommendation) {
   const cl = CM.CLASSES[inp.cls], Sp = cl.sp, Sy = cl.sy;
@@ -684,7 +761,10 @@ export default function ClampCalc() {
                 so it drops to <b>{n2(specBare.Tbear)} N·m</b>.</>
               : <>bare-head here gives <b>{n2(spec.Tbear)} N·m</b>; adding washers spreads the load over 3.3× the
                 annulus and raises it to <b>{n2(specWashered.Tbear)} N·m</b>.</>}
-            {" "}Both keep 10% clear of p<sub>G</sub>.
+            {" "}Both keep 10% clear of p<sub>G</sub>.{" "}
+            <button className="linkish" onClick={() => setTab("preload")}>
+              See the table for every material →
+            </button>
           </div>
         </div>
 
@@ -755,7 +835,9 @@ export default function ClampCalc() {
       {/* ── PRELOAD ── */}
       <div className={`tabpane${tab === "preload" ? " on" : ""}`} data-t="preload">
         <div className="clamp-theory">
-          <div className="lab">PROOF STRENGTH, PRELOAD AND WHERE THE 65% COMES FROM</div>
+          <div className="lab">MATERIAL TABLE — TORQUE FOR EVERY CLAMP BODY</div>
+          <div dangerouslySetInnerHTML={{ __html: materialsHTML(inp) }} />
+          <div className="lab" style={{ marginTop: 22 }}>PROOF STRENGTH, PRELOAD AND WHERE THE 65% COMES FROM</div>
           <div dangerouslySetInnerHTML={{ __html: preloadHTML(inp, res, spec, rec) }} />
         </div>
       </div>
@@ -805,6 +887,8 @@ export default function ClampCalc() {
               <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: theoryHTML(inp, res) }} />
               <h2 className="sec brk">Calculation report</h2>
               <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res, rec, spec, torque) }} />
+              <h2 className="sec brk">Material table — torque for every clamp body</h2>
+              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: materialsHTML(inp) }} />
               <h2 className="sec brk">Proof strength, preload and where the 65% comes from</h2>
               <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: preloadHTML(inp, res, spec, rec) }} />
               <h2 className="sec brk">Designing a two-piece clamp — what actually matters</h2>
