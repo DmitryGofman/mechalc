@@ -262,6 +262,11 @@ input[type="number"] {
 .clamp-ref b, .clamp-cap b { color: #e8edf1; }
 .clamp-ref .sub { color: #6b7884; margin-top: 7px; padding-top: 6px; border-top: 1px solid #141c22; }
 .clamp-ref .sub b { color: #8b97a3; }
+/* An inline jump to another tab — a button for keyboard and screen readers,
+   styled as the link it reads as. */
+.linkish { background: none; border: none; padding: 0; font: inherit; color: #3a78c2;
+  cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.linkish:hover { color: #5a95d8; }
 .clamp-ref .hdr, .clamp-cap .hdr { color: #6b7884; letter-spacing: .14em; display: block; margin-bottom: 5px; font-size: 8.5px; }
 .clamp-cap table { width: 100%; border-collapse: collapse; font-size: 10px; }
 .clamp-cap th { font-size: 8px; letter-spacing: .1em; color: #46515c; font-weight: 400; text-align: right; padding: 0 0 4px 6px; }
@@ -385,6 +390,7 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   #clampPrint .clamp-theory .lab, #clampPrint .eqn .lead { color: #14459b; }
   #clampPrint .clamp-theory p, #clampPrint .clamp-theory h3, #clampPrint .clamp-theory h4 { color: #222; }
   #clampPrint .clamp-theory p b { color: #000; }
+  #clampPrint .linkish { display: none; }
   #clampPrint .clamp-theory p.pn.warn { color: #7a4e00; }
   #clampPrint .clamp-theory p.pn.bad { color: #8f1a1a; }
   #clampPrint .clamp-theory h3 { page-break-after: avoid; }
