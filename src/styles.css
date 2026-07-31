@@ -248,6 +248,9 @@ input[type="number"] {
   border-radius: 2px; color: #e8edf1; padding: 7px 8px; font-family: var(--mono); font-size: 13px; outline: none; }
 .clamp-fld input:focus, .clamp-fld select:focus { border-color: #3a78c2; }
 .clamp-fld input[readonly] { color: #6b7884; background: #0a0f14; border-style: dashed; cursor: default; }
+/* A live readout under a control, tying the choice to its consequence. */
+.fldhint { font-family: var(--mono); font-size: 8.5px; color: #6b7884; line-height: 1.7; margin-top: 4px; }
+.fldhint b { color: #c2ccd4; }
 .clamp-chk { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 9.5px;
   color: #8b97a3; cursor: pointer; padding: 4px 0; align-self: end; }
 .clamp-chk.wide { grid-column: 1 / -1; }
