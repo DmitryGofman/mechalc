@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import * as CM from "./clampMath";
 import { buildScene, drawScene, type View } from "./clampScene";
 
@@ -724,7 +725,19 @@ export default function ClampCalc() {
           <Num label="Bolt offset e" unit="mm from bore" v={inp.e} on={(v) => set("e", v)} step={0.5} />
           <Num label="Gap" unit="mm total" v={inp.gap} on={(v) => set("gap", v)} step={0.1} />
           <Ro label="Derived crown tc" unit="mm over bore" v={`${f(res.tc, 2)} mm`} />
-          <Sel label="Clamp material" wide v={inp.mat} opts={Object.keys(CM.CLAMP_MATS)} on={(v) => set("mat", v)} />
+          {/* The material's torque, on the dropdown that chooses it. Having it
+              only in the fastener card below and the table a tab away meant the
+              connection between "which plastic" and "how tight" was never on
+              screen at the moment you make the choice. */}
+          <Sel
+            label="Clamp material" wide v={inp.mat} opts={Object.keys(CM.CLAMP_MATS)} on={(v) => set("mat", v)}
+            hint={<>
+              p<sub>G</sub> {f(CM.CLAMP_MATS[inp.mat].pG, 0)} MPa · σ<sub>y</sub> {f(CM.CLAMP_MATS[inp.mat].sy, 0)} MPa
+              {CM.CLAMP_MATS[inp.mat].creep < 1 ? ` · keeps ${(CM.CLAMP_MATS[inp.mat].creep * 100).toFixed(0)}% of preload` : " · no creep"}
+              {" → "}head bearing caps this bolt at <b>{n2(spec.Tbear)} N·m</b>, use <b>{n2(rec.T)} N·m</b>.{" "}
+              <button className="linkish" onClick={() => setTab("preload")}>all materials →</button>
+            </>}
+          />
           <Sel label="Bolts" v={String(inp.N)} opts={["2", "4", "6"]} on={(v) => set("N", +v)} />
           <Sel label="Thread" v={inp.thread} opts={[...CM.CLAMP_THREADS]} on={(v) => set("thread", v)} />
         </div>
@@ -947,11 +960,14 @@ function Ro({ label, unit, v }: { label: string; unit: string; v: string }) {
     </div>
   );
 }
-function Sel({ label, v, opts, on, wide }: { label: string; v: string; opts: string[]; on: (v: string) => void; wide?: boolean }) {
+function Sel({ label, v, opts, on, wide, hint }: {
+  label: string; v: string; opts: string[]; on: (v: string) => void; wide?: boolean; hint?: ReactNode;
+}) {
   return (
     <div className={`clamp-fld${wide ? " wide" : ""}`}>
       <label>{label}</label>
       <select value={v} onChange={(e) => on(e.target.value)}>{opts.map((o) => <option key={o}>{o}</option>)}</select>
+      {hint && <div className="fldhint">{hint}</div>}
     </div>
   );
 }
