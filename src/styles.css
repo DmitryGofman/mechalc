@@ -133,9 +133,24 @@ input[type="number"] {
   gap: 8px;
 }
 @media (max-width: 560px) {
+  .bolt-header {
+    gap: 6px;
+  }
   .bolt-header .hdr-aside {
     order: -1;
     width: 100%;
+    gap: 0;
+  }
+  /* The formula reminder is a nicety, not a control, and the theory tab
+     carries all of them properly typeset. On a phone the vertical space it
+     costs is worth more than the reminder — the toggle stays, alone, on one
+     tight line. */
+  .bolt-header .hdr-formulas {
+    display: none;
+  }
+  .bolt-header .hdr-units button {
+    padding: 4px 9px !important;
+    font-size: 9px !important;
   }
 }
 

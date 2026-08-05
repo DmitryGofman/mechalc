@@ -1016,7 +1016,7 @@ export default function BoltCalc() {
           </div>
           <div className="hdr-aside">
             {/* Units are a display choice only — the mechanics stays metric. */}
-            <div style={{ display: "flex", gap: 4 }} role="group" aria-label="Display units">
+            <div className="hdr-units" style={{ display: "flex", gap: 4 }} role="group" aria-label="Display units">
               <button
                 onClick={() => switchUnits("metric")}
                 aria-pressed={sys === "metric"}
@@ -1033,6 +1033,7 @@ export default function BoltCalc() {
               </button>
             </div>
             <div
+              className="hdr-formulas"
               style={{
                 textAlign: "right",
                 fontFamily: "var(--mono)",
