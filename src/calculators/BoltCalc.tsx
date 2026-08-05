@@ -1185,7 +1185,10 @@ export default function BoltCalc() {
                 ) : (
                   <span style={{ color: "#d9a441" }}>
                     limited by {m1.pG <= m2.pG ? "plate 1" : "plate 2"} bearing (pG{" "}
-                    {qu(U.stress, Math.min(m1.pG, m2.pG))})
+                    {qu(U.stress, Math.min(m1.pG, m2.pG))}
+                    {/* the service share C·P is deducted so the recommendation
+                        survives its own crush check once P is applied */}
+                    {r.C * PextN > 0.5 ? ", incl. your load's C·P" : ""})
                   </span>
                 )}
               </div>

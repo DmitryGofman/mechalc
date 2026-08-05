@@ -312,12 +312,24 @@ export function jointResults(
 
   const dLm = isFinite(km) && km > 0 ? Fi / km : 0;
 
-  const rec = recommendedTorque(thread, cls, K, m1, m2);
+  // Joint-aware recommendation. The fastener-side spec caps the PRELOAD at
+  // 90% of what the softer plate's bearing allows — but the nut presses on
+  // that plate with Fb = Fi + C·P once the joint is loaded, and the crush
+  // check (rightly) uses Fb. With stiff plates C·P is small and the 10%
+  // margin covers it; with a polymer in the stack C can reach 0.9 and the
+  // service share alone can eat the whole margin, so a torque recommended on
+  // preload alone gets flagged as crushing the moment P is applied. Subtract
+  // the bolt's service share from the bearing allowance, so the number shown
+  // is safe in service, not merely at the instant of tightening. At P = 0
+  // this reduces exactly to the shared fastener-side spec.
+  const spec = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: false });
+  const FbearNet = Math.max(0, spec.Fbear - C * P);
+  const Fjoint = Math.min(spec.F65, FbearNet);
 
   return {
     ...base,
-    TrecJoint: rec.T,
-    TrecGovernedBy: rec.governedBy,
+    TrecJoint: torqueForPreload(K, thread.d, Fjoint),
+    TrecGovernedBy: FbearNet < spec.F65 ? "plate" : "bolt",
     kb,
     km,
     C,

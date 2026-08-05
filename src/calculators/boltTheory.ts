@@ -18,7 +18,6 @@ import {
   TARGET_PRELOAD_FRACTION,
   bearingArea,
   fastenerSpec,
-  recommendedTorque,
 } from "./boltMath";
 import type { BoltClass, JointResults, PlateMaterial, ThreadSpec } from "./boltMath";
 
@@ -365,7 +364,11 @@ export function reportHTML(s: BoltState): string {
          <td class="v">${c.torque(spec.T65)}</td></tr>
        <tr><td>Capped by bearing on ${m1.pG <= m2.pG ? s.mat1Key : s.mat2Key}
          (p<sub>G</sub> ${c.mpau(Math.min(m1.pG, m2.pG))})</td><td class="v">${c.torque(spec.Tbear)}</td></tr>
-       <tr class="hi"><td><b>Recommended</b> — limited by ${r.TrecGovernedBy === "bolt" ? "the bolt" : "plate bearing"}</td>
+       <tr class="hi"><td><b>Recommended</b> — limited by ${
+           r.TrecGovernedBy === "bolt"
+             ? "the bolt"
+             : `plate bearing${r.C * Pext > 0.5 ? ", net of the C·P the bolt adds in service" : ""}`
+         }</td>
          <td class="v" style="color:${GREEN}">${c.torque(r.TrecJoint)}</td></tr>
        <tr><td>Same joint with washers under head and nut</td><td class="v">${c.torque(specW.T)}</td></tr>
        <tr><td>You have applied</td>
@@ -478,6 +481,14 @@ export function preloadHTML(s: BoltState): string {
   const Sy = cls.sy;
   const Abear = bearingArea(thread.d);
   const F65 = TARGET_PRELOAD_FRACTION * Sp * thread.As;
+  // The bearing chain, kept numerically identical to jointResults' joint-
+  // aware recommendation so line 3 multiplies out to the number on the
+  // model tab: allowance, minus the bolt's service share of P, capped by
+  // what the bolt itself wants.
+  const Fbear = 0.9 * Math.min(s.m1.pG, s.m2.pG) * Abear;
+  const CP = r.C * Math.max(s.Pext, 0);
+  const FbearNet = Math.max(0, Fbear - CP);
+  const Fuse = Math.min(F65, FbearNet);
   // The same bolt tightened to the 65% target, so the utilisation quoted below
   // is this joint's, not a generic one.
   const T65 = (K * thread.d * F65) / 1000;
@@ -589,15 +600,33 @@ export function preloadHTML(s: BoltState): string {
        π/4·((${DW_RATIO}d)² − (${DHOLE_RATIO}d)²) = ${c.areau(Abear)}. The 0.9 keeps the recommendation clear of the
        limit it is capped by, so a torque this tool suggests is never simultaneously flagged as crushing.`,
     ) +
+    (CP > 0.5
+      ? eqn(
+          "2b · minus the share of P the bolt hands to that same face",
+          `${V("F")}<sub>bear,net</sub> = ${V("F")}<sub>bear</sub> − ${V("C")}·${V("P")}`,
+          `${c.force(Fbear)} − ${r.C.toFixed(3)} × ${c.force(s.Pext)}`,
+          c.forceu(FbearNet),
+          FbearNet <= 0 ? "bad" : "",
+          `Bearing is checked in <em>service</em>, on F<sub>b</sub> = F<sub>i</sub> + C·P — the nut presses on the
+           plate with the external load's share as well as the preload. Preload may only use what is left.` +
+            (FbearNet <= 0
+              ? ` Here C·P alone exceeds the whole allowance — no preload keeps this joint inside the bearing limit.
+                 Add a washer.`
+              : ""),
+        )
+      : "") +
     eqn(
       "3 · the lesser of the two, as a wrench reading",
       `${V("T")} = ${V("K")}·${V("F")}·${V("d")}`,
-      `${K} × ${c.force(Math.min(F65, 0.9 * Math.min(s.m1.pG, s.m2.pG) * Abear))} × ${c.len(thread.d)}${c.milli}`,
+      `${K} × ${c.force(Fuse)} × ${c.len(thread.d)}${c.milli}`,
       c.torqueu(r.TrecJoint),
       "",
-      `Limited by <b>${r.TrecGovernedBy === "bolt" ? "the bolt" : "bearing on the plates"}</b>. This is the same
-       relation, the same shared fastener table and the same 0.9 margin the Cylinder Clamp calculator uses — the two
-       tools cannot drift apart.`,
+      `Limited by <b>${r.TrecGovernedBy === "bolt" ? "the bolt" : "bearing on the plates"}</b>. Same relation, same
+       shared fastener table and same 0.9 margin as the Cylinder Clamp calculator${
+         CP > 0.5
+           ? " — plus the C·P deduction above, which only this calculator needs because only it models an external load"
+           : ""
+       }.`,
     ) +
     `<h3>Every clamped material, at your thread and grade</h3>
     <p>Run at <b>${s.threadKey}</b>, <b>${grade(s.classKey)}</b>,
@@ -638,7 +667,13 @@ export function tipsHTML(s: BoltState): string {
   const grip = t1 + t2;
   const soft = m1.pG <= m2.pG ? s.mat1Key : s.mat2Key;
   const specW = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: true });
-  const longer = recommendedTorque(thread, cls, K, m1, m2);
+  // The joint-aware recommendation (bearing net of C·P), and the preload it
+  // installs — derived from the torque so the two numbers cannot disagree.
+  const longer = {
+    T: r.TrecJoint,
+    F: K * thread.d > 0 ? (1000 * r.TrecJoint) / (K * thread.d) : 0,
+    governedBy: r.TrecGovernedBy,
+  };
   // The same joint with twice the grip, to put a number on "longer is better".
   const kbLong = grip > 0 ? (cls.E * 1e9 * thread.As * 1e-6) / (2 * grip * 1e-3) : Infinity;
   const Clong = kbLong / (kbLong + (isFinite(r.km) ? r.km : kbLong * 1e3));

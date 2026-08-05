@@ -321,4 +321,35 @@ describe("jointResults (clamped sandwich)", () => {
     expect(r.sigmaWork).toBeLessThan(r.vm);
     expect(r.sigmaWork).toBeCloseTo(r.sigma, 6);
   });
+
+  it("recommends a torque that survives its own bearing check in service", () => {
+    // A polymer plate makes the members squishy (C near 0.9), so the nut
+    // hands most of the external load straight to the plate on top of the
+    // preload. The recommendation must deduct that share — otherwise the
+    // suggested torque is flagged as crushing the moment P is applied.
+    const P = 500;
+    const rec = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, P).TrecJoint;
+    const at = jointResults(M6, C88, 0.2, rec, 8, STEEL, 12, PA12, P);
+    // The full 10% bearing margin is preserved at service load…
+    expect(Math.min(at.nBear1, at.nBear2)).toBeGreaterThanOrEqual(1.1);
+    // …because the bearing side gave up exactly C·P of preload allowance.
+    const noP = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, 0);
+    expect(rec).toBeLessThan(noP.TrecJoint);
+  });
+
+  it("reduces to the fastener-side recommendation when P = 0", () => {
+    const fastenerSide = recommendedTorque(M6, C88, 0.2, STEEL, PA12);
+    const joint = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, 0);
+    expect(joint.TrecJoint).toBeCloseTo(fastenerSide.T, 9);
+    expect(joint.TrecGovernedBy).toBe("plate");
+  });
+
+  it("keeps stiff-plate joints on the bolt-governed handbook value", () => {
+    // Steel plates: C·P is real but the bolt, not bearing, is the limit, so
+    // the external load must not move the recommendation at all.
+    const loaded = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, 2000);
+    const unloaded = jointResults(M6, C88, 0.2, 6, 10, STEEL, 10, STEEL, 0);
+    expect(loaded.TrecJoint).toBeCloseTo(unloaded.TrecJoint, 9);
+    expect(loaded.TrecGovernedBy).toBe("bolt");
+  });
 });
