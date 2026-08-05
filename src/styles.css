@@ -117,6 +117,28 @@ input[type="number"] {
   gap: 12px;
 }
 
+/* The bolted joint's header carries a control — the units toggle — alongside
+   the formula reminder, so that block is pinned to the TOP right rather than
+   sitting on the title's baseline. When the title is too wide to share the
+   line (phones), the block wraps ABOVE the title instead of below it, which
+   is where a toggle belongs and where the eye already goes looking for it. */
+.bolt-header {
+  align-items: flex-start;
+}
+.bolt-header .hdr-aside {
+  margin-left: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .bolt-header .hdr-aside {
+    order: -1;
+    width: 100%;
+  }
+}
+
 /* 3D beam canvas — sized via CSS so the renderer can follow it responsively. */
 .flexure-beam {
   width: 100%;

@@ -992,7 +992,7 @@ export default function BoltCalc() {
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* Header */}
         <div
-          className="flexure-header"
+          className="flexure-header bolt-header"
           style={{
             borderBottom: "1px solid #1f2a33",
             paddingBottom: 14,
@@ -1014,7 +1014,7 @@ export default function BoltCalc() {
               Bolted Joint — Screw Strength
             </h1>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+          <div className="hdr-aside">
             {/* Units are a display choice only — the mechanics stays metric. */}
             <div style={{ display: "flex", gap: 4 }} role="group" aria-label="Display units">
               <button
