@@ -15,7 +15,6 @@ import {
   DW_RATIO,
   PLATE_MATERIALS,
   SAE_CLASSES,
-  TARGET_PRELOAD_FRACTION,
   bearingArea,
   fastenerSpec,
   serviceFastenerSpec,
@@ -39,6 +38,8 @@ export type BoltState = {
   t2: number; // mm
   Pext: number; // N
   T: number; // N·m
+  washer: boolean; // plain washers under head and nut
+  preloadFrac: number; // preload target, fraction of proof
   r: JointResults;
   U: UnitPack;
 };
@@ -208,10 +209,19 @@ export function reportHTML(s: BoltState): string {
   const grip = t1 + t2;
   const status = r.SF >= 1.25 ? "" : r.SF >= 1 ? "warn" : "bad";
   const ds = Math.sqrt((4 * thread.As) / Math.PI); // stress-area equivalent Ø, mm
-  const Abear = bearingArea(thread.d);
-  const spec = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: false });
+  const frac = s.preloadFrac;
+  const pct = Math.round(frac * 100);
+  const Abear = bearingArea(thread.d, s.washer);
+  const spec = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: s.washer, preloadFrac: frac });
   const CP = r.C * Math.max(Pext, 0);
-  const specW = serviceFastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), CP, washer: true });
+  // The OTHER washer setting, so the spec table shows what flipping it buys.
+  const specAlt = serviceFastenerSpec({
+    thread, cls, K,
+    pG: Math.min(m1.pG, m2.pG),
+    CP,
+    washer: !s.washer,
+    preloadFrac: frac,
+  });
 
   const rows: [string, string, number][] = [
     ["Bolt while tightening (von Mises vs proof)", c.pau(r.vm), r.SF],
@@ -234,7 +244,9 @@ export function reportHTML(s: BoltState): string {
       <td class="v">${c.lenu(t2)} · E ${c.gpau(m2.E)} · p<sub>G</sub> ${c.mpau(m2.pG)}</td></tr>
     <tr><td>Grip length ${V("L")} = t₁ + t₂</td><td class="v">${c.lenu(grip)}</td></tr>
     <tr><td>External load ${V("P")} · applied torque ${V("T")}</td>
-      <td class="v">${c.forceu(Pext)} · ${c.torqueu(T)}</td></tr></table>
+      <td class="v">${c.forceu(Pext)} · ${c.torqueu(T)}</td></tr>
+    <tr><td>Washers · preload target</td>
+      <td class="v">${s.washer ? "under head and nut" : "none (bare head)"} · ${pct}% of proof</td></tr></table>
 
     <h3 style="margin-top:18px">1 · Tightening — what the wrench actually does</h3>` +
     eqn(
@@ -344,11 +356,16 @@ export function reportHTML(s: BoltState): string {
       FR(c.force(Math.max(r.F, r.Fb)), c.area(Abear)),
       c.stressRes(r.pHead),
       Math.min(r.nBear1, r.nBear2) < 1 ? "bad" : "",
-      `Bare head assumed: d<sub>w</sub> = ${DW_RATIO}d = ${c.lenu(DW_RATIO * thread.d)} over a
+      `${s.washer
+         ? `Washer face: d<sub>w</sub> = ${DW_WASHER_RATIO}d = ${c.lenu(DW_WASHER_RATIO * thread.d)}`
+         : `Bare head: d<sub>w</sub> = ${DW_RATIO}d = ${c.lenu(DW_RATIO * thread.d)}`} over a
        d<sub>h</sub> = ${DHOLE_RATIO}d clearance hole, so A<sub>bear</sub> = ${c.areau(Abear)}. Against p<sub>G</sub>:
        <b style="color:${sfColor(r.nBear1)}">${sf(r.nBear1)}</b> on ${s.mat1Key},
-       <b style="color:${sfColor(r.nBear2)}">${sf(r.nBear2)}</b> on ${s.mat2Key}. A washer takes the annulus to
-       ${c.areau(bearingArea(thread.d, true))} — 3.3× the area for the same preload.`,
+       <b style="color:${sfColor(r.nBear2)}">${sf(r.nBear2)}</b> on ${s.mat2Key}. ${s.washer
+         ? `On a bare head the annulus would shrink to ${c.areau(bearingArea(thread.d))} — 3.3× the pressure for the
+            same preload.`
+         : `A washer takes the annulus to ${c.areau(bearingArea(thread.d, true))} — 3.3× the area for the same
+            preload.`}`,
     ) +
     `<div class="lab" style="margin-top:16px">VERDICT AT ${c.torqueu(T)}</div>
      <table class="rep"><tr><th>Check</th><th>Value</th><th style="text-align:right">SF</th></tr>` +
@@ -362,7 +379,7 @@ export function reportHTML(s: BoltState): string {
     `</table>
      <div class="lab" style="margin-top:16px">TORQUE SPECIFICATION</div>
      <table class="rep"><tr><th>Per bolt</th><th style="text-align:right">${U.torque.label}</th></tr>
-       <tr><td>Bolt alone — ${Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof (${c.forceu(spec.F65)})</td>
+       <tr><td>Bolt alone — ${pct}% of proof (${c.forceu(spec.F65)})</td>
          <td class="v">${c.torque(spec.T65)}</td></tr>
        <tr><td>Capped by bearing on ${m1.pG <= m2.pG ? s.mat1Key : s.mat2Key}
          (p<sub>G</sub> ${c.mpau(Math.min(m1.pG, m2.pG))})${CP > 0.5 ? " — preload alone, before the C·P deduction" : ""}</td>
@@ -373,7 +390,8 @@ export function reportHTML(s: BoltState): string {
              : `plate bearing${r.C * Pext > 0.5 ? ", net of the C·P the bolt adds in service" : ""}`
          }</td>
          <td class="v" style="color:${GREEN}">${c.torque(r.TrecJoint)}</td></tr>
-       <tr><td>Same joint with washers under head and nut</td><td class="v">${c.torque(specW.T)}</td></tr>
+       <tr><td>Same joint ${s.washer ? "without washers (bare head)" : "with washers under head and nut"}</td>
+         <td class="v">${c.torque(specAlt.T)}</td></tr>
        <tr><td>You have applied</td>
          <td class="v" style="color:${T > r.TrecJoint * 1.05 ? AMBER : "#e8edf1"}">${c.torque(T)}</td></tr></table>`;
 }
@@ -425,8 +443,8 @@ export function howItWorksHTML(s: BoltState): string {
     <p>The head and nut press on small annular faces, and soft plate materials crush there long before the bolt is in
     danger — so the calculator checks that surface pressure against each material's permissible pressure p<sub>G</sub>
     (VDI-style values). This is also why the <b>recommended torque follows the materials you clamp</b>, not just the
-    bolt: the target preload is the lesser of 65% of the bolt's proof load and what the softer plate's bearing limit
-    allows. With steel or aluminium plates the bolt governs and you get the familiar handbook number
+    bolt: the target preload is the lesser of ${Math.round(s.preloadFrac * 100)}% of the bolt's proof load and what
+    the softer plate's bearing limit allows. With steel or aluminium plates the bolt governs and you get the familiar handbook number
     (${c.torqueu(9)} for M6 class 8.8, dry); put the same bolt through nylon or FR-4 and the recommendation drops
     several-fold, because the plate would crush first. That matches the separate torque tables plastics and PCB
     suppliers publish. Washers raise the limit by enlarging the bearing area — worth adding whenever a plate flags
@@ -482,18 +500,20 @@ export function preloadHTML(s: BoltState): string {
   const c = conv(U);
   const Sp = cls.sp;
   const Sy = cls.sy;
-  const Abear = bearingArea(thread.d);
-  const F65 = TARGET_PRELOAD_FRACTION * Sp * thread.As;
+  const frac = s.preloadFrac;
+  const pct = Math.round(frac * 100);
+  const Abear = bearingArea(thread.d, s.washer);
+  const F65 = frac * Sp * thread.As;
   // The bearing chain, kept numerically identical to jointResults' joint-
   // aware recommendation so line 3 multiplies out to the number on the
-  // model tab: allowance, minus the bolt's service share of P, capped by
-  // what the bolt itself wants.
+  // model tab: allowance (at YOUR washer setting), minus the bolt's service
+  // share of P, capped by what the bolt itself wants at YOUR target.
   const Fbear = 0.9 * Math.min(s.m1.pG, s.m2.pG) * Abear;
   const CP = r.C * Math.max(s.Pext, 0);
   const FbearNet = Math.max(0, Fbear - CP);
   const Fuse = Math.min(F65, FbearNet);
-  // The same bolt tightened to the 65% target, so the utilisation quoted below
-  // is this joint's, not a generic one.
+  // The same bolt tightened to the selected target, so the utilisation quoted
+  // below is this joint's, not a generic one.
   const T65 = (K * thread.d * F65) / 1000;
   const As = thread.As * 1e-6;
   const ds = Math.sqrt((4 * As) / Math.PI);
@@ -501,8 +521,8 @@ export function preloadHTML(s: BoltState): string {
   const tau65 = (16 * 0.5 * T65) / (Math.PI * ds ** 3);
   const vm65 = Math.sqrt(sigma65 ** 2 + 3 * tau65 ** 2);
   const util = vm65 / (Sp * 1e6);
-  const loK = TARGET_PRELOAD_FRACTION / 0.75;
-  const hiK = TARGET_PRELOAD_FRACTION / 1.25;
+  const loK = frac / 0.75;
+  const hiK = frac / 1.25;
   // The unlucky end of the K band. Note what does NOT move: torsion is set by
   // the torque you applied, not by the preload that torque happened to
   // produce, so a grabbier-than-assumed joint raises the tensile term alone.
@@ -519,9 +539,9 @@ export function preloadHTML(s: BoltState): string {
   const rows = Object.keys(PLATE_MATERIALS)
     .map((k) => {
       const m = PLATE_MATERIALS[k];
-      const cap = fastenerSpec({ thread, cls, K, pG: m.pG, washer: false });
-      const use = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP });
-      const useW = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP, washer: true });
+      const cap = fastenerSpec({ thread, cls, K, pG: m.pG, washer: false, preloadFrac: frac });
+      const use = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP, preloadFrac: frac });
+      const useW = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP, washer: true, preloadFrac: frac });
       const here = k === s.mat1Key || k === s.mat2Key;
       return (
         `<tr${here ? ' class="hi"' : ""}><td>${here ? `<b>${k}</b>` : k}</td>` +
@@ -554,28 +574,35 @@ export function preloadHTML(s: BoltState): string {
       <tr><td><b>Shigley</b> — reused connections</td><td class="v">0.75 · F<sub>p</sub></td></tr>
       <tr><td><b>Shigley</b> — permanent connections</td><td class="v">0.90 · F<sub>p</sub></td></tr>
       <tr><td><b>VDI 2230</b></td><td class="v">≈0.90 of yield ÷ α<sub>A</sub></td></tr>
-      <tr class="hi"><td><b>This calculator</b></td><td class="v">${TARGET_PRELOAD_FRACTION.toFixed(2)} · F<sub>p</sub></td></tr></table>
-    <p class="pn warn"><b>Do not cite 0.65 as Shigley.</b> Shigley's figure is 0.75 or 0.90, and VDI 2230 does not
-    work in "% of proof" at all. <b>0.65 is this toolkit's own conservative choice</b>, at the low end of the common
-    60–75% band, because these calculators are aimed at joints where a printed or light-alloy part — not the bolt —
-    is the weak side. Two reasons it is defensible:</p>
+      <tr class="hi"><td><b>This calculator — your setting</b></td><td class="v">${frac.toFixed(2)} · F<sub>p</sub></td></tr></table>
+    ${frac <= 0.65
+      ? `<p class="pn warn"><b>Do not cite 0.65 as Shigley.</b> Shigley's figure is 0.75 or 0.90, and VDI 2230 does
+        not work in "% of proof" at all. <b>0.65 is this toolkit's own conservative default</b>, at the low end of the
+        common 60–75% band, because these calculators are aimed at joints where a printed or light-alloy part — not
+        the bolt — is the weak side. The selector on the model tab raises it to Shigley's figures when the joint
+        warrants it. Two reasons the default is defensible:</p>`
+      : `<p class="pn warn"><b>You have selected ${frac.toFixed(2)} — ${frac >= 0.9 ? "Shigley's permanent-joint figure" : "Shigley's reused-connection figure"}.</b>
+        Legitimate for an all-metal joint with controlled assembly, but read the utilisation below with care:
+        Shigley's targets assume the tightening torsion is accounted for elsewhere, and this calculator shows it to
+        you explicitly. The two sections below are why the default is lower:</p>`}
 
     <h3>Reason 1 — the headline number leaves out tightening torsion</h3>` +
     eqn(
-      "Reduced stress at the 65% target",
+      `Reduced stress at the ${pct}% target`,
       `σ<sub>red</sub> = √(σ² + 3τ²)`,
-      `σ = 0.65·${c.mpa(Sp)} = ${c.mpa(0.65 * Sp)}, plus thread torsion at K = ${K}`,
+      `σ = ${frac.toFixed(2)}·${c.mpa(Sp)} = ${c.mpa(frac * Sp)}, plus thread torsion at K = ${K}`,
       `${c.pau(vm65)} = ${(util * 100).toFixed(0)}% of proof`,
       util > 1 ? "bad" : "warn",
-      `A "65% preload" is really <b>${(util * 100).toFixed(0)}% utilisation</b> while the wrench is still on.
-       Shigley's 0.90 would put the reduced stress past proof before you let go — legitimately, because that figure
-       assumes the torsion is accounted for elsewhere. Torsion relaxes afterwards, which is why the service check on
-       the model tab runs on tension alone.`,
+      `A "${pct}% preload" is really <b>${(util * 100).toFixed(0)}% utilisation</b> while the wrench is still on.
+       ${util > 1
+         ? "Past proof mid-wrench: the bolt takes a permanent set while you tighten and keeps less preload than the target — Shigley accepts this because his check runs on tension alone."
+         : "Shigley's 0.90 would put the reduced stress past proof before you let go — legitimately, because that figure assumes the torsion is accounted for elsewhere."}
+       Torsion relaxes afterwards, which is why the service check on the model tab runs on tension alone.`,
     ) +
     `<h3>Reason 2 — the nut factor scatters straight onto preload</h3>
     <table class="rep"><tr><th>If K lands…</th><th style="text-align:right">Preload / proof</th></tr>
       <tr><td>25% low — grabbier than assumed</td><td class="v" style="color:${RED}">${loK.toFixed(2)}</td></tr>
-      <tr><td>as assumed</td><td class="v">${TARGET_PRELOAD_FRACTION.toFixed(2)}</td></tr>
+      <tr><td>as assumed</td><td class="v">${frac.toFixed(2)}</td></tr>
       <tr><td>25% high — slipperier</td><td class="v">${hiK.toFixed(2)}</td></tr></table>
     <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end the same wrench reading installs ${loK.toFixed(2)} of
     proof in tension. The torsion does not grow with it — you applied the same torque — but the combined stress still
@@ -590,13 +617,13 @@ export function preloadHTML(s: BoltState): string {
     it. True for steel and aluminium; false for plastics, laminates and thin castings, where the head crushes into the
     surface long before the bolt is in danger. So the recommendation here is the lesser of two preloads:</p>` +
     eqn(
-      "1 · what the bolt wants",
-      `${V("F")}<sub>65</sub> = 0.65 · ${V("S")}<sub>p</sub> · ${V("A")}<sub>s</sub>`,
-      `0.65 × ${c.mpa(Sp)} × ${c.area(thread.As)}${c.kilo}`,
+      `1 · what the bolt wants — your ${pct}% target`,
+      `${V("F")}<sub>tgt</sub> = ${frac.toFixed(2)} · ${V("S")}<sub>p</sub> · ${V("A")}<sub>s</sub>`,
+      `${frac.toFixed(2)} × ${c.mpa(Sp)} × ${c.area(thread.As)}${c.kilo}`,
       c.forceu(F65),
       "",
-      `Fixed by the fastener — ${s.threadKey}, ${grade(s.classKey)} — so it is the same in every row of the table
-       below.`,
+      `Fixed by the fastener and the target — ${s.threadKey}, ${grade(s.classKey)} at ${pct}% — so it is the same in
+       every row of the table below.`,
     ) +
     eqn(
       "2 · what the clamped material allows under the head",
@@ -604,9 +631,11 @@ export function preloadHTML(s: BoltState): string {
       `0.9 × ${c.mpa(Math.min(s.m1.pG, s.m2.pG))} × ${c.area(Abear)}${c.kilo}`,
       c.forceu(0.9 * Math.min(s.m1.pG, s.m2.pG) * Abear),
       "",
-      `The softer of the two plates sets the cap. A<sub>bear</sub> is the annulus under a bare head:
-       π/4·((${DW_RATIO}d)² − (${DHOLE_RATIO}d)²) = ${c.areau(Abear)}. The 0.9 keeps the recommendation clear of the
-       limit it is capped by, so a torque this tool suggests is never simultaneously flagged as crushing.`,
+      `The softer of the two plates sets the cap. A<sub>bear</sub> is the annulus under ${s.washer
+         ? `your washer: π/4·((${DW_WASHER_RATIO}d)² − (${DHOLE_RATIO}d)²)`
+         : `a bare head: π/4·((${DW_RATIO}d)² − (${DHOLE_RATIO}d)²)`} = ${c.areau(Abear)}. The 0.9 keeps the
+       recommendation clear of the limit it is capped by, so a torque this tool suggests is never simultaneously
+       flagged as crushing.`,
     ) +
     (CP > 0.5
       ? eqn(
@@ -650,7 +679,7 @@ export function preloadHTML(s: BoltState): string {
       <th style="text-align:right">σ<sub>y</sub><br>${U.stress.label}</th>
       <th style="text-align:right">p<sub>G</sub><br>${U.stress.label}</th>
       <th style="text-align:right">bearing<br>cap ${U.torque.label}</th>
-      <th style="text-align:right">use<br>${U.torque.label}</th>
+      <th style="text-align:right">use, bare<br>${U.torque.label}</th>
       <th style="text-align:right">with<br>washer</th></tr>
       ${rows}</table>
     <p><b>Reading it.</b> <em>Bearing cap</em> is line 2 above turned into torque — how hard you could pull this bolt
@@ -684,6 +713,7 @@ export function tipsHTML(s: BoltState): string {
     pG: Math.min(m1.pG, m2.pG),
     CP: r.C * Math.max(s.Pext, 0),
     washer: true,
+    preloadFrac: s.preloadFrac,
   });
   // The joint-aware recommendation (bearing net of C·P), and the preload it
   // installs — derived from the torque so the two numbers cannot disagree.
@@ -722,9 +752,11 @@ export function tipsHTML(s: BoltState): string {
     <div class="tipnum">Yours: bearing <b>${c.pau(r.pHead)}</b> under the head · softest plate is <b>${soft}</b>
       (p<sub>G</sub> ${c.mpau(Math.min(m1.pG, m2.pG))}) · SF
       <b style="color:${sfColor(Math.min(r.nBear1, r.nBear2))}">${sf(Math.min(r.nBear1, r.nBear2))}</b> ·
-      ${specW.T > longer.T * 1.01
-        ? `with washers the joint would take <b>${c.torqueu(specW.T)}</b> instead of <b>${c.torqueu(longer.T)}</b>`
-        : `the bolt already governs here, so washers buy margin against crushing rather than more torque`}</div></div>
+      ${s.washer
+        ? `washers are on — they are what raises this joint to <b>${c.torqueu(longer.T)}</b>`
+        : specW.T > longer.T * 1.01
+          ? `with washers the joint would take <b>${c.torqueu(specW.T)}</b> instead of <b>${c.torqueu(longer.T)}</b>`
+          : `the bolt already governs here, so washers buy margin against crushing rather than more torque`}</div></div>
 
     <div class="tip"><h4>4 · Lubrication is a specification, not a detail</h4>
     <p>K is not a property of the bolt — it is a property of the bolt <em>as you assemble it</em>. Dry, zinc-plated,

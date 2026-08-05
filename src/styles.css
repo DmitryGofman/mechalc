@@ -57,7 +57,7 @@ input[type="number"] {
 
 .bolt-recslot {
   margin-top: -8px;
-  height: 44px;
+  height: 60px;
   overflow: hidden;
   font-family: var(--mono);
   font-size: 10px;

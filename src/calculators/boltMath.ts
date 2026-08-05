@@ -10,6 +10,7 @@ import {
   CLASS_EQUIVALENT,
   DHOLE_RATIO,
   DW_RATIO,
+  DW_WASHER_RATIO,
   NUT_FACTORS,
   SAE_CLASSES,
   TARGET_PRELOAD_FRACTION,
@@ -151,19 +152,20 @@ export function memberStiffness(dMm: number, t1Mm: number, E1Gpa: number, t2Mm: 
 // grip midplane, then narrows back to the nut face — so the load spreads out
 // and converges again, and the same clamp force is carried by a much larger
 // area in the middle than at the two bearing surfaces.
-export function coneRadiusAtDepth(dMm: number, zMm: number, gripMm: number): number {
+export function coneRadiusAtDepth(dMm: number, zMm: number, gripMm: number, washer = false): number {
   const grip = Math.max(gripMm, 1e-9);
   const z = Math.max(0, Math.min(grip, zMm));
   const spread = Math.min(z, grip - z);
-  return (DW_RATIO * dMm) / 2 + spread * CONE_TAN;
+  // With washers the cone starts at the washer's outer face, not the head's.
+  return ((washer ? DW_WASHER_RATIO : DW_RATIO) * dMm) / 2 + spread * CONE_TAN;
 }
 
 // Local compressive pressure inside the clamped members at depth z (mm),
 // carrying clamp force F (N). Highest at the two bearing faces where the
 // cone is narrowest, lowest at mid-grip where it is widest — this is the
 // load distribution the 3D viewer draws as flow lines.
-export function conePressureAtDepth(dMm: number, FN: number, zMm: number, gripMm: number): number {
-  const R = coneRadiusAtDepth(dMm, zMm, gripMm) / 1000; // m
+export function conePressureAtDepth(dMm: number, FN: number, zMm: number, gripMm: number, washer = false): number {
+  const R = coneRadiusAtDepth(dMm, zMm, gripMm, washer) / 1000; // m
   const rh = (DHOLE_RATIO * dMm) / 2 / 1000;
   const A = Math.PI * (R * R - rh * rh);
   return A > 0 ? Math.max(0, FN) / A : 0;
@@ -192,11 +194,12 @@ export function flowLineStateAtDepth(
   m1: PlateMaterial,
   t2Mm: number,
   m2: PlateMaterial,
+  washer = false,
 ): { ratio: number; bright: number; pressure: number } {
   const grip = Math.max(t1Mm, 0) + Math.max(t2Mm, 0);
-  const p = conePressureAtDepth(dMm, clampN, zMm, grip);
+  const p = conePressureAtDepth(dMm, clampN, zMm, grip, washer);
   const pG = (zMm <= t1Mm ? m1.pG : m2.pG) * 1e6;
-  const pPeak = conePressureAtDepth(dMm, clampN, 0, grip);
+  const pPeak = conePressureAtDepth(dMm, clampN, 0, grip, washer);
   return {
     pressure: p,
     ratio: pG > 0 ? p / pG : 0,
@@ -257,6 +260,7 @@ export function serviceFastenerSpec(opts: {
   pG: number;
   CP: number; // the bolt's share of the external load, C·P, in N
   washer?: boolean;
+  preloadFrac?: number;
 }): { F: number; T: number; governs: "bolt" | "plate"; FbearNet: number } {
   const spec = fastenerSpec({
     thread: opts.thread,
@@ -264,6 +268,7 @@ export function serviceFastenerSpec(opts: {
     K: opts.K,
     pG: opts.pG,
     washer: !!opts.washer,
+    preloadFrac: opts.preloadFrac,
   });
   const FbearNet = Math.max(0, spec.Fbear - Math.max(0, opts.CP));
   const F = Math.min(spec.F65, FbearNet);
@@ -297,6 +302,11 @@ export type JointResults = BoltResults & {
 
 // Full bolted-joint model: tightening (boltResults) + the clamped "sandwich":
 // bolt and plates as springs in parallel sharing an external tensile load P.
+export type JointOptions = {
+  washer?: boolean; // plain washers under head AND nut
+  preloadFrac?: number; // preload target as a fraction of proof (default 0.65)
+};
+
 export function jointResults(
   thread: ThreadSpec,
   cls: BoltClass,
@@ -307,7 +317,9 @@ export function jointResults(
   t2Mm: number,
   m2: PlateMaterial,
   Pext: number,
+  o: JointOptions = {},
 ): JointResults {
+  const washer = !!o.washer;
   const gripMm = Math.max(t1Mm, 0) + Math.max(t2Mm, 0);
   const base = boltResults(thread, cls, K, T, gripMm);
   const d = thread.d / 1000;
@@ -334,14 +346,16 @@ export function jointResults(
 
   // Bearing (crushing) under the head / nut annulus — the same annulus the
   // shared torque recommendation uses, in m² here because pHead is in Pa.
-  const Abear = bearingArea(thread.d) * 1e-6;
+  const Abear = bearingArea(thread.d, washer) * 1e-6;
   const pHead = Abear > 0 ? Math.max(Fi, Fb) / Abear : 0;
   const nBear1 = pHead > 0 ? (m1.pG * 1e6) / pHead : Infinity;
   const nBear2 = pHead > 0 ? (m2.pG * 1e6) / pHead : Infinity;
 
   // Mean pressure where the two plates meet: clamp force over the cone's
-  // annular footprint at the interface depth.
-  const dw = DW_RATIO * d;
+  // annular footprint at the interface depth. With washers the cone starts
+  // at the washer's outer face. (Member stiffness km keeps Shigley's bare
+  // washer-face cone either way — the standard model.)
+  const dw = (washer ? DW_WASHER_RATIO : DW_RATIO) * d;
   const dh = DHOLE_RATIO * d;
   const distI = Math.min(t1Mm, t2Mm) / 1000; // interface depth from nearer face
   const Di = dw + 2 * distI * CONE_TAN;
@@ -352,7 +366,13 @@ export function jointResults(
 
   // Joint-aware recommendation — see serviceFastenerSpec for why the bolt's
   // service share of P is deducted from the bearing allowance.
-  const rec = serviceFastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), CP: C * P });
+  const rec = serviceFastenerSpec({
+    thread, cls, K,
+    pG: Math.min(m1.pG, m2.pG),
+    CP: C * P,
+    washer,
+    preloadFrac: o.preloadFrac,
+  });
 
   return {
     ...base,

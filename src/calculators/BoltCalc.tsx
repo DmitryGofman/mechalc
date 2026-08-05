@@ -2,6 +2,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import * as THREE from "three";
 import { Field, Select, Readout, num } from "../ui";
 import { signedStressColor, compressionSeverityColor } from "./stressColor";
+import { PRELOAD_TARGETS } from "./fasteners";
 import {
   THREADS,
   UNIFIED_THREADS,
@@ -11,7 +12,6 @@ import {
   FRICTION,
   PLATE_MATERIALS,
   jointResults,
-  TARGET_PRELOAD_FRACTION,
   flowLineStateAtDepth,
   coneVisibility,
   isInchThread,
@@ -21,6 +21,7 @@ import {
 } from "./boltMath";
 import type { ThreadSpec, BoltClass, PlateMaterial, JointResults } from "./boltMath";
 import { q, qu, reexpress, unitsFor, type Quantity, type UnitSystem } from "./units";
+import { serviceFastenerSpec } from "./boltMath";
 import {
   VIEW_EXAG,
   howItWorksHTML,
@@ -48,6 +49,8 @@ function Bolt3D({
   t2,
   m2,
   Pext,
+  washer,
+  preloadFrac,
   torque,
   interactive,
   onLiveTorque,
@@ -60,6 +63,8 @@ function Bolt3D({
   t2: number;
   m2: PlateMaterial;
   Pext: number;
+  washer: boolean;
+  preloadFrac: number;
   torque: number;
   interactive: boolean;
   onLiveTorque: (T: number | null) => void;
@@ -122,9 +127,9 @@ function Bolt3D({
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode; osc: OscillatorNode } | null>(null);
 
   // Latest props, readable from the long-lived animation/pointer closures.
-  const propsRef = useRef({ thread, cls, K, t1, m1, t2, m2, Pext, interactive, onLiveTorque });
+  const propsRef = useRef({ thread, cls, K, t1, m1, t2, m2, Pext, washer, preloadFrac, interactive, onLiveTorque });
   useEffect(() => {
-    propsRef.current = { thread, cls, K, t1, m1, t2, m2, Pext, interactive, onLiveTorque };
+    propsRef.current = { thread, cls, K, t1, m1, t2, m2, Pext, washer, preloadFrac, interactive, onLiveTorque };
     forceRef.current = true; // recolor on material/friction change
   }, [thread, cls, K, t1, m1, t2, m2, Pext, interactive, onLiveTorque]);
 
@@ -174,7 +179,10 @@ function Bolt3D({
     // Joint state for the current live torque — one call feeds color + feel.
     const resultsFor = (T: number): JointResults => {
       const P = propsRef.current;
-      return jointResults(P.thread, P.cls, P.K, T, P.t1, P.m1, P.t2, P.m2, P.Pext);
+      return jointResults(P.thread, P.cls, P.K, T, P.t1, P.m1, P.t2, P.m2, P.Pext, {
+        washer: P.washer,
+        preloadFrac: P.preloadFrac,
+      });
     };
 
     // Apply torque-dependent visuals with the correct kinematics:
@@ -232,7 +240,7 @@ function Bolt3D({
       if (parts.coneDepths) {
         for (const { color, depth } of parts.coneDepths) {
           for (let i = 0; i < color.count; i++) {
-            const s = flowLineStateAtDepth(P.thread.d, clampN, depth[i], P.t1, P.m1, P.t2, P.m2);
+            const s = flowLineStateAtDepth(P.thread.d, clampN, depth[i], P.t1, P.m1, P.t2, P.m2, P.washer);
             const c = compressionSeverityColor(s.ratio);
             // Gentle range: the hue already carries "how close to the limit",
             // so brightness only needs to hint at the concentration. Any
@@ -848,6 +856,8 @@ export default function BoltCalc() {
   const [Pext, setPext] = useState("500"); // external working load
   const [torque, setTorque] = useState("6"); // tightening torque
   const [sys, setSys] = useState<UnitSystem>("metric");
+  const [washer, setWasher] = useState(false);
+  const [preloadKey, setPreloadKey] = useState(Object.keys(PRELOAD_TARGETS)[0]);
   const [tab, setTab] = useState<Tab>("model");
   const [interactive, setInteractive] = useState(true);
   const [liveTorque, setLiveTorque] = useState<number | null>(null); // N·m, while tightening
@@ -898,9 +908,24 @@ export default function BoltCalc() {
   const effTorque = liveTorque != null ? liveTorque : torqueNm;
   const isLive = liveTorque != null;
 
+  const preloadFrac = PRELOAD_TARGETS[preloadKey];
   const r = useMemo(
-    () => jointResults(thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN),
-    [thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN],
+    () => jointResults(thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN, { washer, preloadFrac }),
+    [thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN, washer, preloadFrac],
+  );
+
+  // The recommendation with the OTHER washer setting, so the model tab shows
+  // what a washer buys (or costs) without a trip to the table.
+  const recAlt = useMemo(
+    () =>
+      serviceFastenerSpec({
+        thread, cls, K,
+        pG: Math.min(m1.pG, m2.pG),
+        CP: r.C * PextN,
+        washer: !washer,
+        preloadFrac,
+      }),
+    [thread, cls, K, m1, m2, r.C, PextN, washer, preloadFrac],
   );
 
   const status =
@@ -918,10 +943,11 @@ export default function BoltCalc() {
     warnings.push({ msg: `thin separation margin (n ${r.nSep.toFixed(2)})`, c: "#d9a441" });
   const crush1 = r.nBear1 < 1;
   const crush2 = r.nBear2 < 1;
+  const crushFix = washer ? "reduce torque or enlarge the fastener" : "add washer";
   if (crush1 && crush2)
-    warnings.push({ msg: `both plates crush (p > pG) — add washers`, c: "#d65c5c" });
-  else if (crush1) warnings.push({ msg: `plate 1 crushes under head — add washer`, c: "#d65c5c" });
-  else if (crush2) warnings.push({ msg: `plate 2 crushes under nut — add washer`, c: "#d65c5c" });
+    warnings.push({ msg: `both plates crush (p > pG)${washer ? " even with washers" : ""} — ${crushFix}s`, c: "#d65c5c" });
+  else if (crush1) warnings.push({ msg: `plate 1 crushes under head${washer ? "'s washer" : ""} — ${crushFix}`, c: "#d65c5c" });
+  else if (crush2) warnings.push({ msg: `plate 2 crushes under nut${washer ? "'s washer" : ""} — ${crushFix}`, c: "#d65c5c" });
 
   // Shorthands for the readouts: big forces (kN or lbf), stresses from the
   // solver's pascals, and the micron-scale deflections.
@@ -946,10 +972,12 @@ export default function BoltCalc() {
       t2: t2mm,
       Pext: PextN,
       T: effTorque,
+      washer,
+      preloadFrac,
       r,
       U,
     }),
-    [threadKey, thread, classKey, cls, fricKey, K, mat1Key, m1, mat2Key, m2, t1mm, t2mm, PextN, effTorque, r, U],
+    [threadKey, thread, classKey, cls, fricKey, K, mat1Key, m1, mat2Key, m2, t1mm, t2mm, PextN, effTorque, washer, preloadFrac, r, U],
   );
 
   // The theory panes are only built for the tab you are on. They are pure
@@ -1134,6 +1162,28 @@ export default function BoltCalc() {
 
               <Select label="Lubrication / finish" value={fricKey} onChange={setFricKey} options={Object.keys(FRICTION)} />
 
+              <Select label="Preload target" value={preloadKey} onChange={setPreloadKey} options={Object.keys(PRELOAD_TARGETS)} />
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: preloadFrac > 0.65 ? "#d9a441" : "#46515c", marginTop: -8, lineHeight: 1.55 }}>
+                {preloadFrac > 0.65
+                  ? `${Math.round(preloadFrac * 100)}% of proof plus tightening torsion runs the bolt near or past proof mid-wrench — the SF above will show it. Shigley's figures assume torsion is checked separately.`
+                  : "conservative default — see Preload & torque for where each figure comes from"}
+              </div>
+
+              <label
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
+                  fontFamily: "var(--mono)", fontSize: 11, color: "#8b97a3",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={washer}
+                  onChange={(e) => setWasher(e.target.checked)}
+                  style={{ accentColor: "#3a78c2", width: 14, height: 14 }}
+                />
+                plain washers under head &amp; nut
+              </label>
+
               <Select label="Plate 1 — top, under head" value={mat1Key} onChange={setMat1Key} options={Object.keys(PLATE_MATERIALS)} />
               <Field
                 label="Plate 1 thickness"
@@ -1179,9 +1229,10 @@ export default function BoltCalc() {
               />
               <div className="bolt-recslot">
                 recommended ≈ {qu(U.torque, r.TrecJoint)}
+                {washer ? " with washers" : ""}
                 <br />
                 {r.TrecGovernedBy === "bolt" ? (
-                  <>limited by the bolt ({Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof)</>
+                  <>limited by the bolt ({Math.round(preloadFrac * 100)}% of proof)</>
                 ) : (
                   <span style={{ color: "#d9a441" }}>
                     limited by {m1.pG <= m2.pG ? "plate 1" : "plate 2"} bearing (pG{" "}
@@ -1190,6 +1241,15 @@ export default function BoltCalc() {
                         survives its own crush check once P is applied */}
                     {r.C * PextN > 0.5 ? ", incl. your load's C·P" : ""})
                   </span>
+                )}
+                <br />
+                {/* the other washer setting, live — no trip to the table */}
+                {Math.abs(recAlt.T - r.TrecJoint) > 1e-9 ? (
+                  <span style={{ color: "#3aa0c2" }}>
+                    {washer ? "without washers" : "with washers"} ≈ {qu(U.torque, recAlt.T)}
+                  </span>
+                ) : (
+                  <span style={{ color: "#2f3945" }}>washers change nothing here — the bolt governs</span>
                 )}
               </div>
             </div>
@@ -1438,6 +1498,8 @@ export default function BoltCalc() {
                 t2={t2mm}
                 m2={m2}
                 Pext={PextN}
+                washer={washer}
+                preloadFrac={preloadFrac}
                 torque={torqueNm}
                 interactive={interactive}
                 onLiveTorque={setLiveTorque}

@@ -5,6 +5,8 @@ import {
   jointResults,
   recommendedTorque,
   serviceFastenerSpec,
+  UNIFIED_THREADS,
+  SAE_CLASSES,
   coneRadiusAtDepth,
   conePressureAtDepth,
   flowLineStateAtDepth,
@@ -364,6 +366,44 @@ describe("jointResults (clamped sandwich)", () => {
     const joint = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, 0);
     expect(joint.TrecJoint).toBeCloseTo(fastenerSide.T, 9);
     expect(joint.TrecGovernedBy).toBe("plate");
+  });
+
+  it("holds the invariants across EVERY size, grade, material, load and option", () => {
+    // The sweep the recommendation must survive: at its own recommended
+    // torque, no joint may flag its own crush warning (the full 10% bearing
+    // margin holds in service), and the material-table computation must equal
+    // the model-tab recommendation for the softer plate. ~10k combinations.
+    const allThreads = { ...THREADS, ...UNIFIED_THREADS };
+    const allClasses = { ...CLASSES, ...SAE_CLASSES };
+    const mats = [STEEL, ALU, PA12, FR4];
+    let checked = 0;
+    for (const th of Object.values(allThreads)) {
+      for (const cl of Object.values(allClasses)) {
+        for (const m1 of mats) {
+          for (const m2 of [STEEL, PA12]) {
+            for (const P of [0, 500, 3000]) {
+              for (const washer of [false, true]) {
+                for (const preloadFrac of [0.65, 0.75, 0.9]) {
+                  const rec = jointResults(th, cl, 0.2, 1, 6, m1, 10, m2, P, { washer, preloadFrac });
+                  if (!(rec.TrecJoint > 1e-9)) continue; // C·P can eat the whole allowance
+                  const at = jointResults(th, cl, 0.2, rec.TrecJoint, 6, m1, 10, m2, P, { washer, preloadFrac });
+                  expect(Math.min(at.nBear1, at.nBear2)).toBeGreaterThanOrEqual(1.1);
+                  const row = serviceFastenerSpec({
+                    thread: th, cls: cl, K: 0.2,
+                    pG: Math.min(m1.pG, m2.pG),
+                    CP: rec.C * P,
+                    washer, preloadFrac,
+                  });
+                  expect(row.T).toBeCloseTo(rec.TrecJoint, 12);
+                  checked++;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(checked).toBeGreaterThan(5000);
   });
 
   it("keeps stiff-plate joints on the bolt-governed handbook value", () => {

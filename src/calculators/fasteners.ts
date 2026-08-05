@@ -195,10 +195,20 @@ export function preloadForTorque(K: number, dMm: number, torqueNm: number): numb
   return K * dMm > 0 ? (1000 * torqueNm) / (K * dMm) : 0;
 }
 
-// Preload the FASTENER wants: TARGET_PRELOAD_FRACTION of proof on the stress area.
-export function boltPreloadTarget(cls: BoltClass, thread: ThreadSpec): number {
-  return TARGET_PRELOAD_FRACTION * cls.sp * thread.As;
+// Preload the FASTENER wants: a fraction of proof on the stress area. The
+// default is this toolkit's conservative 0.65; the bolted-joint calculator
+// lets the user raise it to Shigley's 0.75 (reused) or 0.90 (permanent).
+export function boltPreloadTarget(cls: BoltClass, thread: ThreadSpec, frac = TARGET_PRELOAD_FRACTION): number {
+  return frac * cls.sp * thread.As;
 }
+
+// The selectable preload targets, with the language of their sources. Kept
+// here so the UI and the theory pages agree on both numbers and wording.
+export const PRELOAD_TARGETS: Record<string, number> = {
+  "65% of proof — conservative (default)": 0.65,
+  "75% of proof — Shigley, reused connections": 0.75,
+  "90% of proof — Shigley, permanent joints": 0.9,
+};
 
 // Preload the CLAMPED MATERIAL will take under the head, held BEARING_MARGIN
 // clear of its permissible surface pressure.
@@ -228,10 +238,11 @@ export function fastenerSpec(opts: {
   K: number;
   pG: number;
   washer?: boolean;
+  preloadFrac?: number;
 }): FastenerSpec {
   const { thread, cls, K, pG } = opts;
   const washer = !!opts.washer;
-  const F65 = boltPreloadTarget(cls, thread);
+  const F65 = boltPreloadTarget(cls, thread, opts.preloadFrac ?? TARGET_PRELOAD_FRACTION);
   const Fbear = bearingPreloadCap(pG, thread, washer);
   const bearingGoverns = Fbear < F65;
   const F = Math.min(F65, Fbear);
