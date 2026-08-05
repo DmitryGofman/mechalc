@@ -14,6 +14,7 @@ import {
   DHOLE_RATIO,
   DW_RATIO,
   PLATE_MATERIALS,
+  SAE_CLASSES,
   TARGET_PRELOAD_FRACTION,
   bearingArea,
   fastenerSpec,
@@ -52,6 +53,9 @@ const AMBER = "#d9a441";
 const RED = "#d65c5c";
 
 const sfColor = (n: number) => (n >= 1.25 ? GREEN : n >= 1 ? AMBER : RED);
+// "8.8 (medium-carbon, Q&T)" → "8.8"; "SAE Grade 5 (medium-carbon, Q&T)" →
+// "SAE Grade 5". The metric classes are one token, the SAE grades are three.
+const grade = (classKey: string) => classKey.split(" (")[0];
 const sf = (n: number) => (isFinite(n) ? n.toFixed(2) : "∞");
 const n0 = (v: number) => (isFinite(v) ? Math.round(v).toLocaleString("en-US") : "∞");
 
@@ -221,7 +225,7 @@ export function reportHTML(s: BoltState): string {
     <tr><td>Thread ${s.threadKey} — ${V("d")} · ${V("A")}<sub>s</sub></td>
       <td class="v">${c.lenu(thread.d)} · ${c.areau(thread.As)}</td></tr>
     <tr><td>Property class (${V("S")}<sub>p</sub> / ${V("S")}<sub>y</sub>)</td>
-      <td class="v">${s.classKey.split(" ")[0]} — ${c.mpau(cls.sp)} / ${c.mpau(cls.sy)}</td></tr>
+      <td class="v">${grade(s.classKey)} — ${c.mpau(cls.sp)} / ${c.mpau(cls.sy)}</td></tr>
     <tr><td>Nut factor ${V("K")}</td><td class="v">${K} — ${s.fricKey.replace(/\s*\(.*\)/, "")}</td></tr>
     <tr><td>Plate 1 (head side) — ${s.mat1Key}</td>
       <td class="v">${c.lenu(t1)} · E ${c.gpau(m1.E)} · p<sub>G</sub> ${c.mpau(m1.pG)}</td></tr>
@@ -503,13 +507,21 @@ export function preloadHTML(s: BoltState): string {
     })
     .join("");
 
+  const sae = s.classKey in SAE_CLASSES;
   return `<h3 style="margin-top:0">What proof strength is</h3>
-    <p><b>ISO 898-1</b> tabulates a <em>proof load</em>: the tension a bolt carries and releases with no measurable
-    permanent set. Proof strength is that load over the stress area. It is a tabulated column, not something derived
-    from yield, and it sits deliberately below the 0.2% offset yield. For <b>${s.classKey}</b>,
-    ${V("S")}<sub>p</sub> = <b>${c.mpau(Sp)}</b> against ${V("R")}<sub>p0.2</sub> = <b>${c.mpau(Sy)}</b> — a ratio of
-    <b>${(Sp / Sy).toFixed(2)}</b>, and across the classes it runs 0.88–0.91. Past proof the bolt takes a permanent
-    set and simply loses the preload you just installed.</p>
+    <p><b>${sae ? "SAE J429" : "ISO 898-1"}</b> tabulates a <em>proof load</em>: the tension a bolt carries and
+    releases with no measurable permanent set. Proof strength is that load over the stress area. It is a tabulated
+    column, not something derived from yield, and it sits deliberately below the 0.2% offset yield. For
+    <b>${s.classKey}</b>, ${V("S")}<sub>p</sub> = <b>${c.mpau(Sp)}</b> against
+    ${V(sae ? "S" : "R")}<sub>${sae ? "y" : "p0.2"}</sub> = <b>${c.mpau(Sy)}</b> — a ratio of
+    <b>${(Sp / Sy).toFixed(2)}</b>, and across the ${sae ? "grades" : "classes"} it runs
+    ${sae ? "0.92–0.96" : "0.88–0.91"}. Past proof the bolt takes a permanent set and simply loses the preload you
+    just installed.${
+      sae
+        ? " Note that the SAE grades are <em>size-dependent</em>: the figures here cover the diameters in the thread" +
+          " list (Grade 2 to 3/4 in, Grades 5 and 8 to 1 in). Bigger fasteners are derated."
+        : ""
+    }</p>
 
     <h3>Why the target preload is a fraction of it</h3>
     <table class="rep"><tr><th>Source</th><th style="text-align:right">Recommends</th></tr>
@@ -554,8 +566,8 @@ export function preloadHTML(s: BoltState): string {
       `0.65 × ${c.mpa(Sp)} × ${c.area(thread.As)}${c.kilo}`,
       c.forceu(F65),
       "",
-      `Fixed by the fastener — ${s.threadKey} class ${s.classKey.split(" ")[0]} — so it is the same in every row of
-       the table below.`,
+      `Fixed by the fastener — ${s.threadKey}, ${grade(s.classKey)} — so it is the same in every row of the table
+       below.`,
     ) +
     eqn(
       "2 · what the clamped material allows under the head",
@@ -578,7 +590,7 @@ export function preloadHTML(s: BoltState): string {
        tools cannot drift apart.`,
     ) +
     `<h3>Every clamped material, at your thread and grade</h3>
-    <p>Run at <b>${s.threadKey}</b>, class <b>${s.classKey.split(" ")[0]}</b>,
+    <p>Run at <b>${s.threadKey}</b>, <b>${grade(s.classKey)}</b>,
     <b>${s.fricKey.replace(/\s*\(.*\)/, "")}</b> — change any of those and every torque column moves. Amber means
     <b>bearing on the plate</b> is what holds you back, not the bolt.</p>
     <table class="rep">

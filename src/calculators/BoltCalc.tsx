@@ -4,13 +4,19 @@ import { Field, Select, Readout, num } from "../ui";
 import { signedStressColor, compressionSeverityColor } from "./stressColor";
 import {
   THREADS,
+  UNIFIED_THREADS,
   CLASSES,
+  SAE_CLASSES,
+  CLASS_EQUIVALENT,
   FRICTION,
   PLATE_MATERIALS,
   jointResults,
   TARGET_PRELOAD_FRACTION,
   flowLineStateAtDepth,
   coneVisibility,
+  isInchThread,
+  nearestThread,
+  threadLabel,
   DW_RATIO,
 } from "./boltMath";
 import type { ThreadSpec, BoltClass, PlateMaterial, JointResults } from "./boltMath";
@@ -812,6 +818,15 @@ const fmtSF = (n: number) => (isFinite(n) ? n.toFixed(2) : "∞");
 // and the practical advice.
 type Tab = "model" | "theory" | "preload" | "tips";
 
+// Both thread series in one table, so a joint can be specified in whichever
+// hardware you actually have. The series is independent of the display units:
+// a metric bolt read out in inches is a perfectly ordinary thing to want.
+const ALL_THREADS = { ...THREADS, ...UNIFIED_THREADS };
+const ALL_CLASSES = { ...CLASSES, ...SAE_CLASSES };
+const METRIC_THREAD_KEYS = Object.keys(THREADS);
+const INCH_THREAD_KEYS = Object.keys(UNIFIED_THREADS);
+const isSaeClass = (k: string) => k in SAE_CLASSES;
+
 const TABS: [Tab, string][] = [
   ["model", "Model"],
   ["theory", "Theory & report"],
@@ -839,8 +854,21 @@ export default function BoltCalc() {
 
   const U = unitsFor(sys);
 
-  const thread = THREADS[threadKey];
-  const cls = CLASSES[classKey];
+  const thread = ALL_THREADS[threadKey];
+  const cls = ALL_CLASSES[classKey];
+  const inch = isInchThread(thread);
+
+  // Changing the thread series carries the property class with it: an inch
+  // bolt in ISO class 8.8 is not a thing you can order, and silently leaving
+  // the mismatch would put a metric class on an SAE fastener in the report.
+  const chooseThread = (k: string) => {
+    setThreadKey(k);
+    const wantsSae = isInchThread(ALL_THREADS[k]);
+    if (wantsSae !== isSaeClass(classKey)) {
+      const swap = CLASS_EQUIVALENT[classKey];
+      if (swap && swap in ALL_CLASSES) setClassKey(swap);
+    }
+  };
   const K = FRICTION[fricKey];
   const m1 = PLATE_MATERIALS[mat1Key];
   const m2 = PLATE_MATERIALS[mat2Key];
@@ -1038,21 +1066,69 @@ export default function BoltCalc() {
           <div className="flexure-grid">
             {/* INPUTS */}
             <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <Select label="Thread (ISO metric coarse)" value={threadKey} onChange={setThreadKey}>
-                {Object.keys(THREADS).map((k) => (
-                  <option key={k} value={k}>
-                    {k} × {THREADS[k].p}
-                  </option>
-                ))}
+              <Select label="Thread" value={threadKey} onChange={chooseThread}>
+                <optgroup label="ISO metric coarse">
+                  {METRIC_THREAD_KEYS.map((k) => (
+                    <option key={k} value={k}>
+                      {threadLabel(k, ALL_THREADS[k])}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Unified inch — UNC / UNF">
+                  {INCH_THREAD_KEYS.map((k) => (
+                    <option key={k} value={k}>
+                      {threadLabel(k, ALL_THREADS[k])}
+                    </option>
+                  ))}
+                </optgroup>
               </Select>
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8, lineHeight: 1.55 }}>
                 d = {qu(U.length, thread.d)} · As = {qu(U.area, thread.As)}
+                {/* The series and the display units are separate choices, so
+                    say so — and offer the swap rather than making it. */}
+                {inch !== U.imperial && (
+                  <div style={{ marginTop: 3 }}>
+                    {inch ? "inch hardware shown in metric units" : "metric hardware shown in inch units"} ·{" "}
+                    <button
+                      className="linkish"
+                      onClick={() =>
+                        chooseThread(
+                          nearestThread(thread.As, U.imperial ? UNIFIED_THREADS : THREADS),
+                        )
+                      }
+                    >
+                      use the nearest {U.imperial ? "inch" : "metric"} size (
+                      {nearestThread(thread.As, U.imperial ? UNIFIED_THREADS : THREADS)}) →
+                    </button>
+                  </div>
+                )}
               </div>
 
-              <Select label="Property class" value={classKey} onChange={setClassKey} options={Object.keys(CLASSES)} />
+              <Select label={inch ? "Grade (SAE J429)" : "Property class (ISO 898-1)"} value={classKey} onChange={setClassKey}>
+                <optgroup label="ISO 898-1 — metric classes">
+                  {Object.keys(CLASSES).map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="SAE J429 — inch grades">
+                  {Object.keys(SAE_CLASSES).map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </optgroup>
+              </Select>
               <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
                 Sp = {q(U.stress, cls.sp)} · Sy = {q(U.stress, cls.sy)} · Su = {qu(U.stress, cls.su)}
                 {cls.note && <div style={{ color: "#d9a441", marginTop: 3, lineHeight: 1.5 }}>⚠ {cls.note}</div>}
+                {inch !== isSaeClass(classKey) && (
+                  <div style={{ color: "#d9a441", marginTop: 3, lineHeight: 1.5 }}>
+                    ⚠ {inch ? "an inch thread in an ISO class" : "a metric thread in an SAE grade"} — real hardware
+                    is not sold that way
+                  </div>
+                )}
               </div>
 
               <Select label="Lubrication / finish" value={fricKey} onChange={setFricKey} options={Object.keys(FRICTION)} />
@@ -1291,7 +1367,7 @@ export default function BoltCalc() {
                 >
                   {isLive
                     ? `● tightening`
-                    : `${threadKey} · class ${classKey.split(" ")[0]} · ${mat1Key.split(" ")[0]} + ${mat2Key.split(" ")[0]}`}
+                    : `${threadKey} · ${classKey.split(" (")[0]} · ${mat1Key.split(" ")[0]} + ${mat2Key.split(" ")[0]}`}
                 </div>
               </div>
               <button

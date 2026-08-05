@@ -7,25 +7,37 @@
 // bolt calculator's own imports keep working, but the numbers live in one place.
 import {
   CLASSES,
+  CLASS_EQUIVALENT,
   DHOLE_RATIO,
   DW_RATIO,
   NUT_FACTORS,
+  SAE_CLASSES,
   TARGET_PRELOAD_FRACTION,
   THREADS,
+  UNIFIED_THREADS,
   bearingArea,
   fastenerSpec,
+  isInchThread,
+  nearestThread,
+  threadLabel,
   torqueForPreload,
 } from "./fasteners";
 import type { BoltClass, ThreadSpec } from "./fasteners";
 
 export {
   CLASSES,
+  CLASS_EQUIVALENT,
   DHOLE_RATIO,
   DW_RATIO,
+  SAE_CLASSES,
   TARGET_PRELOAD_FRACTION,
   THREADS,
+  UNIFIED_THREADS,
   bearingArea,
   fastenerSpec,
+  isInchThread,
+  nearestThread,
+  threadLabel,
   torqueForPreload,
   NUT_FACTORS as FRICTION,
 };
