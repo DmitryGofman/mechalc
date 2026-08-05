@@ -14,10 +14,16 @@ import {
   DW_RATIO,
 } from "./boltMath";
 import type { ThreadSpec, BoltClass, PlateMaterial, JointResults } from "./boltMath";
-
-// How much the (real, micron-scale) elastic deflections are exaggerated in
-// the 3D view so you can see the bolt stretch and the plates squash.
-const VIEW_EXAG = 40;
+import { q, qu, reexpress, unitsFor, type Quantity, type UnitSystem } from "./units";
+import {
+  VIEW_EXAG,
+  howItWorksHTML,
+  jointDiagramSVG,
+  preloadHTML,
+  reportHTML,
+  tipsHTML,
+  type BoltState,
+} from "./boltTheory";
 
 // ── 3D bolted-joint viewer ──────────────────────────────────────
 // A hex-head screw clamping two plates (each with its own material) with a
@@ -346,6 +352,12 @@ function Bolt3D({
     let raf = 0;
     let lastApplied = NaN;
     const animate = () => {
+      // The model tab stays mounted while you read the theory tabs, so stop
+      // rendering (and re-solving the joint every frame) while it is hidden.
+      if (!mount.offsetParent) {
+        raf = requestAnimationFrame(animate);
+        return;
+      }
       const s = stateRef.current;
       pivot.rotation.y = s.yaw;
       pivot.rotation.x = s.pitch;
@@ -795,18 +807,37 @@ const Group = ({ t, sub, children }: { t: string; sub?: string; children: React.
 
 const fmtSF = (n: number) => (isFinite(n) ? n.toFixed(2) : "∞");
 
+// The tabs, mirroring the cylinder-clamp calculator: the model you drive, the
+// derivation worked through with your numbers, the preload/torque reference,
+// and the practical advice.
+type Tab = "model" | "theory" | "preload" | "tips";
+
+const TABS: [Tab, string][] = [
+  ["model", "Model"],
+  ["theory", "Theory & report"],
+  ["preload", "Preload & torque"],
+  ["tips", "Design tips"],
+];
+
 export default function BoltCalc() {
   const [threadKey, setThreadKey] = useState("M6");
   const [classKey, setClassKey] = useState("8.8 (medium-carbon, Q&T)");
   const [fricKey, setFricKey] = useState("Dry steel, plain (K ≈ 0.20)");
   const [mat1Key, setMat1Key] = useState("Aluminum 6061-T6");
-  const [t1, setT1] = useState("8"); // mm — top plate (under the head)
   const [mat2Key, setMat2Key] = useState("Mild steel (S235)");
-  const [t2, setT2] = useState("12"); // mm — bottom plate (at the nut)
-  const [Pext, setPext] = useState("500"); // N external working load
-  const [torque, setTorque] = useState("6"); // N·m
+  // Input fields hold the number as TYPED, in whatever system is on screen.
+  // Everything below converts to internal units (mm, N, N·m) before any
+  // mechanics happens — the toggle never reaches into the math.
+  const [t1, setT1] = useState("8"); // top plate, under the head
+  const [t2, setT2] = useState("12"); // bottom plate, at the nut
+  const [Pext, setPext] = useState("500"); // external working load
+  const [torque, setTorque] = useState("6"); // tightening torque
+  const [sys, setSys] = useState<UnitSystem>("metric");
+  const [tab, setTab] = useState<Tab>("model");
   const [interactive, setInteractive] = useState(true);
   const [liveTorque, setLiveTorque] = useState<number | null>(null); // N·m, while tightening
+
+  const U = unitsFor(sys);
 
   const thread = THREADS[threadKey];
   const cls = CLASSES[classKey];
@@ -814,14 +845,34 @@ export default function BoltCalc() {
   const m1 = PLATE_MATERIALS[mat1Key];
   const m2 = PLATE_MATERIALS[mat2Key];
 
+  // Flipping the toggle re-expresses what is in the boxes rather than
+  // reinterpreting it: 8 mm becomes 0.315 in, not 8 in.
+  const switchUnits = (next: UnitSystem) => {
+    if (next === sys) return;
+    const A = unitsFor(sys);
+    const B = unitsFor(next);
+    const conv = (from: Quantity, to: Quantity) => (v: string) => reexpress(v, from, to);
+    setT1(conv(A.length, B.length));
+    setT2(conv(A.length, B.length));
+    setPext(conv(A.force, B.force));
+    setTorque(conv(A.torque, B.torque));
+    setSys(next);
+  };
+
+  // Internal (metric) values — the only ones the solver ever sees.
+  const t1mm = U.length.to(num(t1));
+  const t2mm = U.length.to(num(t2));
+  const PextN = U.force.to(num(Pext));
+  const torqueNm = U.torque.to(num(torque));
+
   // While interactively tightening, the readouts follow the live torque;
   // otherwise they reflect the design input.
-  const effTorque = liveTorque != null ? liveTorque : num(torque);
+  const effTorque = liveTorque != null ? liveTorque : torqueNm;
   const isLive = liveTorque != null;
 
   const r = useMemo(
-    () => jointResults(thread, cls, K, effTorque, num(t1), m1, num(t2), m2, num(Pext)),
-    [thread, cls, K, effTorque, t1, m1, t2, m2, Pext],
+    () => jointResults(thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN),
+    [thread, cls, K, effTorque, t1mm, m1, t2mm, m2, PextN],
   );
 
   const status =
@@ -844,7 +895,59 @@ export default function BoltCalc() {
   else if (crush1) warnings.push({ msg: `plate 1 crushes under head — add washer`, c: "#d65c5c" });
   else if (crush2) warnings.push({ msg: `plate 2 crushes under nut — add washer`, c: "#d65c5c" });
 
-  const kN = (n: number) => (n / 1000).toFixed(2);
+  // Shorthands for the readouts: big forces (kN or lbf), stresses from the
+  // solver's pascals, and the micron-scale deflections.
+  const bigF = (N: number) => q(U.forceBig, N);
+  const st = (Pa: number) => q(U.stress, Pa / 1e6);
+
+  // Everything the theory pages need, in internal units plus the active
+  // system. Built once per change rather than per pane.
+  const state: BoltState = useMemo(
+    () => ({
+      threadKey,
+      thread,
+      classKey,
+      cls,
+      fricKey,
+      K,
+      mat1Key,
+      m1,
+      mat2Key,
+      m2,
+      t1: t1mm,
+      t2: t2mm,
+      Pext: PextN,
+      T: effTorque,
+      r,
+      U,
+    }),
+    [threadKey, thread, classKey, cls, fricKey, K, mat1Key, m1, mat2Key, m2, t1mm, t2mm, PextN, effTorque, r, U],
+  );
+
+  // The theory panes are only built for the tab you are on. They are pure
+  // string assembly, but the model tab re-renders every frame while you drag
+  // the nut, and rebuilding four pages of HTML at 60 Hz is not free.
+  const html = useMemo(() => {
+    if (tab === "theory")
+      return { diagram: jointDiagramSVG(state), how: howItWorksHTML(state), report: reportHTML(state) };
+    if (tab === "preload") return { preload: preloadHTML(state) };
+    if (tab === "tips") return { tips: tipsHTML(state) };
+    return {};
+  }, [tab, state]) as Partial<Record<"diagram" | "how" | "report" | "preload" | "tips", string>>;
+
+  const toggleBtn = (on: boolean): React.CSSProperties => ({
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    borderRadius: 2,
+    padding: "6px 10px",
+    background: on ? "#3a78c21f" : "#0e1419",
+    border: `1px solid ${on ? "#3a78c2" : "#1f2a33"}`,
+    color: on ? "#3a78c2" : "#8b97a3",
+    whiteSpace: "nowrap",
+  });
 
   return (
     <div
@@ -865,7 +968,7 @@ export default function BoltCalc() {
           style={{
             borderBottom: "1px solid #1f2a33",
             paddingBottom: 14,
-            marginBottom: 22,
+            marginBottom: 4,
           }}
         >
           <div>
@@ -883,524 +986,470 @@ export default function BoltCalc() {
               Bolted Joint — Screw Strength
             </h1>
           </div>
-          <div
-            style={{
-              textAlign: "right",
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              color: "#46515c",
-              lineHeight: 1.6,
-            }}
-          >
-            <div>F = T / K·d</div>
-            <div>Fb = Fi + C·P</div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+            {/* Units are a display choice only — the mechanics stays metric. */}
+            <div style={{ display: "flex", gap: 4 }} role="group" aria-label="Display units">
+              <button
+                onClick={() => switchUnits("metric")}
+                aria-pressed={sys === "metric"}
+                style={toggleBtn(sys === "metric")}
+              >
+                Metric
+              </button>
+              <button
+                onClick={() => switchUnits("imperial")}
+                aria-pressed={sys === "imperial"}
+                style={toggleBtn(sys === "imperial")}
+              >
+                Imperial
+              </button>
+            </div>
+            <div
+              style={{
+                textAlign: "right",
+                fontFamily: "var(--mono)",
+                fontSize: 10,
+                color: "#46515c",
+                lineHeight: 1.6,
+              }}
+            >
+              <div>F = T / K·d</div>
+              <div>Fb = Fi + C·P</div>
+            </div>
           </div>
         </div>
 
-        <div className="flexure-grid">
-          {/* INPUTS */}
-          <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <Select label="Thread (ISO metric coarse)" value={threadKey} onChange={setThreadKey}>
-              {Object.keys(THREADS).map((k) => (
-                <option key={k} value={k}>
-                  {k} × {THREADS[k].p}
-                </option>
-              ))}
-            </Select>
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
-              d = {thread.d} mm · As = {thread.As} mm²
-            </div>
-
-            <Select label="Property class" value={classKey} onChange={setClassKey} options={Object.keys(CLASSES)} />
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
-              Sp = {cls.sp} · Sy = {cls.sy} · Su = {cls.su} MPa
-              {cls.note && <div style={{ color: "#d9a441", marginTop: 3, lineHeight: 1.5 }}>⚠ {cls.note}</div>}
-            </div>
-
-            <Select label="Lubrication / finish" value={fricKey} onChange={setFricKey} options={Object.keys(FRICTION)} />
-
-            <Select label="Plate 1 — top, under head" value={mat1Key} onChange={setMat1Key} options={Object.keys(PLATE_MATERIALS)} />
-            <Field label="Plate 1 thickness" unit="mm" value={t1} onChange={setT1} min="0" step="0.5" />
-            <Select label="Plate 2 — bottom, at nut" value={mat2Key} onChange={setMat2Key} options={Object.keys(PLATE_MATERIALS)} />
-            <Field label="Plate 2 thickness" unit="mm" value={t2} onChange={setT2} min="0" step="0.5" />
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
-              grip L = {(num(t1) + num(t2)).toFixed(1)} mm · E₁ {m1.E} · E₂ {m2.E} GPa
-            </div>
-
-            <Field label="External load P (tensile)" unit="N" value={Pext} onChange={setPext} min="0" step="50" />
-            <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8, lineHeight: 1.55 }}>
-              the service load trying to pull the joint apart — in use, after
-              tightening. Set 0 for preload only.
-            </div>
-
-            <Field label="Tightening torque T" unit="N·m" value={torque} onChange={setTorque} min="0" step="0.1" />
-            <div className="bolt-recslot">
-              recommended ≈ {r.TrecJoint.toFixed(r.TrecJoint < 10 ? 2 : 0)} N·m
-              <br />
-              {r.TrecGovernedBy === "bolt" ? (
-                <>limited by the bolt ({Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof)</>
-              ) : (
-                <span style={{ color: "#d9a441" }}>
-                  limited by {m1.pG <= m2.pG ? "plate 1" : "plate 2"} bearing (pG{" "}
-                  {Math.min(m1.pG, m2.pG)} MPa)
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* OUTPUTS */}
-          <div>
-            <div
-              style={{
-                background: "#0b1015",
-                border: `1px solid ${status.c}33`,
-                borderRadius: 3,
-                padding: "14px 16px",
-                marginBottom: 6,
-              }}
+        <div className="tabbar" role="tablist">
+          {TABS.map(([k, t]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={tab === k}
+              className={`tabbtn${tab === k ? " on" : ""}`}
+              onClick={() => setTab(k)}
             >
-              <div
-                className="flexure-sf-head"
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
-                  SAFETY FACTOR
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.15em",
-                    color: status.c,
-                    border: `1px solid ${status.c}`,
-                    borderRadius: 2,
-                    padding: "2px 7px",
-                  }}
-                >
-                  {status.t}
-                </span>
+              {t}
+            </button>
+          ))}
+        </div>
+
+        {/* ── MODEL ── */}
+        <div className={`tabpane${tab === "model" ? " on" : ""}`} data-t="model" style={{ marginTop: 18 }}>
+          <div className="flexure-grid">
+            {/* INPUTS */}
+            <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <Select label="Thread (ISO metric coarse)" value={threadKey} onChange={setThreadKey}>
+                {Object.keys(THREADS).map((k) => (
+                  <option key={k} value={k}>
+                    {k} × {THREADS[k].p}
+                  </option>
+                ))}
+              </Select>
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
+                d = {qu(U.length, thread.d)} · As = {qu(U.area, thread.As)}
               </div>
-              <div
-                className="flexure-sf"
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 38,
-                  fontWeight: 600,
-                  color: status.c,
-                  marginTop: 6,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {fmtSF(r.SF)}
+
+              <Select label="Property class" value={classKey} onChange={setClassKey} options={Object.keys(CLASSES)} />
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
+                Sp = {q(U.stress, cls.sp)} · Sy = {q(U.stress, cls.sy)} · Su = {qu(U.stress, cls.su)}
+                {cls.note && <div style={{ color: "#d9a441", marginTop: 3, lineHeight: 1.5 }}>⚠ {cls.note}</div>}
               </div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#6b7884" }}>
-                σred vs proof strength, while torquing
+
+              <Select label="Lubrication / finish" value={fricKey} onChange={setFricKey} options={Object.keys(FRICTION)} />
+
+              <Select label="Plate 1 — top, under head" value={mat1Key} onChange={setMat1Key} options={Object.keys(PLATE_MATERIALS)} />
+              <Field
+                label="Plate 1 thickness"
+                unit={U.length.label}
+                value={t1}
+                onChange={setT1}
+                min="0"
+                step={String(U.length.step)}
+              />
+              <Select label="Plate 2 — bottom, at nut" value={mat2Key} onChange={setMat2Key} options={Object.keys(PLATE_MATERIALS)} />
+              <Field
+                label="Plate 2 thickness"
+                unit={U.length.label}
+                value={t2}
+                onChange={setT2}
+                min="0"
+                step={String(U.length.step)}
+              />
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8 }}>
+                grip L = {qu(U.length, t1mm + t2mm)} · E₁ {q(U.modulus, m1.E)} · E₂ {qu(U.modulus, m2.E)}
               </div>
-              {/* Warning slot with RESERVED height: warnings appear and vanish
-                  as you drag the nut, and if this box resized it would shove
-                  the 3D viewer up and down under your finger. Fixed height +
-                  overflow means the layout below never moves. */}
-              <div className="bolt-warnslot">
-                {warnings.length === 0 ? (
-                  <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#2f3945" }}>
-                    no joint warnings
-                  </div>
+
+              <Field
+                label="External load P (tensile)"
+                unit={U.force.label}
+                value={Pext}
+                onChange={setPext}
+                min="0"
+                step={String(U.force.step)}
+              />
+              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: -8, lineHeight: 1.55 }}>
+                the service load trying to pull the joint apart — in use, after
+                tightening. Set 0 for preload only.
+              </div>
+
+              <Field
+                label="Tightening torque T"
+                unit={U.torque.label}
+                value={torque}
+                onChange={setTorque}
+                min="0"
+                step={String(U.torque.step)}
+              />
+              <div className="bolt-recslot">
+                recommended ≈ {qu(U.torque, r.TrecJoint)}
+                <br />
+                {r.TrecGovernedBy === "bolt" ? (
+                  <>limited by the bolt ({Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof)</>
                 ) : (
-                  warnings.map((w) => (
-                    <div
-                      key={w.msg}
-                      style={{ fontFamily: "var(--mono)", fontSize: 10, color: w.c, lineHeight: 1.45 }}
-                    >
-                      ⚠ {w.msg}
-                    </div>
-                  ))
+                  <span style={{ color: "#d9a441" }}>
+                    limited by {m1.pG <= m2.pG ? "plate 1" : "plate 2"} bearing (pG{" "}
+                    {qu(U.stress, Math.min(m1.pG, m2.pG))})
+                  </span>
                 )}
               </div>
             </div>
 
-            <Group t="1 · Tightening" sub="while the wrench is on">
-              <Readout label="Preload Fi" value={kN(r.F)} unit="kN" />
-              <Readout label="Tension σ" value={(r.sigma / 1e6).toFixed(0)} unit="MPa" />
-              <Readout label="Torsion τ" value={(r.tau / 1e6).toFixed(0)} unit="MPa" />
-              <Readout label="Reduced σred (vM)" value={(r.vm / 1e6).toFixed(0)} unit="MPa" accent={status.c} />
-              <Readout label="Bolt stretch ΔL" value={(r.dL * 1e6).toFixed(1)} unit="µm" />
-              <Readout label="Plates squash δm" value={(r.dLm * 1e6).toFixed(1)} unit="µm" />
-            </Group>
-
-            <Group t="2 · In service" sub={`with the external load P = ${num(Pext)} N applied`}>
-              <Readout
-                label="Stiffness ratio C"
-                value={r.C.toFixed(3)}
-                unit=""
-                hint={`bolt takes ${(r.C * 100).toFixed(0)}% of P`}
-              />
-              <Readout label="Bolt force @ P" value={kN(r.Fb)} unit="kN" />
-              <Readout
-                label="Clamp left @ P"
-                value={kN(Math.max(r.Fm, 0))}
-                unit="kN"
-                accent={r.Fm <= 0 ? "#d65c5c" : undefined}
-                // always present so the row can't change height mid-drag
-                hint={r.Fm <= 0 ? "separated" : "still clamped"}
-              />
-              <Readout
-                label="Separation SF"
-                value={fmtSF(r.nSep)}
-                unit=""
-                accent={r.nSep < 1 ? "#d65c5c" : r.nSep < 1.5 ? "#d9a441" : undefined}
-              />
-              <Readout
-                label="Working σ (relaxed)"
-                value={(r.sigmaWork / 1e6).toFixed(0)}
-                unit="MPa"
-                hint={`n vs yield ${fmtSF(r.nYieldWork)}`}
-              />
-            </Group>
-
-            <Group t="3 · Contact pressure" sub="what the clamped materials feel">
-              <Readout
-                label="Bearing p head/nut"
-                value={(r.pHead / 1e6).toFixed(0)}
-                unit="MPa"
-                accent={Math.min(r.nBear1, r.nBear2) < 1 ? "#d65c5c" : undefined}
-                hint={`SF ${fmtSF(r.nBear1)} / ${fmtSF(r.nBear2)}`}
-              />
-              <Readout
-                label="Interface pressure"
-                value={(r.pInt / 1e6).toFixed(1)}
-                unit="MPa"
-                hint={`cone Ø ${r.DiMm.toFixed(1)} mm`}
-              />
-              <Readout
-                label="Member stiffness km"
-                value={isFinite(r.km) ? (r.km / 1e6).toFixed(0) : "∞"}
-                unit="kN/mm"
-                hint={`bolt kb ${(r.kb / 1e6).toFixed(0)}`}
-              />
-            </Group>
-          </div>
-        </div>
-
-        {/* JOINT VISUALIZATION — 3D */}
-        <div
-          className="flexure-viz"
-          style={{
-            marginTop: 24,
-            background: "#0b1015",
-            border: "1px solid #141c22",
-            borderRadius: 3,
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-              flexWrap: "wrap",
-            }}
-          >
+            {/* OUTPUTS */}
             <div>
               <div
                 style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 10,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "#6b7884",
+                  background: "#0b1015",
+                  border: `1px solid ${status.c}33`,
+                  borderRadius: 3,
+                  padding: "14px 16px",
+                  marginBottom: 6,
                 }}
               >
-                Bolted joint · 3D
-              </div>
-              <div
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 10,
-                  color: isLive ? status.c : "#46515c",
-                  marginTop: 2,
-                }}
-              >
-                {isLive
-                  ? `● tightening`
-                  : `${threadKey} · class ${classKey.split(" ")[0]} · ${mat1Key.split(" ")[0]} + ${mat2Key.split(" ")[0]}`}
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const nv = !interactive;
-                setInteractive(nv);
-                if (!nv) setLiveTorque(null); // leaving interactive → drop the live override
-              }}
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                borderRadius: 2,
-                padding: "6px 10px",
-                background: interactive ? `${status.c}1f` : "#0e1419",
-                border: `1px solid ${interactive ? status.c : "#1f2a33"}`,
-                color: interactive ? status.c : "#8b97a3",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {interactive ? "● Interactive" : "Interactive"}
-            </button>
-          </div>
-          {/* Live HUD: torque and the forces it creates, pinned over the canvas */}
-          <div style={{ position: "relative" }}>
-            <div
-              style={{
-                position: "absolute",
-                top: 10,
-                left: 12,
-                zIndex: 2,
-                pointerEvents: "none",
-                fontFamily: "var(--mono)",
-                fontSize: 10.5,
-                lineHeight: 1.75,
-                color: isLive ? "#e8edf1" : "#6b7884",
-                textShadow: "0 1px 3px #000",
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              <div>
-                T <span style={{ color: "#d9a441" }}>{effTorque.toFixed(1)}</span> N·m
-              </div>
-              <div>
-                Fi <span style={{ color: status.c }}>{kN(r.F)}</span> kN preload
-              </div>
-              <div>
-                clamp <span style={{ color: r.Fm <= 0 ? "#d65c5c" : "#3aa0c2" }}>{kN(Math.max(r.Fm, 0))}</span> kN @ P
-              </div>
-              <div>
-                σred <span style={{ color: status.c }}>{(r.util * 100).toFixed(0)}%</span> of Sp
-              </div>
-            </div>
-            <Bolt3D
-              thread={thread}
-              cls={cls}
-              K={K}
-              t1={num(t1)}
-              m1={m1}
-              t2={num(t2)}
-              m2={m2}
-              Pext={num(Pext)}
-              torque={num(torque)}
-              interactive={interactive}
-              onLiveTorque={setLiveTorque}
-            />
-          </div>
-        </div>
-
-        {/* THEORY & EQUATIONS */}
-        <div style={{ marginTop: 24, borderTop: "1px solid #1f2a33", paddingTop: 18 }}>
-          <div
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#3a78c2",
-              marginBottom: 12,
-            }}
-          >
-            Theory &amp; Equations
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {EQUATIONS.map((eq) => (
-              <div
-                key={eq.expr}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "baseline",
-                  gap: 12,
-                  padding: "8px 0",
-                  borderBottom: "1px solid #141c22",
-                  flexWrap: "wrap",
-                }}
-              >
-                <span
+                <div
+                  className="flexure-sf-head"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
+                    SAFETY FACTOR
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.15em",
+                      color: status.c,
+                      border: `1px solid ${status.c}`,
+                      borderRadius: 2,
+                      padding: "2px 7px",
+                    }}
+                  >
+                    {status.t}
+                  </span>
+                </div>
+                <div
+                  className="flexure-sf"
                   style={{
                     fontFamily: "var(--mono)",
-                    fontSize: 13,
-                    color: "#e8edf1",
-                    whiteSpace: "nowrap",
+                    fontSize: 38,
+                    fontWeight: 600,
+                    color: status.c,
+                    marginTop: 6,
+                    fontVariantNumeric: "tabular-nums",
                   }}
                 >
-                  {eq.expr}
-                </span>
-                <span
+                  {fmtSF(r.SF)}
+                </div>
+                <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#6b7884" }}>
+                  σred vs proof strength, while torquing
+                </div>
+                {/* Warning slot with RESERVED height: warnings appear and vanish
+                    as you drag the nut, and if this box resized it would shove
+                    the 3D viewer up and down under your finger. Fixed height +
+                    overflow means the layout below never moves. */}
+                <div className="bolt-warnslot">
+                  {warnings.length === 0 ? (
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#2f3945" }}>
+                      no joint warnings
+                    </div>
+                  ) : (
+                    warnings.map((w) => (
+                      <div
+                        key={w.msg}
+                        style={{ fontFamily: "var(--mono)", fontSize: 10, color: w.c, lineHeight: 1.45 }}
+                      >
+                        ⚠ {w.msg}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <Group t="1 · Tightening" sub="while the wrench is on">
+                <Readout label="Preload Fi" value={bigF(r.F)} unit={U.forceBig.label} />
+                <Readout label="Tension σ" value={st(r.sigma)} unit={U.stress.label} />
+                <Readout label="Torsion τ" value={st(r.tau)} unit={U.stress.label} />
+                <Readout label="Reduced σred (vM)" value={st(r.vm)} unit={U.stress.label} accent={status.c} />
+                <Readout label="Bolt stretch ΔL" value={q(U.micro, r.dL)} unit={U.micro.label} />
+                <Readout label="Plates squash δm" value={q(U.micro, r.dLm)} unit={U.micro.label} />
+              </Group>
+
+              <Group t="2 · In service" sub={`with the external load P = ${qu(U.force, PextN)} applied`}>
+                <Readout
+                  label="Stiffness ratio C"
+                  value={r.C.toFixed(3)}
+                  unit=""
+                  hint={`bolt takes ${(r.C * 100).toFixed(0)}% of P`}
+                />
+                <Readout label="Bolt force @ P" value={bigF(r.Fb)} unit={U.forceBig.label} />
+                <Readout
+                  label="Clamp left @ P"
+                  value={bigF(Math.max(r.Fm, 0))}
+                  unit={U.forceBig.label}
+                  accent={r.Fm <= 0 ? "#d65c5c" : undefined}
+                  // always present so the row can't change height mid-drag
+                  hint={r.Fm <= 0 ? "separated" : "still clamped"}
+                />
+                <Readout
+                  label="Separation SF"
+                  value={fmtSF(r.nSep)}
+                  unit=""
+                  accent={r.nSep < 1 ? "#d65c5c" : r.nSep < 1.5 ? "#d9a441" : undefined}
+                />
+                <Readout
+                  label="Working σ (relaxed)"
+                  value={st(r.sigmaWork)}
+                  unit={U.stress.label}
+                  hint={`n vs yield ${fmtSF(r.nYieldWork)}`}
+                />
+              </Group>
+
+              <Group t="3 · Contact pressure" sub="what the clamped materials feel">
+                <Readout
+                  label="Bearing p head/nut"
+                  value={st(r.pHead)}
+                  unit={U.stress.label}
+                  accent={Math.min(r.nBear1, r.nBear2) < 1 ? "#d65c5c" : undefined}
+                  hint={`SF ${fmtSF(r.nBear1)} / ${fmtSF(r.nBear2)}`}
+                />
+                <Readout
+                  label="Interface pressure"
+                  value={st(r.pInt)}
+                  unit={U.stress.label}
+                  hint={`cone Ø ${qu(U.length, r.DiMm)}`}
+                />
+                <Readout
+                  label="Member stiffness km"
+                  value={isFinite(r.km) ? q(U.stiffness, r.km) : "∞"}
+                  unit={U.stiffness.label}
+                  hint={`bolt kb ${q(U.stiffness, r.kb)}`}
+                />
+              </Group>
+            </div>
+          </div>
+
+          {/* JOINT VISUALIZATION — 3D */}
+          <div
+            className="flexure-viz"
+            style={{
+              marginTop: 24,
+              background: "#0b1015",
+              border: "1px solid #141c22",
+              borderRadius: 3,
+              padding: 16,
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div
                   style={{
                     fontFamily: "var(--mono)",
                     fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
                     color: "#6b7884",
-                    textAlign: "right",
                   }}
                 >
-                  {eq.note}
-                </span>
+                  Bolted joint · 3D
+                </div>
+                <div
+                  style={{
+                    fontFamily: "var(--mono)",
+                    fontSize: 10,
+                    color: isLive ? status.c : "#46515c",
+                    marginTop: 2,
+                  }}
+                >
+                  {isLive
+                    ? `● tightening`
+                    : `${threadKey} · class ${classKey.split(" ")[0]} · ${mat1Key.split(" ")[0]} + ${mat2Key.split(" ")[0]}`}
+                </div>
               </div>
-            ))}
+              <button
+                onClick={() => {
+                  const nv = !interactive;
+                  setInteractive(nv);
+                  if (!nv) setLiveTorque(null); // leaving interactive → drop the live override
+                }}
+                style={{
+                  fontFamily: "var(--mono)",
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  cursor: "pointer",
+                  borderRadius: 2,
+                  padding: "6px 10px",
+                  background: interactive ? `${status.c}1f` : "#0e1419",
+                  border: `1px solid ${interactive ? status.c : "#1f2a33"}`,
+                  color: interactive ? status.c : "#8b97a3",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {interactive ? "● Interactive" : "Interactive"}
+              </button>
+            </div>
+            {/* Live HUD: torque and the forces it creates, pinned over the canvas */}
+            <div style={{ position: "relative" }}>
+              <div
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: 12,
+                  zIndex: 2,
+                  pointerEvents: "none",
+                  fontFamily: "var(--mono)",
+                  fontSize: 10.5,
+                  lineHeight: 1.75,
+                  color: isLive ? "#e8edf1" : "#6b7884",
+                  textShadow: "0 1px 3px #000",
+                  fontVariantNumeric: "tabular-nums",
+                }}
+              >
+                <div>
+                  T <span style={{ color: "#d9a441" }}>{q(U.torque, effTorque, U.imperial ? 0 : 1)}</span>{" "}
+                  {U.torque.label}
+                </div>
+                <div>
+                  Fi <span style={{ color: status.c }}>{bigF(r.F)}</span> {U.forceBig.label} preload
+                </div>
+                <div>
+                  clamp <span style={{ color: r.Fm <= 0 ? "#d65c5c" : "#3aa0c2" }}>{bigF(Math.max(r.Fm, 0))}</span>{" "}
+                  {U.forceBig.label} @ P
+                </div>
+                <div>
+                  σred <span style={{ color: status.c }}>{(r.util * 100).toFixed(0)}%</span> of Sp
+                </div>
+              </div>
+              <Bolt3D
+                thread={thread}
+                cls={cls}
+                K={K}
+                t1={t1mm}
+                m1={m1}
+                t2={t2mm}
+                m2={m2}
+                Pext={PextN}
+                torque={torqueNm}
+                interactive={interactive}
+                onLiveTorque={setLiveTorque}
+              />
+            </div>
           </div>
+        </div>
 
-          <div
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              color: "#46515c",
-              marginTop: 10,
-              lineHeight: 1.6,
-            }}
-          >
-            T torque · K nut factor · d nominal Ø · Fi preload · As stress area · Sp/Sy proof/yield · kb/km
-            bolt/member stiffness · C stiffness ratio · P external load · Fm clamp force · dw washer-face Ø ·
-            dh hole Ø · pG permissible surface pressure
+        {/* ── THEORY & REPORT ── */}
+        <div className={`tabpane${tab === "theory" ? " on" : ""}`} data-t="theory">
+          <div className="theory">
+            <div className="lab">THE JOINT DIAGRAM — WHO CARRIES THE LOAD</div>
+            <div className="theory-fig" dangerouslySetInnerHTML={{ __html: html.diagram ?? "" }} />
+            <div dangerouslySetInnerHTML={{ __html: html.how ?? "" }} />
+            <div className="lab" style={{ marginTop: 22 }}>CALCULATION REPORT</div>
+            <div dangerouslySetInnerHTML={{ __html: html.report ?? "" }} />
+
+            <div className="lab" style={{ marginTop: 22 }}>THE RELATIONS, IN ONE PLACE</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {EQUATIONS.map((eq) => (
+                <div
+                  key={eq.expr}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "baseline",
+                    gap: 12,
+                    padding: "8px 0",
+                    borderBottom: "1px solid #141c22",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 13,
+                      color: "#e8edf1",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {eq.expr}
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: "var(--mono)",
+                      fontSize: 10,
+                      color: "#6b7884",
+                      textAlign: "right",
+                    }}
+                  >
+                    {eq.note}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div
+              style={{
+                fontFamily: "var(--mono)",
+                fontSize: 10,
+                color: "#46515c",
+                marginTop: 10,
+                lineHeight: 1.6,
+              }}
+            >
+              T torque · K nut factor · d nominal Ø · Fi preload · As stress area · Sp/Sy proof/yield · kb/km
+              bolt/member stiffness · C stiffness ratio · P external load · Fm clamp force · dw washer-face Ø ·
+              dh hole Ø · pG permissible surface pressure
+            </div>
           </div>
+        </div>
 
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 16,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>Tightening.</strong> The wrench torque drives the nut down
-            the thread incline, converting twist into axial preload Fi that clamps the plates. While the
-            wrench is on, thread friction also twists the shank, so the tightening check combines tension
-            and torsion into the <em>reduced stress</em> σred = √(σ² + 3τ²) — this von Mises form is the
-            standard bolted-joint method (VDI 2230; Shigley reaches the same numbers by capping preload at
-            ~75–90% of proof). That torsion largely dissipates once the wrench is released, which is why the
-            calculator also reports the milder <em>working stress</em> — pure tension including the bolt's
-            share of the external load — checked against yield.
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 10,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>The clamped sandwich.</strong> The joint is two springs in
-            parallel: the bolt (stiffness kb) stretched by Fi, and the plate stack (km) compressed by the
-            same Fi. The clamp force doesn&apos;t flow uniformly through the plates — it spreads in ~30°
-            pressure cones from under the head to mid-grip and back to the nut (drawn in blue in the 3D
-            view), which is what the frustum stiffness model captures. Each plate&apos;s material enters
-            through its modulus: swap a steel plate for aluminum or POM and km drops, shifting the stiffness
-            ratio C = kb/(kb+km). When an external load P pulls the joint, the bolt only feels C·P extra —
-            the rest simply unloads the plates. Stiff plates (small C) are why preloaded joints survive
-            fatigue: the bolt barely notices the load cycles. But the clamp erodes by (1−C)·P, and at Psep
-            the plates separate — after that the bolt takes everything, and the joint hammers itself apart.
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 10,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>Reading the load distribution.</strong> The clamp force
-            does not travel straight down the bolt line — it spreads into the plates as a cone, widening
-            from the head&apos;s bearing face to its widest at mid-grip and converging back onto the nut.
-            The 3D view shades that cone by the local pressure at each depth. Because the same force is
-            carried by a much larger area in the middle than at the two bearing faces, pressure is highest
-            right under the head and nut and lowest at mid-grip — exactly why fasteners crush the surface
-            long before they crush the core, and why a washer (bigger bearing area) fixes it. Each depth is
-            colored against the limit of whichever plate it falls in, so in a mixed stack the soft half
-            shifts toward amber and red while the steel half beside it stays cool under the identical
-            force. A thicker stack spreads the cone further and dilutes the middle more.
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 10,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>What &ldquo;external load P&rdquo; means.</strong> P is the
-            working load your product applies to the joint <em>after</em> it&apos;s assembled — the thing
-            trying to pull the two plates apart along the bolt axis. Pressure lifting a cover, a belt
-            tensioning a bracket, the weight of whatever hangs off the part, an impact. It is not the
-            tightening force: preload comes from the torque, and P is what arrives later, in service. The
-            interesting result is that the bolt does <em>not</em> feel all of P — it picks up only C·P
-            (typically 10–25% with metal plates) while the remaining (1−C)·P is subtracted from the clamp
-            squeezing the plates. Set P = 0 to look at the tightened joint alone; raise it to find the load
-            where clamp reaches zero and the joint separates.
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 10,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>Soft materials & bearing.</strong> The head and nut press
-            on small annular faces, and soft plate materials crush there long before the bolt is in danger:
-            the calculator checks that surface pressure against each material&apos;s permissible pressure pG
-            (VDI-style values). This is also why the <strong style={{ color: "#c2ccd4" }}>recommended
-            torque follows the materials you clamp</strong>, not just the bolt. The target preload is the
-            lesser of 65% of the bolt&apos;s proof load and what the softer plate&apos;s bearing limit
-            allows. With steel or aluminum plates the bolt governs and you get the familiar handbook number
-            (≈9 N·m for M6 class 8.8, dry); put the same bolt through nylon or FR-4 and the recommendation
-            drops several-fold, because the plate would crush first. That matches the separate torque tables
-            plastics and PCB suppliers publish. Washers raise the limit by enlarging the bearing area —
-            worth adding whenever a plate flags red. Embedding (surfaces flattening over time) also costs
-            proportionally more preload in soft, short joints.
-          </p>
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#8b97a3",
-              marginTop: 10,
-              lineHeight: 1.7,
-            }}
-          >
-            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Nut-factor torque model (K scatters ±25%
-            between real joints — lubricate for consistency); fully-threaded fastener for kb; Shigley 30°
-            cone frusta for km; concentric, purely tensile external load. Not modeled: shear/eccentric
-            loading, embedding and creep relaxation, fatigue life, thread stripping, gaskets. The 3D view
-            exaggerates the micron-scale stretch and squash ~{VIEW_EXAG}× so you can see them; the
-            kinematics are true — the head only sinks with plate compression, and elongation emerges below
-            the nut.
-          </p>
+        {/* ── PRELOAD & TORQUE ── */}
+        <div className={`tabpane${tab === "preload" ? " on" : ""}`} data-t="preload">
+          <div className="theory">
+            <div className="lab">PROOF STRENGTH, PRELOAD AND WHERE THE RECOMMENDED TORQUE COMES FROM</div>
+            <div dangerouslySetInnerHTML={{ __html: html.preload ?? "" }} />
+          </div>
+        </div>
 
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#b9c3cc",
-              marginTop: 16,
-              paddingTop: 12,
-              borderTop: "1px dashed #1f2a33",
-              lineHeight: 1.7,
-            }}
-          >
-            <span style={{ textDecoration: "underline", textUnderlineOffset: 3, color: "#e8edf1" }}>
-              In short:
-            </span>{" "}
-            a bolted joint is a pre-stretched bolt fighting pre-squashed plates. Tighten until the bolt
-            carries a healthy fraction of proof (checked with torsion included, von Mises), and make the
-            plates as stiff as you can — then external loads mostly just relax the plates instead of working
-            the bolt. Watch the two clamped materials: they set how the load is shared, when the joint
-            separates, and whether anything crushes under the head.
-          </p>
+        {/* ── DESIGN TIPS ── */}
+        <div className={`tabpane${tab === "tips" ? " on" : ""}`} data-t="tips">
+          <div className="theory">
+            <div className="lab">DESIGNING A BOLTED JOINT — WHAT ACTUALLY MATTERS</div>
+            <div dangerouslySetInnerHTML={{ __html: html.tips ?? "" }} />
+          </div>
+        </div>
+
+        <div className="calc-note">
+          <strong>Scope.</strong> Closed-form design check, not FEA. Nut-factor torque model (K scatters ±25% between
+          real joints — lubricate for consistency), fully-threaded fastener for kb, Shigley 30° cone frusta for km,
+          concentric and purely tensile external load. Deflections in the 3D view are exaggerated ×{VIEW_EXAG} so the
+          motion is visible. Typical reference values — verify before production use.
         </div>
       </div>
     </div>

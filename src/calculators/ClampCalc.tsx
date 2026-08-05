@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import * as CM from "./clampMath";
 import { buildScene, drawScene, type View } from "./clampScene";
+// CSS-typeset maths, shared with the bolted-joint theory pages.
+import { FR, V, eqn } from "./typeset";
 
 // Cylinder Clamp — a two-piece split collar on a rod or tube.
 // Answers the two bench questions: how many bolts, and how tight.
@@ -10,12 +12,6 @@ const M = "var(--mono)";
 const f = CM.fmt;
 const n2 = (v: number) => (isFinite(v) ? v.toFixed(2) : "∞");
 
-/* ── typeset maths, CSS only (no library) ─────────────────────────────── */
-const V = (x: string) => `<span class="mi">${x}</span>`;
-const FR = (n: string, d: string) => `<span class="frac"><span>${n}</span><span>${d}</span></span>`;
-const eqn = (lead: string, sym: string, sub: string, res: string, cls = "", cmt = "") =>
-  `<div class="eqn"><span class="lead">${lead}</span><span class="mth">${sym} <span class="sub">= ${sub}</span> = ` +
-  `<span class="res ${cls}">${res}</span></span>${cmt ? `<span class="cmt">${cmt}</span>` : ""}</div>`;
 
 /* ── dimensioned drawing: every dimension outside the part ────────────── */
 // `forPrint` swaps the palette for ink on paper. The colours are baked into the
@@ -836,7 +832,7 @@ export default function ClampCalc() {
             opens your browser's print dialog — choose “Save as PDF”
           </span>
         </div>
-        <div className="clamp-theory">
+        <div className="theory">
           <div className="lab">HOW IT WORKS — THE DIMENSIONS</div>
           <div className="clamp-dims" dangerouslySetInnerHTML={{ __html: dimsSVG(inp, res) }} />
           <div dangerouslySetInnerHTML={{ __html: theoryHTML(inp, res) }} />
@@ -847,7 +843,7 @@ export default function ClampCalc() {
 
       {/* ── PRELOAD ── */}
       <div className={`tabpane${tab === "preload" ? " on" : ""}`} data-t="preload">
-        <div className="clamp-theory">
+        <div className="theory">
           <div className="lab">MATERIAL TABLE — TORQUE FOR EVERY CLAMP BODY</div>
           <div dangerouslySetInnerHTML={{ __html: materialsHTML(inp) }} />
           <div className="lab" style={{ marginTop: 22 }}>PROOF STRENGTH, PRELOAD AND WHERE THE 65% COMES FROM</div>
@@ -857,7 +853,7 @@ export default function ClampCalc() {
 
       {/* ── TIPS ── */}
       <div className={`tabpane${tab === "tips" ? " on" : ""}`} data-t="tips">
-        <div className="clamp-theory">
+        <div className="theory">
           <div className="lab">DESIGNING A TWO-PIECE CLAMP — WHAT ACTUALLY MATTERS</div>
           <div dangerouslySetInnerHTML={{ __html: tipsHTML(inp, res, rec, spec, torque) }} />
         </div>
@@ -897,15 +893,15 @@ export default function ClampCalc() {
             <>
               <h2 className="sec">How it works — the dimensions</h2>
               <div className="clamp-dims print" dangerouslySetInnerHTML={{ __html: dimsSVG(inp, res, true) }} />
-              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: theoryHTML(inp, res) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: theoryHTML(inp, res) }} />
               <h2 className="sec brk">Calculation report</h2>
-              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res, rec, spec, torque) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res, rec, spec, torque) }} />
               <h2 className="sec brk">Material table — torque for every clamp body</h2>
-              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: materialsHTML(inp) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: materialsHTML(inp) }} />
               <h2 className="sec brk">Proof strength, preload and where the 65% comes from</h2>
-              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: preloadHTML(inp, res, spec, rec) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: preloadHTML(inp, res, spec, rec) }} />
               <h2 className="sec brk">Designing a two-piece clamp — what actually matters</h2>
-              <div className="clamp-theory" dangerouslySetInnerHTML={{ __html: tipsHTML(inp, res, rec, spec, torque) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: tipsHTML(inp, res, rec, spec, torque) }} />
             </>
           )}
 
@@ -916,7 +912,7 @@ export default function ClampCalc() {
         </div>
       )}
 
-      <div className="clamp-note">
+      <div className="calc-note">
         <strong>Scope.</strong> Closed-form design check, not FEA. Deflections are magnified by <b>SPLIT ×</b> so the
         motion is visible; the gap is magnified by the same factor, so the halves meet exactly when the joint bottoms
         out. Typical reference values — verify before production use.
