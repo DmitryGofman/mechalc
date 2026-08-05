@@ -489,6 +489,13 @@ export function preloadHTML(s: BoltState): string {
   const util = vm65 / (Sp * 1e6);
   const loK = TARGET_PRELOAD_FRACTION / 0.75;
   const hiK = TARGET_PRELOAD_FRACTION / 1.25;
+  // The unlucky end of the K band. Note what does NOT move: torsion is set by
+  // the torque you applied, not by the preload that torque happened to
+  // produce, so a grabbier-than-assumed joint raises the tensile term alone.
+  // Scaling the whole von Mises by the preload ratio overstates it.
+  const sigmaLow = loK * Sp * 1e6;
+  const vmLow = Math.sqrt(sigmaLow ** 2 + 3 * tau65 ** 2);
+  const utilLow = vmLow / (Sp * 1e6);
 
   const rows = Object.keys(PLATE_MATERIALS)
     .map((k) => {
@@ -551,10 +558,13 @@ export function preloadHTML(s: BoltState): string {
       <tr><td>25% low — grabbier than assumed</td><td class="v" style="color:${RED}">${loK.toFixed(2)}</td></tr>
       <tr><td>as assumed</td><td class="v">${TARGET_PRELOAD_FRACTION.toFixed(2)}</td></tr>
       <tr><td>25% high — slipperier</td><td class="v">${hiK.toFixed(2)}</td></tr></table>
-    <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end, ${loK.toFixed(2)} of proof <em>plus</em> torsion
-    reaches roughly <b>${((util * loK) / TARGET_PRELOAD_FRACTION * 100).toFixed(0)}%</b> of proof — the bolt yields.
-    Dropping the target buys margin, not certainty. That is the weakness of torque control, and it is why joints that
-    matter use angle control past snug or measure bolt stretch.</p>
+    <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end the same wrench reading installs ${loK.toFixed(2)} of
+    proof in tension. The torsion does not grow with it — you applied the same torque — but the combined stress still
+    reaches <b>${(utilLow * 100).toFixed(0)}%</b> of proof (${((vmLow / (Sy * 1e6)) * 100).toFixed(0)}% of yield),
+    which is past the load the bolt is guaranteed to release from without a permanent set. It will not snap; it will
+    quietly keep less preload than you think it has. Dropping the target buys margin, not certainty — that is the
+    weakness of torque control, and it is why joints that matter use angle control past snug or measure bolt
+    stretch.</p>
 
     <h3>Where the recommended torque comes from</h3>
     <p>Handbook torque tables answer "how tight?" for the <em>bolt</em>, and quietly assume the clamped parts can take

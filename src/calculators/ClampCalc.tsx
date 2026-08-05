@@ -272,6 +272,9 @@ function preloadHTML(inp: CM.ClampInput, r: CM.ClampResult, spec: CM.BoltSpec, r
   const cl = CM.CLASSES[inp.cls], Sp = cl.sp, Sy = cl.sy;
   const at65 = CM.solve({ ...inp, T: spec.T65 });
   const vmR = at65.vm / Sp, loK = 0.65 / 0.75, hiK = 0.65 / 1.25;
+  // Same wrench torque, grabbier threads: the preload rises but the torsion
+  // does not — it is set by the torque applied, not by the preload produced.
+  const vmLo = Math.sqrt((loK * Sp) ** 2 + 3 * at65.tau ** 2);
   return `<h3 style="margin-top:0">What proof strength is</h3>
     <p><b>ISO 898-1</b> defines a <em>proof load</em>: the tension a bolt carries and releases with no measurable
     permanent set. Proof strength is that load over the tensile stress area. It is a <em>tabulated</em> column, not
@@ -302,9 +305,10 @@ function preloadHTML(inp: CM.ClampInput, r: CM.ClampResult, spec: CM.BoltSpec, r
       <tr><td>25% low — grabbier than assumed</td><td class="v" style="color:var(--red)">${loK.toFixed(2)}</td></tr>
       <tr><td>as assumed</td><td class="v">0.65</td></tr>
       <tr><td>25% high — slipperier</td><td class="v">${hiK.toFixed(2)}</td></tr></table>
-    <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end, ${loK.toFixed(2)} of proof <em>plus</em> torsion
-    reaches roughly <b>${((vmR * loK) / 0.65 * 100).toFixed(0)}%</b> of proof — the bolt yields. Dropping the target
-    buys margin, not certainty. That is the weakness of torque control, and why joints that matter use angle control
+    <p class="pn bad"><b>Be clear-eyed:</b> at the unlucky end the same wrench reading installs ${loK.toFixed(2)} of
+    proof in tension, and while the torsion does not grow with it, the combined stress still reaches
+    <b>${((vmLo / Sp) * 100).toFixed(0)}%</b> of proof — past the load the bolt is guaranteed to release from without
+    a permanent set. Dropping the target buys margin, not certainty. That is the weakness of torque control, and why joints that matter use angle control
     past snug or measure bolt stretch. Treat every preload figure here as ±25%.</p>
     <p>For this clamp it is largely academic: the body governs at <b>${n2(rec.T)} N·m</b> while the fastener could take
     <b>${n2(spec.T)}</b>, so the preload fraction only becomes binding with a metal body.</p>
