@@ -18,6 +18,7 @@ import {
   TARGET_PRELOAD_FRACTION,
   bearingArea,
   fastenerSpec,
+  serviceFastenerSpec,
 } from "./boltMath";
 import type { BoltClass, JointResults, PlateMaterial, ThreadSpec } from "./boltMath";
 
@@ -209,7 +210,8 @@ export function reportHTML(s: BoltState): string {
   const ds = Math.sqrt((4 * thread.As) / Math.PI); // stress-area equivalent Ø, mm
   const Abear = bearingArea(thread.d);
   const spec = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: false });
-  const specW = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: true });
+  const CP = r.C * Math.max(Pext, 0);
+  const specW = serviceFastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), CP, washer: true });
 
   const rows: [string, string, number][] = [
     ["Bolt while tightening (von Mises vs proof)", c.pau(r.vm), r.SF],
@@ -363,7 +365,8 @@ export function reportHTML(s: BoltState): string {
        <tr><td>Bolt alone — ${Math.round(TARGET_PRELOAD_FRACTION * 100)}% of proof (${c.forceu(spec.F65)})</td>
          <td class="v">${c.torque(spec.T65)}</td></tr>
        <tr><td>Capped by bearing on ${m1.pG <= m2.pG ? s.mat1Key : s.mat2Key}
-         (p<sub>G</sub> ${c.mpau(Math.min(m1.pG, m2.pG))})</td><td class="v">${c.torque(spec.Tbear)}</td></tr>
+         (p<sub>G</sub> ${c.mpau(Math.min(m1.pG, m2.pG))})${CP > 0.5 ? " — preload alone, before the C·P deduction" : ""}</td>
+         <td class="v">${c.torque(spec.Tbear)}</td></tr>
        <tr class="hi"><td><b>Recommended</b> — limited by ${
            r.TrecGovernedBy === "bolt"
              ? "the bolt"
@@ -508,19 +511,24 @@ export function preloadHTML(s: BoltState): string {
   const vmLow = Math.sqrt(sigmaLow ** 2 + 3 * tau65 ** 2);
   const utilLow = vmLow / (Sp * 1e6);
 
+  // Every row through the SAME function the model tab's recommendation uses,
+  // with your joint's C·P — so the row for your softer plate IS the number in
+  // the recommendation slot, digit for digit. The what-if in each row is the
+  // bearing surface only; the load share is your joint's (a stack made of
+  // that material throughout would shift C somewhat).
   const rows = Object.keys(PLATE_MATERIALS)
     .map((k) => {
       const m = PLATE_MATERIALS[k];
-      const spec = fastenerSpec({ thread, cls, K, pG: m.pG, washer: false });
-      const specW = fastenerSpec({ thread, cls, K, pG: m.pG, washer: true });
+      const cap = fastenerSpec({ thread, cls, K, pG: m.pG, washer: false });
+      const use = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP });
+      const useW = serviceFastenerSpec({ thread, cls, K, pG: m.pG, CP, washer: true });
       const here = k === s.mat1Key || k === s.mat2Key;
-      const plateGoverns = spec.governs !== "bolt proof strength";
       return (
         `<tr${here ? ' class="hi"' : ""}><td>${here ? `<b>${k}</b>` : k}</td>` +
         `<td class="v">${c.gpa(m.E)}</td><td class="v">${c.mpa(m.sy)}</td><td class="v">${c.mpa(m.pG)}</td>` +
-        `<td class="v">${c.torque(spec.Tbear)}</td>` +
-        `<td class="v" style="color:${plateGoverns ? AMBER : GREEN}">${c.torque(spec.T)}</td>` +
-        `<td class="v">${c.torque(specW.T)}</td></tr>`
+        `<td class="v">${c.torque(cap.Tbear)}</td>` +
+        `<td class="v" style="color:${use.governs === "plate" ? AMBER : GREEN}">${c.torque(use.T)}</td>` +
+        `<td class="v">${c.torque(useW.T)}</td></tr>`
       );
     })
     .join("");
@@ -630,8 +638,13 @@ export function preloadHTML(s: BoltState): string {
     ) +
     `<h3>Every clamped material, at your thread and grade</h3>
     <p>Run at <b>${s.threadKey}</b>, <b>${grade(s.classKey)}</b>,
-    <b>${s.fricKey.replace(/\s*\(.*\)/, "")}</b> — change any of those and every torque column moves. Amber means
-    <b>bearing on the plate</b> is what holds you back, not the bolt.</p>
+    <b>${s.fricKey.replace(/\s*\(.*\)/, "")}</b>${
+      CP > 0.5
+        ? ` — and at <b>your</b> joint's load share C·P = ${c.forceu(CP)}, deducted from every <em>use</em> column
+           exactly as in steps 2b–3 above, so the row for your softer plate is the model tab's recommendation`
+        : ""
+    } — change any of those and every torque column moves. Amber means <b>bearing on the plate</b> is what holds you
+    back, not the bolt.</p>
     <table class="rep">
       <tr><th>Clamped material</th><th style="text-align:right">E<br>${U.modulus.label}</th>
       <th style="text-align:right">σ<sub>y</sub><br>${U.stress.label}</th>
@@ -641,9 +654,9 @@ export function preloadHTML(s: BoltState): string {
       <th style="text-align:right">with<br>washer</th></tr>
       ${rows}</table>
     <p><b>Reading it.</b> <em>Bearing cap</em> is line 2 above turned into torque — how hard you could pull this bolt
-    before the head starts sinking into that material. <em>Use</em> is the lesser of that and the bolt's own target,
-    so it flattens at <b>${c.torqueu(T65)}</b> for every material where the bolt governs, and drops several-fold
-    for polymers and laminates. That is not conservatism — it matches the separate torque tables plastics and PCB
+    before the head starts sinking into that material, preload alone. <em>Use</em> is the lesser of the bolt's own
+    target and that cap${CP > 0.5 ? " minus your load's C·P" : ""}, so it flattens at <b>${c.torqueu(T65)}</b> for
+    every material where the bolt governs, and drops several-fold for polymers and laminates. That is not conservatism — it matches the separate torque tables plastics and PCB
     suppliers publish. The last column is the same joint with washers: 3.3× the bearing area, which is the cheapest
     fix there is whenever a plate flags red.</p>
 
@@ -666,7 +679,12 @@ export function tipsHTML(s: BoltState): string {
   const c = conv(U);
   const grip = t1 + t2;
   const soft = m1.pG <= m2.pG ? s.mat1Key : s.mat2Key;
-  const specW = fastenerSpec({ thread, cls, K, pG: Math.min(m1.pG, m2.pG), washer: true });
+  const specW = serviceFastenerSpec({
+    thread, cls, K,
+    pG: Math.min(m1.pG, m2.pG),
+    CP: r.C * Math.max(s.Pext, 0),
+    washer: true,
+  });
   // The joint-aware recommendation (bearing net of C·P), and the preload it
   // installs — derived from the torque so the two numbers cannot disagree.
   const longer = {

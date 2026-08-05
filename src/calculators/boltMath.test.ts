@@ -4,6 +4,7 @@ import {
   memberStiffness,
   jointResults,
   recommendedTorque,
+  serviceFastenerSpec,
   coneRadiusAtDepth,
   conePressureAtDepth,
   flowLineStateAtDepth,
@@ -335,6 +336,27 @@ describe("jointResults (clamped sandwich)", () => {
     // …because the bearing side gave up exactly C·P of preload allowance.
     const noP = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, 0);
     expect(rec).toBeLessThan(noP.TrecJoint);
+  });
+
+  it("shows the same torque on the model tab and in the material table", () => {
+    // The table row for the softer plate must be the recommendation, digit
+    // for digit — both go through serviceFastenerSpec with the joint's C·P.
+    const P = 500;
+    const r = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, P);
+    const row = serviceFastenerSpec({ thread: M6, cls: C88, K: 0.2, pG: PA12.pG, CP: r.C * P });
+    expect(row.T).toBeCloseTo(r.TrecJoint, 12);
+    expect(row.governs).toBe(r.TrecGovernedBy);
+  });
+
+  it("deducts the service share from the washer figure too", () => {
+    const P = 500;
+    const r = jointResults(M6, C88, 0.2, 6, 8, STEEL, 12, PA12, P);
+    const bareW = serviceFastenerSpec({ thread: M6, cls: C88, K: 0.2, pG: PA12.pG, CP: 0, washer: true });
+    const withP = serviceFastenerSpec({ thread: M6, cls: C88, K: 0.2, pG: PA12.pG, CP: r.C * P, washer: true });
+    expect(withP.T).toBeLessThan(bareW.T);
+    // …unless the bolt governs, in which case the washer figure is flat.
+    const steelW = serviceFastenerSpec({ thread: M6, cls: C88, K: 0.2, pG: STEEL.pG, CP: r.C * P, washer: true });
+    expect(steelW.governs).toBe("bolt");
   });
 
   it("reduces to the fastener-side recommendation when P = 0", () => {
