@@ -999,7 +999,7 @@ export default function BoltCalc() {
             marginBottom: 4,
           }}
         >
-          <div>
+          <div className="hdr-main">
             <div
               style={{
                 fontFamily: "var(--mono)",

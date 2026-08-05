@@ -132,25 +132,34 @@ input[type="number"] {
   align-items: flex-end;
   gap: 8px;
 }
+/* On a phone the header keeps everything — toggle, formulas and title — but
+   refuses to wrap, so the aside stays in the top-right corner and the title
+   takes the two lines instead. Wrapping cost a whole row of vertical space
+   and left the row it wrapped from half empty. */
 @media (max-width: 560px) {
   .bolt-header {
-    gap: 6px;
+    flex-wrap: nowrap;
+    gap: 8px;
+    margin-bottom: 2px !important;
+    padding-bottom: 8px !important;
+  }
+  .bolt-header .hdr-main {
+    min-width: 0; /* let the title wrap rather than push the aside down */
   }
   .bolt-header .hdr-aside {
-    order: -1;
-    width: 100%;
-    gap: 0;
+    flex: 0 0 auto;
+    gap: 4px;
   }
-  /* The formula reminder is a nicety, not a control, and the theory tab
-     carries all of them properly typeset. On a phone the vertical space it
-     costs is worth more than the reminder — the toggle stays, alone, on one
-     tight line. */
   .bolt-header .hdr-formulas {
-    display: none;
+    font-size: 9px !important;
+    line-height: 1.5 !important;
   }
   .bolt-header .hdr-units button {
-    padding: 4px 9px !important;
+    padding: 4px 8px !important;
     font-size: 9px !important;
+  }
+  .bolt-header + .tabbar {
+    margin-top: 6px;
   }
 }
 
