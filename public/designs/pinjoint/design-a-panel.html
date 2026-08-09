@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pin Joint — Design A: Control Panel</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:900px;margin:0 auto;padding:24px 16px 48px}
+  a.back{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:14px;margin:10px 0 18px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 0;font-size:22px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:6px;line-height:1.7}
+
+  .cols{display:grid;grid-template-columns:300px 1fr;gap:16px;align-items:start}
+  @media(max-width:760px){.cols{grid-template-columns:1fr}}
+
+  .panel{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:14px}
+  .panel .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mid);margin-bottom:10px}
+  .form{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .form .wide{grid-column:1/-1}
+  .fld label{display:flex;align-items:baseline;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:3px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:5px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 8px;font-family:var(--mono);font-size:12.5px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .seg{display:flex;gap:0;border:1px solid var(--line);border-radius:2px;overflow:hidden}
+  .seg button{flex:1;background:#0e1419;border:none;color:var(--mid);font-family:var(--mono);font-size:10px;
+    letter-spacing:.08em;padding:8px 4px;cursor:pointer}
+  .seg button.on{background:#12253c;color:var(--blue)}
+  .sep{grid-column:1/-1;border-top:1px solid var(--line2);margin:4px 0 0;padding-top:8px;font-family:var(--mono);
+    font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+
+  .verdict{border-radius:3px;padding:12px 14px;margin-bottom:12px;border:1px solid}
+  .verdict .v1{font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:.06em}
+  .verdict .v2{font-family:var(--mono);font-size:10px;color:var(--dim);margin-top:4px;line-height:1.7}
+
+  .views{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  @media(max-width:560px){.views{grid-template-columns:1fr}}
+  .view{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:10px}
+  .view .k{font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);margin-bottom:6px;
+    display:flex;align-items:center;gap:8px}
+  .view .k select{margin-left:auto;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--dim);
+    font-family:var(--mono);font-size:9.5px;padding:2px 4px}
+  .view svg{width:100%;height:190px;display:block}
+
+  .modes{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:12px 14px;margin-bottom:12px}
+  .mrow{display:grid;grid-template-columns:1fr 92px 92px 70px;gap:8px;align-items:baseline;padding:5px 0;
+    border-bottom:1px solid #10161c;font-family:var(--mono)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .l{font-size:11px;color:var(--dim)}
+  .mrow .s,.mrow .al{font-size:10.5px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+  .mrow .sf{font-size:12px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+  .mrow.gov .l{color:var(--ink)} .mrow.gov{background:#0d1521;outline:1px solid #17324e;border-radius:2px}
+  .mhead{display:grid;grid-template-columns:1fr 92px 92px 70px;gap:8px;font-family:var(--mono);font-size:8px;
+    letter-spacing:.12em;text-transform:uppercase;color:var(--faint);padding-bottom:6px}
+  .mhead span:not(:first-child){text-align:right}
+
+  .warns{display:flex;flex-direction:column;gap:6px}
+  .warn{font-family:var(--mono);font-size:10px;line-height:1.7;border:1px solid;border-radius:3px;padding:8px 11px}
+  .warn.bad{color:#e0a3a3;border-color:#5a2a2a;background:#160d0f}
+  .warn.warn{color:#d9c391;border-color:#5a4a2a;background:#141008}
+  .warn.info{color:var(--dim);border-color:var(--line2);background:var(--panel)}
+  .note{font-family:var(--sans);font-size:12px;color:var(--dim);line-height:1.7;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .note strong{color:#c2ccd4}
+  @media(max-width:520px){
+    .shell{padding:12px 9px 40px} h1{font-size:16px} .sub{font-size:8.5px}
+    .mrow{grid-template-columns:1fr 64px 50px} .mrow .al{display:none}
+    .mhead{grid-template-columns:1fr 64px 50px} .mhead span:nth-child(3){display:none}
+    .fld input,.fld select{padding:6px 7px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+<div style="background:#1a0e10;border:1px solid #d65c5c;border-radius:3px;color:#e0a3a3;font:12px/1.6 ui-monospace,Menlo,monospace;padding:10px 12px;margin-bottom:12px">This calculator needs JavaScript. If you can read this, your viewer blocked it — file previews in chat apps do. Save the file, then open it with Safari or Chrome (on iPhone: save to Files, long-press the file → Share → Safari).</div><script>document.currentScript.previousElementSibling.remove()</script>
+  <a class="back" href="index.html">← PIN JOINT DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN A · CONTROL PANEL</div>
+    <h1>Every input, every failure mode, nothing hidden</h1>
+    <div class="sub">The toolkit's classic form: geometry and materials on the left, all failure-mode checks
+    stacked on the right — pin shear &amp; bending, bearing both ways, net section, edge tear-out — with two live
+    section views. Change anything; everything updates.</div>
+  </div>
+
+  <div class="cols">
+    <!-- ── inputs ── -->
+    <div class="panel">
+      <div class="k">Joint definition</div>
+      <div class="form">
+        <div class="fld wide">
+          <label>Configuration</label>
+          <div class="seg" id="cfgseg">
+            <button data-v="3" class="on">3 FLANGES · DOUBLE SHEAR</button>
+            <button data-v="2">2 FLANGES · SINGLE SHEAR</button>
+          </div>
+        </div>
+        <div class="fld"><label>Load F<span>N</span></label><input id="F" type="number" step="100" value="6000"></div>
+        <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+
+        <div class="sep">Pin / bolt</div>
+        <div class="fld"><label>Diameter d<span>mm</span></label><input id="d" type="number" step="0.5" value="8"></div>
+        <div class="fld"><label>Clevis gap<span>mm/side</span></label><input id="clr" type="number" step="0.1" value="0.2"></div>
+        <div class="fld wide"><label>What's in the shear plane</label><select id="shank"></select></div>
+        <div class="fld wide"><label>Pin material</label><select id="pinMat"></select></div>
+
+        <div class="sep" id="lab1">Outer plates (each)</div>
+        <div class="fld"><label>Thickness t₁<span>mm</span></label><input id="t1" type="number" step="0.5" value="6"></div>
+        <div class="fld wide" style="grid-row:span 1"><label>Material</label><select id="mat1"></select></div>
+
+        <div class="sep" id="lab2">Middle plate</div>
+        <div class="fld"><label>Thickness t₂<span>mm</span></label><input id="t2" type="number" step="0.5" value="8"></div>
+        <div class="fld wide"><label>Material</label><select id="mat2"></select></div>
+
+        <div class="sep">Plate geometry (both)</div>
+        <div class="fld"><label>Width w<span>mm</span></label><input id="w" type="number" step="1" value="32"></div>
+        <div class="fld"><label>Edge dist. a<span>mm, ctr→edge</span></label><input id="a" type="number" step="0.5" value="12"></div>
+      </div>
+    </div>
+
+    <!-- ── results ── -->
+    <div>
+      <div class="verdict" id="verdict"><div class="v1">—</div><div class="v2">—</div></div>
+
+      <div class="views">
+        <div class="view">
+          <div class="k">SECTION THROUGH PIN AXIS</div>
+          <svg id="secv" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+        <div class="view">
+          <div class="k">MEMBER FACE · FIG 8-25 <select id="face"></select></div>
+          <svg id="facev" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+
+      <div class="modes">
+        <div class="k" style="font-family:var(--mono);font-size:9.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--mid);margin-bottom:8px">
+          FAILURE MODES — ALL CHECKED, WORST GOVERNS</div>
+        <div class="mhead"><span>mode</span><span>stress</span><span>allowable</span><span>SF</span></div>
+        <div id="mrows"></div>
+      </div>
+
+      <div class="warns" id="warns"></div>
+    </div>
+  </div>
+
+  <div class="note"><strong>Model notes:</strong> static checks at yield onset, straight from Shigley Fig 8-23 —
+  pin shear on 1 or 2 planes vs 0.577·Sy, clevis pin bending M = F/2·(t₂/4 + gap + t₁/2), bearing over the projected
+  area t·d both on the plate hole and on the pin, net-section tension across (w−d)·t, and edge tear-out on the two
+  ligaments 2·t·(a−d/2). No stress concentration (Kt≈2–3 at the hole — add it for fatigue or brittle plates), no
+  preload friction. Typical reference values — verify before production use.</div>
+</div>
+
+<script src="pin-engine.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=PIN.defaults();
+fill("pinMat",PIN.PIN_MATS,DEF.pinMat); fill("mat1",PIN.PLATE_MATS,DEF.mat1);
+fill("mat2",PIN.PLATE_MATS,DEF.mat2); fill("shank",PIN.SHANKS,DEF.shank);
+const f=PIN.fmt, col=PIN.sfColor;
+let config=3;
+
+$("cfgseg").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  config=+b.dataset.v;
+  $("cfgseg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  $("lab1").textContent = config===3?"Outer plates (each)":"Plate A";
+  $("lab2").textContent = config===3?"Middle plate":"Plate B";
+  update();
+}));
+
+function read(){return{
+  config, d:+$("d").value||1, shank:$("shank").value, pinMat:$("pinMat").value,
+  t1:+$("t1").value||0.5, mat1:$("mat1").value, t2:+$("t2").value||0.5, mat2:$("mat2").value,
+  w:+$("w").value||2, a:+$("a").value||1, clr:+$("clr").value||0,
+  F:+$("F").value||0, SFt:+$("SFt").value||1,
+}}
+
+// ── section view: pin axis horizontal, load vertical ──────────────────────────
+function drawSection(inp,r){
+  const svg=$("secv");
+  const {d,clr}=inp, t1=Math.max(inp.t1,.1), t2=Math.max(inp.t2,.1);
+  const g=Math.max(clr,0);
+  const double=r.double;
+  // plate x-extents along the pin
+  const plates = double
+    ? [{x0:-t2/2-g-t1, x1:-t2/2-g, m:r.members[0], dir:-1},
+       {x0:-t2/2,      x1: t2/2,   m:r.members[1], dir: 1},
+       {x0: t2/2+g,    x1: t2/2+g+t1, m:r.members[0], dir:-1}]
+    : [{x0:-g/2-t1, x1:-g/2, m:r.members[0], dir:-1},
+       {x0: g/2,    x1: g/2+t2, m:r.members[1], dir: 1}];
+  const stick=1.2*d;                       // pin overhang past the stack
+  const X0=plates[0].x0-stick, X1=plates[plates.length-1].x1+stick;
+  const H=Math.max(2.6*d, 2*inp.a);        // plate height shown
+  const u=Math.min(1/r.SFjoint,1.35);      // joint utilization for deformation exaggeration
+  const dy=0.16*d*Math.min(u,1.2);         // exaggerated relative slip
+
+  const parts=[];
+  // plates
+  for(const p of plates){
+    const c=col(p.m.worst);
+    const yOff=p.dir*-dy;                  // loaded member moves with its force arrow
+    parts.push(`<rect x="${p.x0}" y="${-H/2+yOff}" width="${p.x1-p.x0}" height="${H}" rx="0.6"
+      fill="${p.m.mat.tone}" stroke="${c}" stroke-width="0.5"/>`);
+    // bearing crescent: the loaded half of the hole
+    const cy=yOff, half=p.dir>0?1:-1;
+    parts.push(`<path d="M ${p.x0} ${cy-half*d/2} L ${p.x1} ${cy-half*d/2} L ${p.x1} ${cy} L ${p.x0} ${cy} Z"
+      fill="${col(p.m.SFbearPlate)}" opacity="0.55"/>`);
+    // hole outline
+    parts.push(`<rect x="${p.x0}" y="${cy-d/2}" width="${p.x1-p.x0}" height="${d}" fill="none"
+      stroke="#0e1419" stroke-width="0.35"/>`);
+    // force arrow
+    const ax=(p.x0+p.x1)/2, aL=0.9*d, ay=p.dir>0?H/2+2:-H/2-2;
+    parts.push(`<g stroke="${c}" stroke-width="0.9" fill="${c}">
+      <line x1="${ax}" y1="${ay+p.dir*2}" x2="${ax}" y2="${ay+p.dir*(aL+2)}"/>
+      <path d="M ${ax} ${ay} l ${1.4} ${p.dir*3} h ${-2.8} Z"/></g>`);
+  }
+  // pin: bends (clevis) and shear-steps at the planes — piecewise offsets
+  const pc=col(r.partSF.pin);
+  const NP=48; let path="";
+  const yPin=(x)=>{
+    // which plate is x inside? offset follows it; smooth ramp across gaps
+    for(const p of plates){ if(x>=p.x0&&x<=p.x1) return p.dir*-dy; }
+    // between/outside: interpolate between neighbours
+    let prev=null,next=null;
+    for(const p of plates){ if(x>p.x1&&(!prev||p.x1>prev.x1))prev=p; if(x<p.x0&&(!next||p.x0<next.x0))next=p; }
+    if(prev&&next){const t=(x-prev.x1)/(next.x0-prev.x1);return (1-t)*prev.dir*-dy+t*next.dir*-dy;}
+    return (prev||next)?(prev||next).dir*-dy:0;
+  };
+  for(let i=0;i<=NP;i++){const x=X0+(X1-X0)*i/NP; path+=(i?"L":"M")+` ${x} ${yPin(x)} `;}
+  parts.push(`<path d="${path}" stroke="${pc}" stroke-width="${d}" stroke-linecap="round" fill="none" opacity="0.92"/>`);
+  // shear planes
+  for(const p of plates.slice(0,-1)){
+    const i=plates.indexOf(p), xs=(p.x1+plates[i+1].x0)/2;
+    parts.push(`<line x1="${xs}" y1="${-H/2-3}" x2="${xs}" y2="${H/2+3}" stroke="${col(r.SFshear)}"
+      stroke-width="0.4" stroke-dasharray="1.4 1.4" opacity="0.9"/>`);
+  }
+  const pad=d*1.6+4;
+  svg.setAttribute("viewBox",`${X0-3} ${-H/2-pad} ${X1-X0+6} ${H+2*pad}`);
+  svg.innerHTML=parts.join("");
+}
+
+// ── face view: the Fig 8-25 drawing, per member ──────────────────────────────
+function drawFace(inp,r){
+  const svg=$("facev");
+  const mb=r.members[Math.min(+$("face").value||0,r.members.length-1)];
+  const {w,a,d}=inp;
+  const L=Math.max(1.6*a+d,2.2*d)+w*0.35;  // plate length below the hole
+  const cN=col(mb.SFnet), cT=col(mb.SFtear), cB=col(mb.SFbearPlate);
+  const hx=0, hy=0;                        // hole centre; loaded edge at y=-a
+  const yEdge=-a, yBot=L-a;
+  const parts=[];
+  parts.push(`<rect x="${-w/2}" y="${yEdge}" width="${w}" height="${L}" rx="1"
+    fill="${mb.mat.tone}" stroke="#5a6672" stroke-width="0.5"/>`);
+  // hole
+  parts.push(`<circle cx="${hx}" cy="${hy}" r="${d/2}" fill="#080c10" stroke="#0e1419" stroke-width="0.5"/>`);
+  // bearing crescent (load pulls plate down relative to pin ⇒ pin presses the top of the hole... draw on loaded side)
+  parts.push(`<path d="M ${-d/2} ${hy} A ${d/2} ${d/2} 0 0 1 ${d/2} ${hy} Z" fill="${cB}" opacity="0.6"/>`);
+  // tear-out ligaments: hole flanks → loaded edge
+  for(const s of [-1,1])
+    parts.push(`<line x1="${s*d/2}" y1="${hy}" x2="${s*d/2}" y2="${yEdge}" stroke="${cT}"
+      stroke-width="0.7" stroke-dasharray="1.6 1.2"/>`);
+  // net section line
+  parts.push(`<line x1="${-w/2}" y1="${hy}" x2="${-d/2}" y2="${hy}" stroke="${cN}" stroke-width="0.7" stroke-dasharray="1.6 1.2"/>
+    <line x1="${d/2}" y1="${hy}" x2="${w/2}" y2="${hy}" stroke="${cN}" stroke-width="0.7" stroke-dasharray="1.6 1.2"/>`);
+  // force arrow out the loaded edge
+  parts.push(`<g stroke="var(--ink)" stroke-width="0.8" fill="var(--ink)" opacity="0.85">
+    <line x1="0" y1="${yEdge-2}" x2="0" y2="${yEdge-0.9*d-2}"/>
+    <path d="M 0 ${yEdge-1} l 1.5 -3 h -3 Z"/></g>`);
+  // dims
+  const dimC="#6b7884";
+  parts.push(`<g font-family="var(--mono)" font-size="3.4" fill="${dimC}" stroke="none">
+    <line x1="${-w/2}" y1="${yBot+3}" x2="${w/2}" y2="${yBot+3}" stroke="${dimC}" stroke-width="0.3"/>
+    <text x="0" y="${yBot+7}" text-anchor="middle">w = ${f(w,1)}</text>
+    <line x1="${w/2+3}" y1="${yEdge}" x2="${w/2+3}" y2="${hy}" stroke="${dimC}" stroke-width="0.3"/>
+    <text x="${w/2+5}" y="${(yEdge+hy)/2+1}" text-anchor="start">a = ${f(a,1)}</text>
+    <text x="${-d/2-2}" y="${hy+d/2+5}" text-anchor="end">d = ${f(d,1)}</text></g>`);
+  // annotations
+  parts.push(`<g font-family="var(--mono)" font-size="3.2">
+    <text x="${-w/2-2}" y="${hy+1}" text-anchor="end" fill="${cN}">net ${f(mb.sigmaNet,1)} MPa</text>
+    <text x="${-d/2-2}" y="${(yEdge+hy)/2}" text-anchor="end" fill="${cT}">tear ${f(mb.tauTear,1)} MPa</text>
+    <text x="${d/2+2}" y="${hy+d/2+5}" text-anchor="start" fill="${cB}">bear ${f(mb.pBear,1)} MPa</text></g>`);
+  svg.setAttribute("viewBox",`${-w/2-26} ${yEdge-0.9*d-6} ${w+52} ${L+0.9*d+16}`);
+  svg.innerHTML=parts.join("");
+}
+
+function update(){
+  const inp=read();
+  const r=PIN.solve(inp);
+
+  // verdict
+  const v=$("verdict");
+  const vc = r.holds ? (r.meetsTarget?"var(--green)":"var(--amber)") : "var(--red)";
+  v.style.borderColor=vc; v.style.background=r.holds?(r.meetsTarget?"#0d1710":"#151107"):"#170d0e";
+  v.querySelector(".v1").style.color=vc;
+  v.querySelector(".v1").textContent = r.holds ? (r.meetsTarget?"JOINT HOLDS":"HOLDS — UNDER TARGET SF") : "JOINT FAILS";
+  v.querySelector(".v2").innerHTML =
+    `governing: <b style="color:var(--ink)">${r.governing.label}</b> · joint SF <b style="color:${vc}">${f(r.SFjoint,2)}</b>
+     · capacity ≈ <b style="color:var(--ink)">${f(r.Fcap/1000,2)} kN</b> at ${r.nPlanes} shear plane${r.nPlanes>1?"s":""}`;
+
+  // member selector for the face view
+  const sel=$("face"), keep=sel.value;
+  sel.innerHTML=r.members.map((m,i)=>`<option value="${i}">${m.label}</option>`).join("");
+  if(keep&&+keep<r.members.length)sel.value=keep;
+
+  drawSection(inp,r);
+  drawFace(inp,r);
+
+  // mode table
+  $("mrows").innerHTML=r.modes.map(m=>`
+    <div class="mrow${m===r.governing?" gov":""}">
+      <span class="l">${m.label}</span>
+      <span class="s">${m.kind} ${f(m.stress,1)} MPa</span>
+      <span class="al">/ ${f(m.allow,0)} MPa</span>
+      <span class="sf" style="color:${col(m.SF)}">${f(m.SF,2)}</span>
+    </div>`).join("");
+
+  // warnings
+  $("warns").innerHTML=r.warns.map(wn=>`<div class="warn ${wn.level}">${wn.text}</div>`).join("");
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",update));
+update();
+</script>
+</body>
+</html>
