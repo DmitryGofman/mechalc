@@ -14,13 +14,16 @@
 // good enough to size a shaft, not a substitute for Peterson's charts once the
 // fillet radius is on the drawing.
 export type StressRaiser = {
+  /** Handbook Kts, quoted at the radius ratio rdRef. */
   Kts: number;
+  /** r/d the handbook figure belongs to. Absent on a plain shaft. */
+  rdRef?: number;
   /** Where the peak sits along the modelled feature, and what it looks like. */
   kind: "none" | "keyseat" | "step" | "groove";
   /** Keyseats only: the cutter walks in and out instead of ending square. */
   runout?: boolean;
-  /** Shoulder fillets only: r/d, the ratio the Kts estimate is quoted at. */
-  rd?: number;
+  /** What the adjustable radius physically is, for the input's label. */
+  rLabel?: string;
   note: string;
 };
 
@@ -32,35 +35,76 @@ export const STRESS_RAISERS: Record<string, StressRaiser> = {
   },
   "Sled-runner keyseat": {
     Kts: 1.6,
+    rdRef: 0.02,
     kind: "keyseat",
     runout: true,
+    rLabel: "keyseat corner radius",
     note: "Cut by a side mill — runs out gently",
   },
   "End-milled keyseat (profiled)": {
     Kts: 3.0,
+    rdRef: 0.02,
     kind: "keyseat",
+    rLabel: "keyseat corner radius",
     note: "Square-ended pocket — the classic shaft killer",
   },
-  "Shoulder fillet — sharp (r/d 0.02)": {
+  "Shoulder fillet": {
     Kts: 2.2,
+    rdRef: 0.02,
     kind: "step",
-    rd: 0.02,
-    note: "Step down to the bearing seat, tight radius",
-  },
-  "Shoulder fillet — well rounded (r/d 0.1)": {
-    Kts: 1.5,
-    kind: "step",
-    rd: 0.1,
-    note: "Same step, generous radius",
+    rLabel: "fillet radius",
+    note: "Step down to a bearing seat — the radius is the design",
   },
   "Retaining-ring groove": {
     Kts: 3.0,
+    rdRef: 0.01,
     kind: "groove",
-    note: "Sharp-cornered circlip groove",
+    rLabel: "groove corner radius",
+    note: "Circlip groove — sharp corners by nature",
   },
 };
 
 export const DEFAULT_RAISER = "End-milled keyseat (profiled)";
+
+// ── Kts as a function of the radius you actually specify ────────────
+//
+// A concentration factor is not a property of the feature, it's a property of
+// how sharp the feature is — which is why a table entry has to name an r/d to
+// mean anything. Shigley Table 7-1 gives a shoulder fillet in torsion at two
+// radii: Kts 2.2 at r/d = 0.02 and 1.5 at r/d = 0.1. Two points on a notch
+// curve fix a power law, and this is the one they fix:
+//
+//     Kts(r/d) = Kts_ref · (r/d ÷ (r/d)_ref)^(−0.238)
+//
+// It reproduces both handbook anchors exactly and decays toward 1 as the
+// radius opens up. Applied to the keyseat and groove entries it is an
+// interpolation anchored on their handbook value at the standard radius, not
+// a chart lookup — the shape of the curve is borrowed from the fillet, on the
+// grounds that every one of these is the same physics (a notch in torsion).
+// Outside RD_VALID it is extrapolation; the page says so.
+export const FILLET_ANCHORS = {
+  sharp: { rd: 0.02, Kts: 2.2 },
+  rounded: { rd: 0.1, Kts: 1.5 },
+};
+export const KTS_EXPONENT =
+  Math.log(FILLET_ANCHORS.sharp.Kts / FILLET_ANCHORS.rounded.Kts) /
+  Math.log(FILLET_ANCHORS.rounded.rd / FILLET_ANCHORS.sharp.rd);
+
+/** Where the interpolation is worth trusting. */
+export const RD_VALID: [number, number] = [0.01, 0.3];
+
+/** Kts for a feature cut with radius r into a shaft of diameter d. */
+export function ktsFor(sr: StressRaiser | undefined, rOverD: number): number {
+  if (!sr || !sr.rdRef) return 1;
+  const rd = Math.max(rOverD, 1e-4);
+  return Math.min(6, Math.max(1, sr.Kts * Math.pow(rd / sr.rdRef, -KTS_EXPONENT)));
+}
+
+/** The radius that reproduces the handbook figure — the sensible default. */
+export const defaultRadius = (sr: StressRaiser | undefined, dM: number) =>
+  sr?.rdRef ? sr.rdRef * dM : 0;
+
+export const rdInRange = (rOverD: number) => rOverD >= RD_VALID[0] && rOverD <= RD_VALID[1];
 
 // ── Power ⇄ torque ──────────────────────────────────────────────────
 // P = T·ω with ω = 2πn/60. In the shop units that becomes the familiar
