@@ -34,6 +34,13 @@ npm run build      # type-check + production build
 npm run preview    # preview the production build
 ```
 
+## Adding a calculator
+New calculators follow a two-phase workflow — standalone HTML design
+prototypes under `public/designs/<slug>/`, then promotion of the chosen
+design into the React app with a tested math module, theory tabs and report
+export. The full playbook lives in `.claude/skills/new-calculator/`
+(Claude Code picks it up automatically when asked to add a calculator).
+
 ## Project layout
 ```
 src/
