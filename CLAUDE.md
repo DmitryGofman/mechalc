@@ -24,8 +24,9 @@ Three files, every time:
   viewer, and a theory section that ends with a plain-language "In short".
 
 Then wire it into `ROUTES` in `src/App.tsx`, add a card in `src/pages/Home.tsx`
-(Refined / In progress / Planned), and add a row plus a model note to the
-README. Shared pieces: `ui.tsx` (Field/Select/Readout), `materials.ts`,
+(Refined / In progress / Planned — plus Exploration maps at the bottom, for
+things you wander rather than run, like the Materials Map), and add a row plus
+a model note to the README. Shared pieces: `ui.tsx` (Field/Select/Readout), `materials.ts`,
 `stressColor.ts`, and the `flexure-*` CSS classes, which carry the responsive
 layout for free.
 
