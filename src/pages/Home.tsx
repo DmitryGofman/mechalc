@@ -57,11 +57,20 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
-    href: `${import.meta.env.BASE_URL}designs/pinjoint/design-c-3d.html`,
+    route: "/pin-calculator",
     tag: "Fasteners",
     title: "Pin & Bolt Shear Joint",
-    desc: "A pin or bolt loaded in shear through two or three flanges, each its own material — every Shigley 8-23 failure mode checked: pin shear & bending, bearing both ways, net section, edge tear-out. Grab the 3D clevis and pull until something gives; every zone painted by its own failure mode. Alternate prototypes (control panel, pull-to-failure ladder) on the design-study hub.",
+    desc: "A pin or bolt loaded in shear through two or three flanges, each its own material — every Shigley 8-23 failure mode checked: pin shear & bending, bearing both ways, net section, edge tear-out. Grab the 3D clevis and pull until something gives; every zone painted by its own failure mode, with a capacity ladder for what lets go first.",
     eq: "τ = F / n·(πd²/4)",
+    ready: true,
+    wip: true,
+  },
+  {
+    route: "/shaft-calculator",
+    tag: "Drivetrain",
+    title: "Shaft in Torsion",
+    desc: "Shear stress, wind-up and power rating for solid & hollow circular shafts, with the keyseat, fillet and groove concentrations that decide where a shaft really breaks — push the 3D lever and watch the scribe line shear into a helix.",
+    eq: "τ = 16T / πd³",
     ready: true,
     wip: true,
   },
@@ -86,13 +95,6 @@ const IN_PROGRESS: CalcCard[] = [
 ];
 
 const PLANNED: CalcCard[] = [
-  {
-    tag: "Drivetrain",
-    title: "Shaft in Torsion",
-    desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",
-    eq: "τ = 16T / πd³",
-    ready: false,
-  },
   {
     tag: "Springs",
     title: "Helical Coil Spring",

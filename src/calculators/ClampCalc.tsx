@@ -869,7 +869,7 @@ export default function ClampCalc() {
           inherited panel colours — so there is nothing left to re-skin and
           nothing that can survive as a black slab. */}
       {printDoc && (
-        <div id="clampPrint" className={printDoc.brief ? "brief" : "full"}>
+        <div id="clampPrint" className={`calc-print ${printDoc.brief ? "brief" : "full"}`}>
           <div className="ph">
             <h1>Cylinder Clamp — {printDoc.brief ? "bench sheet" : "design calculation"}</h1>
             <div className="meta">
