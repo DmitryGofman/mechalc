@@ -13,8 +13,9 @@ yielding.
 | `/bolt-calculator` | **Bolted Joint — Screw Strength** — torque → preload, VDI 2230-style reduced (von Mises) stress, plus the full clamped-sandwich model: per-plate materials, Shigley pressure-cone member stiffness, load sharing, separation and bearing-crush checks; tighten the 3D nut and watch the pressure cone shade with the load it carries | ready |
 | `/beam-calculator` | **Beam on Two Supports** — center-load stiffness, force and peak stress for a span held at both ends, pinned (48EI/L³) or built-in (192EI/L³); press the middle of the 3D beam and the stress colors trace the bending-moment diagram | ready |
 | `/buckling-calculator` | **Column Buckling** — Euler critical load for all four classical end conditions (K = 0.5 / 0.7 / 1.0 / 2.0) with the Johnson parabola for short columns; push the 3D column's load platen and watch the initial imperfection amplify by 1/(1−P/Pcr) into the mode shape | ready |
+| `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts, with the keyseat / shoulder-fillet / groove concentrations that decide where a shaft really breaks; push the 3D lever and watch the scribe line shear into a helix | ready |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
-| — | Shaft in Torsion · Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
+| — | Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
 On GitHub Pages the app is served under `/mechalc/`, so calculator URLs look like
 `https://<user>.github.io/mechalc/bolt-calculator`. Deep links work via a
@@ -52,6 +53,8 @@ src/
     simpleBeamMath.ts       pure two-support beam math (tested)
     ColumnCalc.tsx          column-buckling calculator + 3D column
     columnMath.ts           pure buckling math: Euler/Johnson, modes (tested)
+    ShaftCalc.tsx           shaft-torsion calculator + 3D shaft, lever and scribe line
+    shaftMath.ts            pure torsion math: J, τ, twist, Kts, power (tested)
     materials.ts            shared beam/flexure material library
     stressColor.ts          shared stress → color ramps for the 3D viewers
 ```
@@ -85,6 +88,23 @@ is diluted at mid-grip. Hue is that pressure against the pG of whichever
 plate the depth falls in (a mixed stack shows one half hot, the other cool under
 the same force); brightness tracks pressure relative to its peak, so the
 concentration at the bearing faces stays legible far from the limit.
+
+**Shaft in torsion** — classical circular-shaft theory: `τ = Tc/J`, `θ = TL/GJ`
+with `G = E/2(1+ν)`, checked against the distortion-energy shear yield
+`τallow = 0.577·σy`. The number that actually governs is the local one: the
+machined feature multiplies the surface stress by Kts (Shigley Table 7-1
+first-iteration estimates — 3.0 for an end-milled keyseat, 2.2 / 1.5 for a sharp
+/ well-rounded shoulder fillet), and the 3D view cuts that feature into the
+surface and pins the hot band to it. Wind-up is checked against the workshop
+rule of thumb of 1° per 20 diameters, which long slender shafts fail long before
+they approach shear yield. Static torque only — no bending, no combined stress,
+no fatigue; a rotating shaft carrying a steady bending load needs the fatigue
+notch factor Kf instead.
+
+The shaft's twist is real but invisible — a steel shaft turns through a couple
+of degrees at yield — so the 3D view magnifies it by a factor chosen to put
+first yield at a 60° turn, and prints that factor beside the geometry. Materials
+that already twist that far, like the elastomers, are shown honestly at ×1.
 
 Material and fastener values are typical reference figures — verify before
 production use.
