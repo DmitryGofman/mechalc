@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as PM from "./pinMath";
 import { buildScene, drawScene } from "./pinScene";
 import type { View } from "./scene3d";
+import { reportHTML, summaryHTML } from "./pinReport";
 import { Field, Select } from "../ui";
 
 // Pin & Bolt Shear Joint — a pin or bolt carrying a transverse load through
@@ -13,7 +14,7 @@ const f = PM.fmt;
 const n2 = (v: number) => (isFinite(v) ? v.toFixed(2) : "∞");
 const kN = (v: number) => (isFinite(v) ? `${f(v / 1000, 2)} kN` : "∞");
 
-type Tab = "model" | "modes" | "theory";
+type Tab = "model" | "modes" | "report" | "theory";
 
 export default function PinCalc() {
   const [inp, setInp] = useState<PM.PinInput>(PM.defaults);
@@ -23,16 +24,38 @@ export default function PinCalc() {
   const [stressMode, setStressMode] = useState(true);
   const [forces, setForces] = useState(true);
   const [spin, setSpin] = useState(false);
+  // Non-null only while an export is in flight: it carries which document to
+  // build and the 3D snapshot to embed in it.
+  const [printDoc, setPrintDoc] = useState<{ brief: boolean; img: string } | null>(null);
 
   const set = <K extends keyof PM.PinInput>(k: K, v: PM.PinInput[K]) => setInp((s) => ({ ...s, [k]: v }));
 
   const res = useMemo(() => PM.solve(inp), [inp]);
-  // The ladder's top rung sets the slider range, so the whole failure sequence
-  // is always reachable without the range jumping around as you drag.
+
+  // Slider range, in N. Scaled to the load that matters — the load the JOINT
+  // fails at — not to the strongest mode in the table. Those differ wildly:
+  // a PLA pin in steel flanges fails around 0.8 kN while the net section is
+  // still good for 80, so ranging on the biggest rung squeezed everything
+  // interesting into the first 1% of the slider and made a weak pin impossible
+  // to dial in. At 2.2× capacity, failure always sits just under halfway and a
+  // steel joint and a printed one get the same feel.
   const fmax = useMemo(() => {
-    const caps = res.ladder.map((m) => m.Fcap).filter((c) => isFinite(c));
-    return Math.max(2, Math.ceil(Math.min(1.35 * Math.max(...caps, 1), 400_000) / 1000));
-  }, [res.ladder]);
+    const cap = isFinite(res.Fcap) && res.Fcap > 0 ? res.Fcap : 1000;
+    // Never below the load actually applied: switching to a weaker material
+    // shrinks capacity but does not change what you asked the joint to carry,
+    // and a thumb pinned at max while the readout says something else is a lie.
+    const raw = Math.max(2.2 * cap, inp.F * 1.05);
+    // Round up to a human number, on a fine enough ladder that the round-up
+    // never pushes failure far off the middle of the travel.
+    const mag = 10 ** Math.floor(Math.log10(raw));
+    const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((s) => s * mag >= raw) ?? 10;
+    return Math.max(100, step * mag);
+  }, [res.Fcap, inp.F]);
+  const fstep = useMemo(() => Math.max(1, Math.round(fmax / 500)), [fmax]);
+
+  // The load that lands exactly on the design safety factor — what "how hard
+  // may I actually work this joint" means.
+  const Ftarget = res.Fcap / Math.max(inp.SFt, 1e-9);
 
   const cvRef = useRef<HTMLCanvasElement>(null);
   const viewRef = useRef<View>({ yaw: -0.55, pitch: -0.38, dist: 5.2 });
@@ -95,7 +118,7 @@ export default function PinCalc() {
       const rect = cvRef.current!.getBoundingClientRect();
       // Drag up = pull harder; the whole range spans about 260 px of travel.
       const dy = d.y - (ev.clientY - rect.top);
-      set("F", Math.max(0, Math.min(fmax * 1000, d.f0 + (dy / 260) * fmax * 1000)));
+      set("F", Math.max(0, Math.min(fmax, d.f0 + (dy / 260) * fmax)));
     } else {
       viewRef.current.yaw += (ev.clientX - d.x) * 0.008;
       viewRef.current.pitch = Math.max(-1.25, Math.min(1.0, viewRef.current.pitch + (ev.clientY - d.ly) * 0.006));
@@ -104,6 +127,40 @@ export default function PinCalc() {
     }
   };
   const onUp = () => { dragRef.current.mode = null; };
+
+  // ── Report snapshot ──────────────────────────────────────────────────────
+  // The viewer's canvas is sized to its layout box and the screen's pixel
+  // ratio, so lifting it straight into a document gives a picture that is soft
+  // the moment it is printed. Render the same scene again offscreen, at print
+  // density, on paper white.
+  const snapshot = (brief: boolean): string => {
+    const cv = document.createElement("canvas");
+    const scene = buildScene(inp, res, { ex, explode, stressMode, forces });
+    drawScene(cv, scene, { ...viewRef.current }, 1, {
+      width: 1100, height: brief ? 460 : 700, scale: 2, background: "#ffffff", settle: true,
+    });
+    return cv.toDataURL("image/png");
+  };
+
+  // Printing renders a document of its own rather than re-skinning the live UI:
+  // an inline dark background beats any @media print rule without !important,
+  // which is what turns exported PDFs into black slabs.
+  const exportPDF = (brief: boolean) => setPrintDoc({ brief, img: snapshot(brief) });
+
+  useEffect(() => {
+    if (!printDoc) return;
+    let done = false;
+    const finish = () => { if (!done) { done = true; setPrintDoc(null); } };
+    // Chrome blocks inside print(); Safari returns immediately, so afterprint
+    // is the signal the document may be torn down. The timeout is a backstop
+    // for browsers that never fire it.
+    window.addEventListener("afterprint", finish);
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => {
+      window.print();
+      setTimeout(finish, 1500);
+    }));
+    return () => { window.removeEventListener("afterprint", finish); cancelAnimationFrame(raf); };
+  }, [printDoc]);
 
   const vc = res.holds ? (res.meetsTarget ? "#4fb477" : "#cf9f52") : "#d65c5c";
   const verdict = res.holds ? (res.meetsTarget ? "JOINT HOLDS" : "HOLDS — UNDER TARGET SF") : "JOINT FAILS";
@@ -137,7 +194,7 @@ export default function PinCalc() {
       </div>
 
       <div className="tabbar" role="tablist">
-        {([["model", "Model"], ["modes", "Failure modes"], ["theory", "Theory & scope"]] as [Tab, string][]).map(([k, t]) => (
+        {([["model", "Model"], ["modes", "Failure modes"], ["report", "Report"], ["theory", "Theory & scope"]] as [Tab, string][]).map(([k, t]) => (
           <button key={k} role="tab" aria-selected={tab === k} className={`tabbtn${tab === k ? " on" : ""}`} onClick={() => setTab(k)}>
             {t}
           </button>
@@ -165,11 +222,26 @@ export default function PinCalc() {
 
         <div style={{ ...panel, display: "flex", alignItems: "center", gap: 9 }}>
           <span style={{ ...lab, whiteSpace: "nowrap" }}>Load</span>
-          <input type="range" min={0} max={fmax * 1000} step={fmax} value={Math.min(inp.F, fmax * 1000)}
+          <input type="range" min={0} max={fmax} step={fstep} value={Math.min(inp.F, fmax)}
             aria-label="Applied load"
             onChange={(e) => set("F", +e.target.value)} style={{ flex: 1, accentColor: "#3a78c2", minWidth: 0 }} />
           <span style={{ fontFamily: M, fontSize: 13, fontWeight: 600, minWidth: 74, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>
             {f(inp.F / 1000, 2)} kN
+          </span>
+        </div>
+
+        {/* Jump straight to the load the design target allows, then explore
+            around it — the range is scaled so that point is always reachable. */}
+        <div style={{ ...panel, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <button style={btn(false)} onClick={() => set("F", Ftarget)} disabled={!isFinite(Ftarget)}>
+            go to SF {f(inp.SFt, 1)}
+          </button>
+          <button style={btn(false)} onClick={() => set("F", res.Fcap)} disabled={!isFinite(res.Fcap)}>
+            go to failure
+          </button>
+          <span style={{ fontFamily: M, fontSize: 9.5, color: "#6b7884", lineHeight: 1.6, flex: 1, minWidth: 140 }}>
+            target SF {f(inp.SFt, 1)} → <b style={{ color: "#8b97a3" }}>{kN(Ftarget)}</b> ·
+            fails at <b style={{ color: "#8b97a3" }}>{kN(res.Fcap)}</b>
           </span>
         </div>
 
@@ -346,10 +418,78 @@ export default function PinCalc() {
         <Warnings warns={res.warns} />
       </div>
 
+      {/* ── REPORT ── */}
+      <div className={`tabpane${tab === "report" ? " on" : ""}`}>
+        <div style={{ ...panel, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <span style={{ fontFamily: M, fontSize: 9.5, color: "#8b97a3", lineHeight: 1.6, flex: 1, minWidth: 160 }}>
+            Every check worked through with your numbers. Export goes through the browser&apos;s own print dialogue —
+            choose <b style={{ color: "#c2ccd4" }}>Save as PDF</b> as the destination.
+          </span>
+          <button style={btn(false)} onClick={() => exportPDF(true)}>one-page sheet</button>
+          <button style={btn(false)} onClick={() => exportPDF(false)}>full report PDF</button>
+        </div>
+        <div className="theory">
+          <div className="lab">CALCULATION REPORT</div>
+          <div dangerouslySetInnerHTML={{ __html: reportHTML(inp, res) }} />
+        </div>
+      </div>
+
       {/* ── THEORY ── */}
       <div className={`tabpane${tab === "theory" ? " on" : ""}`}>
         <Theory inp={inp} res={res} />
       </div>
+
+      {/* ── The export document ────────────────────────────────────────────
+          Mounted only while printing, and the only thing @media print shows.
+          Everything in it is authored for paper — no live controls, no
+          inherited panel colours — so there is nothing left to re-skin. */}
+      {printDoc && (
+        <div id="pinPrint" className={`calc-print ${printDoc.brief ? "brief" : "full"}`}>
+          <div className="ph">
+            <h1>Pin &amp; Bolt Shear Joint — {printDoc.brief ? "bench sheet" : "design calculation"}</h1>
+            <div className="meta">
+              {res.double ? "3 flanges — clevis, double shear" : "2 flanges — lap joint, single shear"} ·{" "}
+              {res.nPlanes} shear plane{res.nPlanes > 1 ? "s" : ""}<br />
+              pin {inp.hollow ? `Ø${f(inp.d, 1)} × ${f(res.wall, 2)} wall (bore Ø${f(res.di, 1)})` : `Ø${f(inp.d, 1)} solid`} ·{" "}
+              {inp.pinMat} · {inp.shank}<br />
+              {res.members.map((m) => `${m.label} ${f(m.t, 1)} mm ${m.matName}`).join(" · ")}<br />
+              flange w {f(inp.w, 1)} · edge a {f(inp.a, 1)} mm · applied {f(inp.F / 1000, 2)} kN · target SF {f(inp.SFt, 1)}<br />
+              typical reference values — verify before production
+            </div>
+          </div>
+
+          <figure className="fig">
+            <img src={printDoc.img} alt="3D view of the pin joint, coloured by failure mode" />
+            <figcaption>
+              {stressMode
+                ? <>Each zone coloured by the check that owns it — bearing at the holes, tear-out on the edge
+                  ligaments, net section on the flanks, shear and bending on the pin — at {f(inp.F / 1000, 2)} kN.</>
+                : <>Material colours, stress shading off.</>}
+              {" "}Slip magnified ×{ex}{explode > 0.5 ? " · exploded" : ""}.
+            </figcaption>
+          </figure>
+
+          <div dangerouslySetInnerHTML={{ __html: summaryHTML(inp, res) }} />
+
+          {!printDoc.brief && (
+            <>
+              <h2 className="sec brk">Calculation report</h2>
+              <div className="theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res) }} />
+              <h2 className="sec brk">Notes and warnings</h2>
+              <table className="rep">
+                <tbody>{res.warns.map((w, i) => <tr key={i}><td>{w.text}</td></tr>)}</tbody>
+              </table>
+            </>
+          )}
+
+          <div className="foot">
+            MechCalc · Pin &amp; Bolt Shear Joint — static design check per Shigley ch. 8 (Fig. 8-23, Fig. 8-25,
+            Eq. 8-54, Eq. 8-55). No stress concentration; Kt ≈ 2–3 at a loaded hole governs fatigue and brittle
+            plates. No preload friction — the slipped, bearing state (§8-12). Yield onset, not collapse.
+            Verify against your own material data before production use.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
