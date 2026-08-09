@@ -1,0 +1,13 @@
+{
+  "name": "MechCalc — Engineering Calculators",
+  "short_name": "MechCalc",
+  "description": "Fast closed-form design-check calculators for mechanical engineers, each paired with a live 3D model colored by how close the part is to yielding.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#080c10",
+  "theme_color": "#080c10",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

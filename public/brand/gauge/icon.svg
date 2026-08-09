@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Design D "Yield Gauge" — a safety-factor dial sweeping the app's stress
+       palette, needle sitting comfortably in the green. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d131a"/>
+      <stop offset="1" stop-color="#080c10"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- dial segments: safe → marginal → failing -->
+  <g fill="none" stroke-width="38" stroke-linecap="round">
+    <path d="M119.2 379 A158 158 0 0 1 228.6 144.4" stroke="#4fb477"/>
+    <path d="M245.0 142.4 A158 158 0 0 1 377.0 198.4" stroke="#d9a441"/>
+    <path d="M387.0 211.6 A158 158 0 0 1 392.8 379" stroke="#d65c5c"/>
+  </g>
+
+  <!-- ticks at the segment ends -->
+  <g stroke="#46515c" stroke-width="7" stroke-linecap="round">
+    <path d="M97.8 391.4 76.3 403.8"/>
+    <path d="M414.2 391.4 435.7 403.8"/>
+    <path d="M256 116 256 91.2"/>
+  </g>
+
+  <!-- needle -->
+  <path d="M256 300 152.1 240" stroke="#e8edf1" stroke-width="17" stroke-linecap="round"/>
+  <circle cx="256" cy="300" r="26" fill="#e8edf1"/>
+  <circle cx="256" cy="300" r="11" fill="#0a0f14"/>
+
+  <!-- label -->
+  <text x="256" y="420" text-anchor="middle" font-family="'JetBrains Mono',Menlo,monospace"
+        font-size="38" font-weight="600" letter-spacing="6" fill="#8b97a3">SF</text>
+</svg>

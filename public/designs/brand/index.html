@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#080c10" />
+<title>MechCalc — Logo Design Study</title>
+<style>
+  @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap");
+
+  :root {
+    --bg: #080c10;
+    --panel: #0b1015;
+    --line: #141c22;
+    --line2: #1f2a33;
+    --ink: #e8edf1;
+    --mut: #8b97a3;
+    --dim: #46515c;
+    --blue: #3a78c2;
+    --green: #4fb477;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: "Inter", system-ui, -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 28px 16px 48px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 10px; letter-spacing: .25em; color: var(--blue); }
+  h1 { margin: 8px 0 0; font-size: 26px; font-weight: 600; letter-spacing: -0.02em; text-wrap: balance; }
+  .lede { font-size: 13px; color: var(--mut); line-height: 1.7; max-width: 62ch; margin: 10px 0 0; }
+  .lede b { color: var(--ink); font-weight: 600; }
+  header.page { border-bottom: 1px solid var(--line2); padding-bottom: 18px; margin-bottom: 22px; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line2); border-radius: 3px;
+    padding: 18px; margin-bottom: 16px;
+  }
+  .card-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
+  .card-head .key { font-family: var(--mono); font-size: 10px; letter-spacing: .18em; color: var(--dim); }
+  .card-head h2 { margin: 0; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .chip {
+    font-family: var(--mono); font-size: 9px; font-weight: 700; letter-spacing: .15em;
+    border: 1px solid var(--green); color: var(--green); border-radius: 2px; padding: 2px 6px;
+    margin-left: auto; white-space: nowrap;
+  }
+  /* The direction that won round 1, refined into the shipped mark below. */
+  .chip-picked { border-color: #2a3540; color: var(--mut); }
+  .why { font-size: 12px; color: var(--mut); line-height: 1.65; margin: 4px 0 14px; max-width: 70ch; }
+
+  .previews { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: stretch; }
+  @media (max-width: 620px) { .previews { grid-template-columns: 1fr; } }
+
+  .tile { width: 208px; }
+  .tile svg { display: block; width: 208px; height: 208px; border-radius: 3px; border: 1px solid var(--line); }
+  @media (max-width: 620px) { .tile { width: 100%; max-width: 260px; } .tile svg { width: 100%; height: auto; } }
+
+  .ctx { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .ctx-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ctx-box {
+    flex: 1 1 150px; min-width: 0; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 3px; padding: 10px; display: flex; flex-direction: column; gap: 8px;
+  }
+  .ctx-box .lab {
+    font-family: var(--mono); font-size: 8.5px; letter-spacing: .16em;
+    text-transform: uppercase; color: var(--dim);
+  }
+
+  /* iPhone home screen: wallpaper swatch, squircle icon, app label */
+  .homescreen {
+    background: linear-gradient(160deg, #16202c, #0a0e14 70%);
+    border-radius: 3px; padding: 16px 10px 12px; display: flex; flex-direction: column;
+    align-items: center; gap: 7px; flex: 1;  justify-content: center;
+  }
+  .homescreen svg { width: 62px; height: 62px; border-radius: 22.5%; box-shadow: 0 4px 14px rgba(0,0,0,.5); }
+  .homescreen .app-name { font-size: 10.5px; color: #eef2f6; letter-spacing: .01em;
+    text-shadow: 0 1px 3px rgba(0,0,0,.6); }
+
+  /* browser tab */
+  .tab {
+    background: #1b242e; border-radius: 8px 8px 0 0; padding: 7px 12px;
+    display: flex; align-items: center; gap: 8px; max-width: 230px; margin-top: auto;
+  }
+  .tab svg { width: 16px; height: 16px; border-radius: 3px; flex-shrink: 0; }
+  .tab span { font-size: 11px; color: #c2ccd4; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  .tabbar-sim { background: #0e141b; border-radius: 3px; padding: 8px 8px 0; flex: 1;
+    display: flex; align-items: flex-end; }
+
+  /* app header lockup */
+  .lockup { display: flex; align-items: center; gap: 10px; padding: 6px 2px; }
+  .lockup svg { width: 30px; height: 30px; }
+  .lockup .word { font-size: 21px; font-weight: 600; letter-spacing: -0.02em; color: var(--ink); }
+  .lockup-sub { font-family: var(--mono); font-size: 8px; letter-spacing: .22em; color: var(--blue); }
+
+  footer { font-family: var(--mono); font-size: 10px; color: var(--dim); line-height: 1.8;
+    border-top: 1px solid var(--line); margin-top: 26px; padding-top: 14px; }
+  footer b { color: var(--mut); }
+  code { font-family: var(--mono); font-size: .95em; color: #c2ccd4; }
+</style>
+</head>
+<body>
+<!-- Icon artwork, defined once and stamped wherever needed. `ic-*` are the
+     full tiles (what the home-screen icon shows); `mk-*` are the transparent
+     header marks. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d131a"/><stop offset="1" stop-color="#080c10"/>
+    </linearGradient>
+    <linearGradient id="g-stress" x1="92" y1="0" x2="436" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d65c5c"/><stop offset="0.45" stop-color="#d9a441"/>
+      <stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="g-hex" x1="167" y1="102" x2="345" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a95d8"/><stop offset="1" stop-color="#2e639f"/>
+    </linearGradient>
+
+    <symbol id="ic-blueprint" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <g stroke="#111a23" stroke-width="2">
+        <path d="M64 0V512M128 0V512M192 0V512M256 0V512M320 0V512M384 0V512M448 0V512"/>
+        <path d="M0 64H512M0 128H512M0 192H512M0 256H512M0 320H512M0 384H512M0 448H512"/>
+      </g>
+      <g stroke="#3a78c2" stroke-width="4" opacity="0.6" stroke-dasharray="34 12 6 12">
+        <path d="M256 30V482"/><path d="M30 256H482"/>
+      </g>
+      <path d="M405.7 229.6 A152 152 0 1 1 282.4 106.3" fill="none" stroke="#5a95d8"
+            stroke-width="8" stroke-linecap="round"/>
+      <circle cx="256" cy="256" r="112" fill="#0c141c" stroke="#e8edf1" stroke-width="16"/>
+      <text x="452" y="462" text-anchor="end" font-family="'JetBrains Mono',Menlo,monospace"
+            font-size="30" letter-spacing="2" fill="#46515c">M12</text>
+    </symbol>
+
+    <symbol id="ic-beam" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22" stroke-linecap="round"/>
+      <g stroke="#5a95d8" fill="#5a95d8">
+        <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+        <path d="M436 316 409 268h54z" stroke="none"/>
+      </g>
+      <path d="M60 196 Q 300 202 434 348" fill="none" stroke="url(#g-stress)"
+            stroke-width="52" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+      <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+        <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+      </g>
+      <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+
+    <symbol id="ic-hexm" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <polygon points="434,256 345,101.8 167,101.8 78,256 167,410.2 345,410.2"
+               fill="#0c141c" stroke="url(#g-hex)" stroke-width="30" stroke-linejoin="round"/>
+      <polyline points="186,336 186,178 256,284 326,178 326,336" fill="none" stroke="#e8edf1"
+                stroke-width="33" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+
+    <symbol id="ic-gauge" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <g fill="none" stroke-width="38" stroke-linecap="round">
+        <path d="M119.2 379 A158 158 0 0 1 228.6 144.4" stroke="#4fb477"/>
+        <path d="M245.0 142.4 A158 158 0 0 1 377.0 198.4" stroke="#d9a441"/>
+        <path d="M387.0 211.6 A158 158 0 0 1 392.8 379" stroke="#d65c5c"/>
+      </g>
+      <g stroke="#46515c" stroke-width="7" stroke-linecap="round">
+        <path d="M97.8 391.4 76.3 403.8"/><path d="M414.2 391.4 435.7 403.8"/><path d="M256 116 256 91.2"/>
+      </g>
+      <path d="M256 300 152.1 240" stroke="#e8edf1" stroke-width="17" stroke-linecap="round"/>
+      <circle cx="256" cy="300" r="26" fill="#e8edf1"/><circle cx="256" cy="300" r="11" fill="#0a0f14"/>
+      <text x="256" y="420" text-anchor="middle" font-family="'JetBrains Mono',Menlo,monospace"
+            font-size="38" font-weight="600" letter-spacing="6" fill="#8b97a3">SF</text>
+    </symbol>
+
+    <symbol id="mk-blueprint" viewBox="0 0 512 512">
+      <g stroke="#3a78c2" stroke-width="10" opacity="0.6" stroke-dasharray="34 12 6 12">
+        <path d="M256 30V482"/><path d="M30 256H482"/>
+      </g>
+      <path d="M405.7 229.6 A152 152 0 1 1 282.4 106.3" fill="none" stroke="#5a95d8"
+            stroke-width="22" stroke-linecap="round"/>
+      <circle cx="256" cy="256" r="112" fill="none" stroke="#e8edf1" stroke-width="30"/>
+    </symbol>
+    <symbol id="mk-beam" viewBox="0 0 512 512">
+      <path d="M108 196H436" stroke="#46515c" stroke-width="12" stroke-dasharray="4 30" stroke-linecap="round"/>
+      <g stroke="#5a95d8" fill="#5a95d8">
+        <path d="M436 122V254" stroke-width="22" stroke-linecap="round"/>
+        <path d="M436 316 401 254h70z" stroke="none"/>
+      </g>
+      <path d="M60 196 Q 300 202 434 348" fill="none" stroke="url(#g-stress)"
+            stroke-width="62" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#10161d"/>
+      <g stroke="#46515c" stroke-width="11" stroke-linecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334"/>
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" stroke-width="15" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mk-hexm" viewBox="0 0 512 512">
+      <polygon points="434,256 345,101.8 167,101.8 78,256 167,410.2 345,410.2"
+               fill="none" stroke="#3a78c2" stroke-width="34" stroke-linejoin="round"/>
+      <polyline points="186,336 186,178 256,284 326,178 326,336" fill="none" stroke="#e8edf1"
+                stroke-width="37" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="mk-gauge" viewBox="0 0 512 512">
+      <g fill="none" stroke-width="44" stroke-linecap="round">
+        <path d="M119.2 379 A158 158 0 0 1 228.6 144.4" stroke="#4fb477"/>
+        <path d="M245.0 142.4 A158 158 0 0 1 377.0 198.4" stroke="#d9a441"/>
+        <path d="M387.0 211.6 A158 158 0 0 1 392.8 379" stroke="#d65c5c"/>
+      </g>
+      <path d="M256 300 152.1 240" stroke="#e8edf1" stroke-width="24" stroke-linecap="round"/>
+      <circle cx="256" cy="300" r="32" fill="#e8edf1"/><circle cx="256" cy="300" r="13" fill="#080c10"/>
+    </symbol>
+    <symbol id="ic-beamsplit" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M60.8 162 L91.7 163.4 L121.8 165.9 L151.2 169.5 L179.8 174.4 L207.6 180.4 L234.6 187.6 L260.9 195.9 L286.3 205.5 L310.9 216.3 L334.7 228.2 L357.6 241.4 L379.7 255.8 L400.9 271.3 L421.2 288.1 L440.6 306 L459 325 L441.5 341.1 L424 323 L405.6 306 L386.3 290.1 L366.2 275.4 L345.2 261.7 L323.4 249.2 L300.8 237.8 L277.3 227.6 L253.1 218.4 L228 210.4 L202 203.5 L175.3 197.7 L147.8 193.1 L119.4 189.5 L90.2 187.1 L60.3 185.8 Z" fill="#d64545"/>
+  <path d="M60.3 185.8 L90.2 187.1 L119.4 189.5 L147.8 193.1 L175.3 197.7 L202 203.5 L228 210.4 L253.1 218.4 L277.3 227.6 L300.8 237.8 L323.4 249.2 L345.2 261.7 L366.2 275.4 L386.3 290.1 L405.6 306 L424 323 L441.5 341.1 L426.5 354.9 L409.7 337.6 L392.1 321.4 L373.8 306.2 L354.6 292.1 L334.6 279.1 L313.8 267.2 L292.1 256.3 L269.7 246.4 L246.4 237.7 L222.2 230 L197.3 223.3 L171.5 217.8 L144.8 213.3 L117.3 209.8 L88.9 207.5 L59.7 206.2 Z" fill="#0c141c"/>
+  <path d="M59.7 206.2 L88.9 207.5 L117.3 209.8 L144.8 213.3 L171.5 217.8 L197.3 223.3 L222.2 230 L246.4 237.7 L269.7 246.4 L292.1 256.3 L313.8 267.2 L334.6 279.1 L354.6 292.1 L373.8 306.2 L392.1 321.4 L409.7 337.6 L426.5 354.9 L409 371 L393.1 354.6 L376.5 339.3 L359.1 325 L341 311.7 L322.2 299.4 L302.5 288.1 L282 277.8 L260.7 268.5 L238.6 260.2 L215.6 252.8 L191.7 246.5 L167 241.1 L141.3 236.8 L114.8 233.5 L87.4 231.2 L59.2 230 Z" fill="#4575e6"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#4fb477"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+  <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+    <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+  </g>
+  <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mk-beamsplit" viewBox="0 0 512 512">
+      <path d="M108 196H436" stroke="#46515c" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M61 156 L92.1 157.4 L122.5 159.9 L152.1 163.6 L180.9 168.5 L209 174.5 L236.3 181.8 L262.8 190.3 L288.6 199.9 L313.5 210.8 L337.5 223 L360.8 236.3 L383.1 250.9 L404.6 266.6 L425.1 283.5 L444.8 301.7 L463.5 321 L442.8 339.9 L425.2 321.7 L406.7 304.6 L387.4 288.7 L367.2 273.9 L346.2 260.2 L324.3 247.6 L301.6 236.2 L278 225.9 L253.6 216.7 L228.5 208.7 L202.5 201.8 L175.6 196 L148 191.3 L119.6 187.8 L90.3 185.3 L60.3 184 Z" fill="#d64545"/>
+  <path d="M60.3 184 L90.3 185.3 L119.6 187.8 L148 191.3 L175.6 196 L202.5 201.8 L228.5 208.7 L253.6 216.7 L278 225.9 L301.6 236.2 L324.3 247.6 L346.2 260.2 L367.2 273.9 L387.4 288.7 L406.7 304.6 L425.2 321.7 L442.8 339.9 L425.2 356.1 L408.5 338.9 L391 322.7 L372.7 307.6 L353.5 293.6 L333.6 280.7 L312.9 268.8 L291.4 257.9 L269 248.1 L245.8 239.4 L221.7 231.7 L196.8 225.1 L171.1 219.5 L144.5 215 L117.1 211.6 L88.8 209.3 L59.7 208 Z" fill="#0c141c"/>
+  <path d="M59.7 208 L88.8 209.3 L117.1 211.6 L144.5 215 L171.1 219.5 L196.8 225.1 L221.7 231.7 L245.8 239.4 L269 248.1 L291.4 257.9 L312.9 268.8 L333.6 280.7 L353.5 293.6 L372.7 307.6 L391 322.7 L408.5 338.9 L425.2 356.1 L404.5 375 L388.9 358.9 L372.5 343.8 L355.5 329.7 L337.6 316.6 L319 304.5 L299.6 293.4 L279.5 283.2 L258.4 274.1 L236.6 265.8 L213.9 258.6 L190.3 252.3 L165.8 247 L140.5 242.7 L114.2 239.5 L87.1 237.2 L59 236 Z" fill="#4575e6"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#4fb477"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#10161d"/>
+      <g stroke="#46515c" stroke-width="11" stroke-linecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334"/>
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" stroke-width="15" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-beamramp" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M60.8 162 L91.7 163.4 L121.8 165.9 L151.2 169.5 L179.8 174.4 L207.6 180.4 L234.6 187.6 L260.9 195.9 L286.3 205.5 L310.9 216.3 L334.7 228.2 L357.6 241.4 L379.7 255.8 L400.9 271.3 L421.2 288.1 L440.6 306 L459 325 L452.8 330.8 L434.6 312 L415.6 294.5 L395.7 278 L374.9 262.8 L353.2 248.7 L330.7 235.7 L307.3 224 L283.1 213.4 L258.1 204 L232.2 195.7 L205.6 188.6 L178.2 182.7 L150 177.9 L121 174.3 L91.2 171.8 L60.6 170.5 Z" fill="#d75742"/>
+  <path d="M60.6 170.5 L91.2 171.8 L121 174.3 L150 177.9 L178.2 182.7 L205.6 188.6 L232.2 195.7 L258.1 204 L283.1 213.4 L307.3 224 L330.7 235.7 L353.2 248.7 L374.9 262.8 L395.7 278 L415.6 294.5 L434.6 312 L452.8 330.8 L446.5 336.5 L428.7 318.1 L410 300.9 L390.5 284.8 L370 269.8 L348.8 255.9 L326.6 243.2 L303.7 231.7 L279.9 221.3 L255.3 212 L229.9 203.9 L203.6 196.9 L176.6 191.1 L148.7 186.4 L120.1 182.8 L90.7 180.3 L60.4 179 Z" fill="#d87a3b"/>
+  <path d="M60.4 179 L90.7 180.3 L120.1 182.8 L148.7 186.4 L176.6 191.1 L203.6 196.9 L229.9 203.9 L255.3 212 L279.9 221.3 L303.7 231.7 L326.6 243.2 L348.8 255.9 L370 269.8 L390.5 284.8 L410 300.9 L428.7 318.1 L446.5 336.5 L440.3 342.3 L422.8 324.2 L404.4 307.3 L385.2 291.5 L365.2 276.8 L344.3 263.2 L322.6 250.7 L300.1 239.4 L276.7 229.1 L252.5 220 L227.5 212 L201.6 205.2 L175 199.4 L147.5 194.8 L119.2 191.2 L90.1 188.8 L60.2 187.5 Z" fill="#b69648"/>
+  <path d="M60.2 187.5 L90.1 188.8 L119.2 191.2 L147.5 194.8 L175 199.4 L201.6 205.2 L227.5 212 L252.5 220 L276.7 229.1 L300.1 239.4 L322.6 250.7 L344.3 263.2 L365.2 276.8 L385.2 291.5 L404.4 307.3 L422.8 324.2 L440.3 342.3 L434 348 L416.8 330.3 L398.8 313.7 L380 298.2 L360.4 283.8 L339.9 270.4 L318.6 258.2 L296.5 247 L273.5 237 L249.7 228 L225.1 220.2 L199.6 213.4 L173.4 207.8 L146.3 203.2 L118.3 199.7 L89.6 197.3 L60 196 Z" fill="#71aa67"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L427.7 353.7 L410.9 336.4 L393.3 320.1 L374.8 304.9 L355.5 290.7 L335.5 277.7 L314.6 265.7 L292.8 254.7 L270.3 244.9 L246.9 236.1 L222.7 228.3 L197.7 221.7 L171.8 216.1 L145 211.6 L117.5 208.1 L89 205.8 L59.8 204.5 Z" fill="#48ac85"/>
+  <path d="M59.8 204.5 L89 205.8 L117.5 208.1 L145 211.6 L171.8 216.1 L197.7 221.7 L222.7 228.3 L246.9 236.1 L270.3 244.9 L292.8 254.7 L314.6 265.7 L335.5 277.7 L355.5 290.7 L374.8 304.9 L393.3 320.1 L410.9 336.4 L427.7 353.7 L421.5 359.5 L405 342.5 L387.7 326.5 L369.6 311.6 L350.7 297.7 L331 284.9 L310.5 273.2 L289.2 262.4 L267.1 252.7 L244.1 244.1 L220.3 236.5 L195.7 230 L170.2 224.4 L143.8 220 L116.6 216.6 L88.5 214.3 L59.6 213 Z" fill="#3a9ca0"/>
+  <path d="M59.6 213 L88.5 214.3 L116.6 216.6 L143.8 220 L170.2 224.4 L195.7 230 L220.3 236.5 L244.1 244.1 L267.1 252.7 L289.2 262.4 L310.5 273.2 L331 284.9 L350.7 297.7 L369.6 311.6 L387.7 326.5 L405 342.5 L421.5 359.5 L415.2 365.2 L399 348.5 L382.1 332.9 L364.4 318.3 L345.9 304.7 L326.6 292.2 L306.5 280.6 L285.6 270.1 L263.9 260.6 L241.3 252.1 L217.9 244.7 L193.7 238.2 L168.6 232.8 L142.6 228.4 L115.7 225.1 L88 222.7 L59.4 221.5 Z" fill="#378cbb"/>
+  <path d="M59.4 221.5 L88 222.7 L115.7 225.1 L142.6 228.4 L168.6 232.8 L193.7 238.2 L217.9 244.7 L241.3 252.1 L263.9 260.6 L285.6 270.1 L306.5 280.6 L326.6 292.2 L345.9 304.7 L364.4 318.3 L382.1 332.9 L399 348.5 L415.2 365.2 L409 371 L393.1 354.6 L376.5 339.3 L359.1 325 L341 311.7 L322.2 299.4 L302.5 288.1 L282 277.8 L260.7 268.5 L238.6 260.2 L215.6 252.8 L191.7 246.5 L167 241.1 L141.3 236.8 L114.8 233.5 L87.4 231.2 L59.2 230 Z" fill="#407dd7"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+  <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+    <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+  </g>
+  <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mk-beamramp" viewBox="0 0 512 512">
+      <path d="M108 196H436" stroke="#46515c" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M61 156 L92.1 157.4 L122.5 159.9 L152.1 163.6 L180.9 168.5 L209 174.5 L236.3 181.8 L262.8 190.3 L288.6 199.9 L313.5 210.8 L337.5 223 L360.8 236.3 L383.1 250.9 L404.6 266.6 L425.1 283.5 L444.8 301.7 L463.5 321 L456.1 327.7 L437.8 308.8 L418.6 291.1 L398.4 274.5 L377.4 259.1 L355.6 244.8 L332.8 231.8 L309.2 219.9 L284.8 209.2 L259.6 199.7 L233.5 191.4 L206.7 184.3 L179 178.3 L150.6 173.5 L121.4 169.8 L91.5 167.4 L60.7 166 Z" fill="#d75742"/>
+  <path d="M60.7 166 L91.5 167.4 L121.4 169.8 L150.6 173.5 L179 178.3 L206.7 184.3 L233.5 191.4 L259.6 199.7 L284.8 209.2 L309.2 219.9 L332.8 231.8 L355.6 244.8 L377.4 259.1 L398.4 274.5 L418.6 291.1 L437.8 308.8 L456.1 327.7 L448.7 334.5 L430.8 316 L412 298.6 L392.3 282.4 L371.8 267.3 L350.3 253.4 L328.1 240.6 L305 228.9 L281 218.5 L256.3 209.2 L230.7 201 L204.3 194 L177.1 188.1 L149.2 183.4 L120.4 179.8 L90.8 177.3 L60.5 176 Z" fill="#d87a3b"/>
+  <path d="M60.5 176 L90.8 177.3 L120.4 179.8 L149.2 183.4 L177.1 188.1 L204.3 194 L230.7 201 L256.3 209.2 L281 218.5 L305 228.9 L328.1 240.6 L350.3 253.4 L371.8 267.3 L392.3 282.4 L412 298.6 L430.8 316 L448.7 334.5 L441.4 341.2 L423.8 323.1 L405.4 306.2 L386.2 290.3 L366.1 275.5 L345.1 261.9 L323.3 249.4 L300.7 238 L277.3 227.7 L253 218.6 L227.9 210.6 L202 203.7 L175.3 197.9 L147.7 193.3 L119.4 189.7 L90.2 187.3 L60.2 186 Z" fill="#b69648"/>
+  <path d="M60.2 186 L90.2 187.3 L119.4 189.7 L147.7 193.3 L175.3 197.9 L202 203.7 L227.9 210.6 L253 218.6 L277.3 227.7 L300.7 238 L323.3 249.4 L345.1 261.9 L366.1 275.5 L386.2 290.3 L405.4 306.2 L423.8 323.1 L441.4 341.2 L434 348 L416.8 330.3 L398.8 313.7 L380 298.2 L360.4 283.8 L339.9 270.4 L318.6 258.2 L296.5 247 L273.5 237 L249.7 228 L225.1 220.2 L199.6 213.4 L173.4 207.8 L146.3 203.2 L118.3 199.7 L89.6 197.3 L60 196 Z" fill="#71aa67"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L426.6 354.8 L409.9 337.5 L392.3 321.2 L373.9 306.1 L354.7 292 L334.7 279 L313.9 267 L292.2 256.1 L269.7 246.3 L246.4 237.5 L222.3 229.8 L197.3 223.1 L171.5 217.6 L144.8 213.1 L117.3 209.6 L89 207.3 L59.8 206 Z" fill="#48ac85"/>
+  <path d="M59.8 206 L89 207.3 L117.3 209.6 L144.8 213.1 L171.5 217.6 L197.3 223.1 L222.3 229.8 L246.4 237.5 L269.7 246.3 L292.2 256.1 L313.9 267 L334.7 279 L354.7 292 L373.9 306.1 L392.3 321.2 L409.9 337.5 L426.6 354.8 L419.3 361.5 L402.9 344.6 L385.7 328.8 L367.7 314 L349 300.2 L329.5 287.5 L309.1 275.8 L288 265.1 L266 255.5 L243.1 246.9 L219.5 239.4 L195 232.9 L169.6 227.4 L143.4 223 L116.3 219.6 L88.3 217.3 L59.5 216 Z" fill="#3a9ca0"/>
+  <path d="M59.5 216 L88.3 217.3 L116.3 219.6 L143.4 223 L169.6 227.4 L195 232.9 L219.5 239.4 L243.1 246.9 L266 255.5 L288 265.1 L309.1 275.8 L329.5 287.5 L349 300.2 L367.7 314 L385.7 328.8 L402.9 344.6 L419.3 361.5 L411.9 368.3 L395.9 351.8 L379.1 336.3 L361.6 321.8 L343.3 308.4 L324.2 296 L304.4 284.6 L283.7 274.2 L262.2 264.8 L239.9 256.4 L216.7 249 L192.6 242.6 L167.7 237.2 L141.9 232.9 L115.3 229.5 L87.7 227.2 L59.3 226 Z" fill="#378cbb"/>
+  <path d="M59.3 226 L87.7 227.2 L115.3 229.5 L141.9 232.9 L167.7 237.2 L192.6 242.6 L216.7 249 L239.9 256.4 L262.2 264.8 L283.7 274.2 L304.4 284.6 L324.2 296 L343.3 308.4 L361.6 321.8 L379.1 336.3 L395.9 351.8 L411.9 368.3 L404.5 375 L388.9 358.9 L372.5 343.8 L355.5 329.7 L337.6 316.6 L319 304.5 L299.6 293.4 L279.5 283.2 L258.4 274.1 L236.6 265.8 L213.9 258.6 L190.3 252.3 L165.8 247 L140.5 242.7 L114.2 239.5 L87.1 237.2 L59 236 Z" fill="#407dd7"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#10161d"/>
+      <g stroke="#46515c" stroke-width="11" stroke-linecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334"/>
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" stroke-width="15" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-beamfringe" viewBox="0 0 512 512">
+      <rect width="512" height="512" fill="url(#g-bg)"/>
+      <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M60.8 162 L91.7 163.4 L121.8 165.9 L151.2 169.5 L179.8 174.4 L207.6 180.4 L234.6 187.6 L260.9 195.9 L286.3 205.5 L310.9 216.3 L334.7 228.2 L357.6 241.4 L379.7 255.8 L400.9 271.3 L421.2 288.1 L440.6 306 L459 325 L449 334.2 L431.1 315.7 L412.3 298.3 L392.6 282.1 L372 267 L350.5 253 L328.3 240.2 L305.1 228.6 L281.2 218.1 L256.4 208.8 L230.8 200.6 L204.4 193.6 L177.2 187.7 L149.2 183 L120.4 179.4 L90.9 176.9 L60.5 175.6 Z" fill="#d64545"/>
+  <path d="M60.5 175.6 L90.9 176.9 L120.4 179.4 L149.2 183 L177.2 187.7 L204.4 193.6 L230.8 200.6 L256.4 208.8 L281.2 218.1 L305.1 228.6 L328.3 240.2 L350.5 253 L372 267 L392.6 282.1 L412.3 298.3 L431.1 315.7 L449 334.2 L439 343.4 L421.6 325.4 L403.3 308.6 L384.2 292.8 L364.2 278.2 L343.4 264.6 L321.8 252.2 L299.4 240.9 L276.1 230.7 L251.9 221.6 L227 213.7 L201.2 206.8 L174.7 201.1 L147.3 196.4 L119 192.9 L90 190.5 L60.2 189.2 Z" fill="#d98c38"/>
+  <path d="M60.2 189.2 L90 190.5 L119 192.9 L147.3 196.4 L174.7 201.1 L201.2 206.8 L227 213.7 L251.9 221.6 L276.1 230.7 L299.4 240.9 L321.8 252.2 L343.4 264.6 L364.2 278.2 L384.2 292.8 L403.3 308.6 L421.6 325.4 L439 343.4 L429 352.6 L412.1 335.2 L394.4 318.8 L375.8 303.5 L356.5 289.3 L336.3 276.2 L315.4 264.2 L293.6 253.2 L270.9 243.3 L247.5 234.5 L223.2 226.7 L198.1 220 L172.1 214.4 L145.3 209.9 L117.6 206.5 L89.2 204.1 L59.8 202.8 Z" fill="#4fb477"/>
+  <path d="M59.8 202.8 L89.2 204.1 L117.6 206.5 L145.3 209.9 L172.1 214.4 L198.1 220 L223.2 226.7 L247.5 234.5 L270.9 243.3 L293.6 253.2 L315.4 264.2 L336.3 276.2 L356.5 289.3 L375.8 303.5 L394.4 318.8 L412.1 335.2 L429 352.6 L419 361.8 L402.6 344.9 L385.4 329.1 L367.5 314.3 L348.8 300.5 L329.3 287.8 L308.9 276.2 L287.8 265.5 L265.8 255.9 L243 247.3 L219.4 239.8 L194.9 233.3 L169.5 227.8 L143.3 223.4 L116.2 220 L88.3 217.7 L59.5 216.4 Z" fill="#3394ad"/>
+  <path d="M59.5 216.4 L88.3 217.7 L116.2 220 L143.3 223.4 L169.5 227.8 L194.9 233.3 L219.4 239.8 L243 247.3 L265.8 255.9 L287.8 265.5 L308.9 276.2 L329.3 287.8 L348.8 300.5 L367.5 314.3 L385.4 329.1 L402.6 344.9 L419 361.8 L409 371 L393.1 354.6 L376.5 339.3 L359.1 325 L341 311.7 L322.2 299.4 L302.5 288.1 L282 277.8 L260.7 268.5 L238.6 260.2 L215.6 252.8 L191.7 246.5 L167 241.1 L141.3 236.8 L114.8 233.5 L87.4 231.2 L59.2 230 Z" fill="#4575e6"/>
+  <path d="M60.5 175.6 L90.9 176.9 L120.4 179.4 L149.2 183 L177.2 187.7 L204.4 193.6 L230.8 200.6 L256.4 208.8 L281.2 218.1 L305.1 228.6 L328.3 240.2 L350.5 253 L372 267 L392.6 282.1 L412.3 298.3 L431.1 315.7 L449 334.2" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M60.2 189.2 L90 190.5 L119 192.9 L147.3 196.4 L174.7 201.1 L201.2 206.8 L227 213.7 L251.9 221.6 L276.1 230.7 L299.4 240.9 L321.8 252.2 L343.4 264.6 L364.2 278.2 L384.2 292.8 L403.3 308.6 L421.6 325.4 L439 343.4" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M59.8 202.8 L89.2 204.1 L117.6 206.5 L145.3 209.9 L172.1 214.4 L198.1 220 L223.2 226.7 L247.5 234.5 L270.9 243.3 L293.6 253.2 L315.4 264.2 L336.3 276.2 L356.5 289.3 L375.8 303.5 L394.4 318.8 L412.1 335.2 L429 352.6" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M59.5 216.4 L88.3 217.7 L116.2 220 L143.3 223.4 L169.5 227.8 L194.9 233.3 L219.4 239.8 L243 247.3 L265.8 255.9 L287.8 265.5 L308.9 276.2 L329.3 287.8 L348.8 300.5 L367.5 314.3 L385.4 329.1 L402.6 344.9 L419 361.8" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+  <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+    <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+  </g>
+  <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mk-beamfringe" viewBox="0 0 512 512">
+      <path d="M108 196H436" stroke="#46515c" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M61 156 L92.1 157.4 L122.5 159.9 L152.1 163.6 L180.9 168.5 L209 174.5 L236.3 181.8 L262.8 190.3 L288.6 199.9 L313.5 210.8 L337.5 223 L360.8 236.3 L383.1 250.9 L404.6 266.6 L425.1 283.5 L444.8 301.7 L463.5 321 L451.7 331.8 L433.6 313.1 L414.6 295.6 L394.8 279.2 L374 264 L352.4 249.9 L330 237.1 L306.7 225.3 L282.5 214.8 L257.6 205.4 L231.8 197.2 L205.3 190.1 L177.9 184.2 L149.8 179.4 L120.8 175.8 L91.1 173.3 L60.6 172 Z" fill="#d64545"/>
+  <path d="M60.6 172 L91.1 173.3 L120.8 175.8 L149.8 179.4 L177.9 184.2 L205.3 190.1 L231.8 197.2 L257.6 205.4 L282.5 214.8 L306.7 225.3 L330 237.1 L352.4 249.9 L374 264 L394.8 279.2 L414.6 295.6 L433.6 313.1 L451.7 331.8 L439.9 342.6 L422.4 324.6 L404.1 307.7 L384.9 291.9 L364.9 277.2 L344.1 263.6 L322.4 251.1 L299.9 239.8 L276.5 229.6 L252.3 220.5 L227.3 212.5 L201.5 205.6 L174.9 199.9 L147.4 195.3 L119.2 191.7 L90.1 189.3 L60.2 188 Z" fill="#d98c38"/>
+  <path d="M60.2 188 L90.1 189.3 L119.2 191.7 L147.4 195.3 L174.9 199.9 L201.5 205.6 L227.3 212.5 L252.3 220.5 L276.5 229.6 L299.9 239.8 L322.4 251.1 L344.1 263.6 L364.9 277.2 L384.9 291.9 L404.1 307.7 L422.4 324.6 L439.9 342.6 L428.1 353.4 L411.2 336 L393.6 319.7 L375.1 304.5 L355.8 290.3 L335.7 277.2 L314.8 265.2 L293.1 254.3 L270.5 244.4 L247.1 235.6 L222.9 227.9 L197.8 221.2 L171.9 215.6 L145.1 211.1 L117.5 207.6 L89.1 205.3 L59.8 204 Z" fill="#4fb477"/>
+  <path d="M59.8 204 L89.1 205.3 L117.5 207.6 L145.1 211.1 L171.9 215.6 L197.8 221.2 L222.9 227.9 L247.1 235.6 L270.5 244.4 L293.1 254.3 L314.8 265.2 L335.7 277.2 L355.8 290.3 L375.1 304.5 L393.6 319.7 L411.2 336 L428.1 353.4 L416.3 364.2 L400.1 347.5 L383.1 331.8 L365.3 317.1 L346.7 303.5 L327.4 290.9 L307.2 279.3 L286.3 268.8 L264.5 259.2 L241.8 250.7 L218.4 243.2 L194 236.8 L168.8 231.3 L142.8 226.9 L115.9 223.6 L88.1 221.2 L59.4 220 Z" fill="#3394ad"/>
+  <path d="M59.4 220 L88.1 221.2 L115.9 223.6 L142.8 226.9 L168.8 231.3 L194 236.8 L218.4 243.2 L241.8 250.7 L264.5 259.2 L286.3 268.8 L307.2 279.3 L327.4 290.9 L346.7 303.5 L365.3 317.1 L383.1 331.8 L400.1 347.5 L416.3 364.2 L404.5 375 L388.9 358.9 L372.5 343.8 L355.5 329.7 L337.6 316.6 L319 304.5 L299.6 293.4 L279.5 283.2 L258.4 274.1 L236.6 265.8 L213.9 258.6 L190.3 252.3 L165.8 247 L140.5 242.7 L114.2 239.5 L87.1 237.2 L59 236 Z" fill="#4575e6"/>
+  <path d="M60.6 172 L91.1 173.3 L120.8 175.8 L149.8 179.4 L177.9 184.2 L205.3 190.1 L231.8 197.2 L257.6 205.4 L282.5 214.8 L306.7 225.3 L330 237.1 L352.4 249.9 L374 264 L394.8 279.2 L414.6 295.6 L433.6 313.1 L451.7 331.8" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M60.2 188 L90.1 189.3 L119.2 191.7 L147.4 195.3 L174.9 199.9 L201.5 205.6 L227.3 212.5 L252.3 220.5 L276.5 229.6 L299.9 239.8 L322.4 251.1 L344.1 263.6 L364.9 277.2 L384.9 291.9 L404.1 307.7 L422.4 324.6 L439.9 342.6" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M59.8 204 L89.1 205.3 L117.5 207.6 L145.1 211.1 L171.9 215.6 L197.8 221.2 L222.9 227.9 L247.1 235.6 L270.5 244.4 L293.1 254.3 L314.8 265.2 L335.7 277.2 L355.8 290.3 L375.1 304.5 L393.6 319.7 L411.2 336 L428.1 353.4" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M59.4 220 L88.1 221.2 L115.9 223.6 L142.8 226.9 L168.8 231.3 L194 236.8 L218.4 243.2 L241.8 250.7 L264.5 259.2 L286.3 268.8 L307.2 279.3 L327.4 290.9 L346.7 303.5 L365.3 317.1 L383.1 331.8 L400.1 347.5 L416.3 364.2" fill="none" stroke="#0c141c" stroke-width="2"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#10161d"/>
+      <g stroke="#46515c" stroke-width="11" stroke-linecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334"/>
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" stroke-width="15" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ic-beamfield" viewBox="0 0 512 512">
+      <linearGradient id="gi-beamfield-0" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d64545"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gi-beamfield-1" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d98c38"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gi-beamfield-3" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3394ad"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gi-beamfield-4" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4575e6"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <rect width="512" height="512" fill="url(#g-bg)"/>
+      <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M60.8 162 L91.7 163.4 L121.8 165.9 L151.2 169.5 L179.8 174.4 L207.6 180.4 L234.6 187.6 L260.9 195.9 L286.3 205.5 L310.9 216.3 L334.7 228.2 L357.6 241.4 L379.7 255.8 L400.9 271.3 L421.2 288.1 L440.6 306 L459 325 L449 334.2 L431.1 315.7 L412.3 298.3 L392.6 282.1 L372 267 L350.5 253 L328.3 240.2 L305.1 228.6 L281.2 218.1 L256.4 208.8 L230.8 200.6 L204.4 193.6 L177.2 187.7 L149.2 183 L120.4 179.4 L90.9 176.9 L60.5 175.6 Z" fill="url(#gi-beamfield-0)"/>
+  <path d="M60.5 175.6 L90.9 176.9 L120.4 179.4 L149.2 183 L177.2 187.7 L204.4 193.6 L230.8 200.6 L256.4 208.8 L281.2 218.1 L305.1 228.6 L328.3 240.2 L350.5 253 L372 267 L392.6 282.1 L412.3 298.3 L431.1 315.7 L449 334.2 L439 343.4 L421.6 325.4 L403.3 308.6 L384.2 292.8 L364.2 278.2 L343.4 264.6 L321.8 252.2 L299.4 240.9 L276.1 230.7 L251.9 221.6 L227 213.7 L201.2 206.8 L174.7 201.1 L147.3 196.4 L119 192.9 L90 190.5 L60.2 189.2 Z" fill="url(#gi-beamfield-1)"/>
+  <path d="M60.2 189.2 L90 190.5 L119 192.9 L147.3 196.4 L174.7 201.1 L201.2 206.8 L227 213.7 L251.9 221.6 L276.1 230.7 L299.4 240.9 L321.8 252.2 L343.4 264.6 L364.2 278.2 L384.2 292.8 L403.3 308.6 L421.6 325.4 L439 343.4 L429 352.6 L412.1 335.2 L394.4 318.8 L375.8 303.5 L356.5 289.3 L336.3 276.2 L315.4 264.2 L293.6 253.2 L270.9 243.3 L247.5 234.5 L223.2 226.7 L198.1 220 L172.1 214.4 L145.3 209.9 L117.6 206.5 L89.2 204.1 L59.8 202.8 Z" fill="#4fb477"/>
+  <path d="M59.8 202.8 L89.2 204.1 L117.6 206.5 L145.3 209.9 L172.1 214.4 L198.1 220 L223.2 226.7 L247.5 234.5 L270.9 243.3 L293.6 253.2 L315.4 264.2 L336.3 276.2 L356.5 289.3 L375.8 303.5 L394.4 318.8 L412.1 335.2 L429 352.6 L419 361.8 L402.6 344.9 L385.4 329.1 L367.5 314.3 L348.8 300.5 L329.3 287.8 L308.9 276.2 L287.8 265.5 L265.8 255.9 L243 247.3 L219.4 239.8 L194.9 233.3 L169.5 227.8 L143.3 223.4 L116.2 220 L88.3 217.7 L59.5 216.4 Z" fill="url(#gi-beamfield-3)"/>
+  <path d="M59.5 216.4 L88.3 217.7 L116.2 220 L143.3 223.4 L169.5 227.8 L194.9 233.3 L219.4 239.8 L243 247.3 L265.8 255.9 L287.8 265.5 L308.9 276.2 L329.3 287.8 L348.8 300.5 L367.5 314.3 L385.4 329.1 L402.6 344.9 L419 361.8 L409 371 L393.1 354.6 L376.5 339.3 L359.1 325 L341 311.7 L322.2 299.4 L302.5 288.1 L282 277.8 L260.7 268.5 L238.6 260.2 L215.6 252.8 L191.7 246.5 L167 241.1 L141.3 236.8 L114.8 233.5 L87.4 231.2 L59.2 230 Z" fill="url(#gi-beamfield-4)"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+  <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+    <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+  </g>
+  <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="mk-beamfield" viewBox="0 0 512 512">
+      <linearGradient id="gm-beamfield-0" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d64545"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gm-beamfield-1" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d98c38"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gm-beamfield-3" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#3394ad"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <linearGradient id="gm-beamfield-4" x1="92" y1="0" x2="420" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4575e6"/><stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+    <path d="M108 196H436" stroke="#46515c" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+      <path d="M61 156 L92.1 157.4 L122.5 159.9 L152.1 163.6 L180.9 168.5 L209 174.5 L236.3 181.8 L262.8 190.3 L288.6 199.9 L313.5 210.8 L337.5 223 L360.8 236.3 L383.1 250.9 L404.6 266.6 L425.1 283.5 L444.8 301.7 L463.5 321 L451.7 331.8 L433.6 313.1 L414.6 295.6 L394.8 279.2 L374 264 L352.4 249.9 L330 237.1 L306.7 225.3 L282.5 214.8 L257.6 205.4 L231.8 197.2 L205.3 190.1 L177.9 184.2 L149.8 179.4 L120.8 175.8 L91.1 173.3 L60.6 172 Z" fill="url(#gm-beamfield-0)"/>
+  <path d="M60.6 172 L91.1 173.3 L120.8 175.8 L149.8 179.4 L177.9 184.2 L205.3 190.1 L231.8 197.2 L257.6 205.4 L282.5 214.8 L306.7 225.3 L330 237.1 L352.4 249.9 L374 264 L394.8 279.2 L414.6 295.6 L433.6 313.1 L451.7 331.8 L439.9 342.6 L422.4 324.6 L404.1 307.7 L384.9 291.9 L364.9 277.2 L344.1 263.6 L322.4 251.1 L299.9 239.8 L276.5 229.6 L252.3 220.5 L227.3 212.5 L201.5 205.6 L174.9 199.9 L147.4 195.3 L119.2 191.7 L90.1 189.3 L60.2 188 Z" fill="url(#gm-beamfield-1)"/>
+  <path d="M60.2 188 L90.1 189.3 L119.2 191.7 L147.4 195.3 L174.9 199.9 L201.5 205.6 L227.3 212.5 L252.3 220.5 L276.5 229.6 L299.9 239.8 L322.4 251.1 L344.1 263.6 L364.9 277.2 L384.9 291.9 L404.1 307.7 L422.4 324.6 L439.9 342.6 L428.1 353.4 L411.2 336 L393.6 319.7 L375.1 304.5 L355.8 290.3 L335.7 277.2 L314.8 265.2 L293.1 254.3 L270.5 244.4 L247.1 235.6 L222.9 227.9 L197.8 221.2 L171.9 215.6 L145.1 211.1 L117.5 207.6 L89.1 205.3 L59.8 204 Z" fill="#4fb477"/>
+  <path d="M59.8 204 L89.1 205.3 L117.5 207.6 L145.1 211.1 L171.9 215.6 L197.8 221.2 L222.9 227.9 L247.1 235.6 L270.5 244.4 L293.1 254.3 L314.8 265.2 L335.7 277.2 L355.8 290.3 L375.1 304.5 L393.6 319.7 L411.2 336 L428.1 353.4 L416.3 364.2 L400.1 347.5 L383.1 331.8 L365.3 317.1 L346.7 303.5 L327.4 290.9 L307.2 279.3 L286.3 268.8 L264.5 259.2 L241.8 250.7 L218.4 243.2 L194 236.8 L168.8 231.3 L142.8 226.9 L115.9 223.6 L88.1 221.2 L59.4 220 Z" fill="url(#gm-beamfield-3)"/>
+  <path d="M59.4 220 L88.1 221.2 L115.9 223.6 L142.8 226.9 L168.8 231.3 L194 236.8 L218.4 243.2 L241.8 250.7 L264.5 259.2 L286.3 268.8 L307.2 279.3 L327.4 290.9 L346.7 303.5 L365.3 317.1 L383.1 331.8 L400.1 347.5 L416.3 364.2 L404.5 375 L388.9 358.9 L372.5 343.8 L355.5 329.7 L337.6 316.6 L319 304.5 L299.6 293.4 L279.5 283.2 L258.4 274.1 L236.6 265.8 L213.9 258.6 L190.3 252.3 L165.8 247 L140.5 242.7 L114.2 239.5 L87.1 237.2 L59 236 Z" fill="url(#gm-beamfield-4)"/>
+  <path d="M60 196 L89.6 197.3 L118.3 199.7 L146.3 203.2 L173.4 207.8 L199.6 213.4 L225.1 220.2 L249.7 228 L273.5 237 L296.5 247 L318.6 258.2 L339.9 270.4 L360.4 283.8 L380 298.2 L398.8 313.7 L416.8 330.3 L434 348 L454.3 370.1" fill="none" stroke="#dfe6ec"
+        stroke-width="4.5" stroke-dasharray="20 9 5 9" stroke-linecap="round"/>
+      <rect x="0" y="96" width="92" height="260" fill="#10161d"/>
+      <g stroke="#46515c" stroke-width="11" stroke-linecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334"/>
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" stroke-width="15" stroke-linecap="round"/>
+    </symbol>
+
+  </defs>
+</svg>
+
+<div class="wrap">
+  <header class="page">
+    <div class="eyebrow">DESIGN STUDY · BRAND</div>
+    <h1>MechCalc — logo candidates</h1>
+    <p class="lede">
+      Each mark is built from the toolkit's own visual language — the blueprint blue, the
+      green-to-red yield palette, engineering-drawing conventions — and shown where it will
+      actually live: the iPhone home screen, the browser tab, the app header.
+      <b>Moment Field (B4) is the shipped logo</b>; the rest stay here as the study that
+      chose it. Switching is one constant in <code>src/brand.tsx</code> plus one script run.
+    </p>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">A</span><h2>Blueprint</h2>
+    </div>
+    <p class="why">A bolt cross-section drawn to drafting convention — body circle, ¾ thread
+      arc, dash-dot centerlines on a drawing grid. The quietest and most "engineering
+      document" of the four; reads instantly as a mechanical drawing.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-blueprint"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-blueprint"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-blueprint"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-blueprint"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">B</span><h2>Stress Beam</h2><span class="chip chip-picked">CHOSEN DIRECTION</span>
+    </div>
+    <p class="why">The toolkit's signature moment: a cantilever bent by a tip load, painted by
+      how close it is to yielding — red at the wall, green at the free end — with the
+      undeflected line dashed behind it. The most "this app specifically" of the four,
+      and the most colorful at home-screen size.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-beam"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-beam"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-beam"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-beam"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">C</span><h2>Hex Monogram</h2>
+    </div>
+    <p class="why">A bold M inside a hex-nut outline — the classic app-icon play: simplest
+      silhouette, strongest at a distance, most conventional. The M is drawn with strokes,
+      not a font, so it renders identically everywhere down to 16&nbsp;px.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-hexm"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-hexm"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-hexm"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-hexm"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">D</span><h2>Yield Gauge</h2>
+    </div>
+    <p class="why">A safety-factor dial sweeping the app's stress palette, needle resting in
+      the green. Speaks to what every calculator here actually answers — "how close to
+      yield?" — with an instrument-panel feel.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-gauge"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-gauge"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-gauge"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-gauge"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <header class="page" style="margin-top: 34px">
+    <div class="eyebrow">ROUND 2 · STRESS BEAM VARIANTS</div>
+    <h1>Tension / compression studies</h1>
+    <p class="lede">
+      Four takes on the chosen beam, painted by <b>signed</b> bending stress using the app's own
+      scale from <code>stressColor.ts</code>: tension warms green&nbsp;→&nbsp;amber&nbsp;→&nbsp;red above the
+      neutral axis, compression cools green&nbsp;→&nbsp;teal&nbsp;→&nbsp;blue below it, and the neutral
+      axis runs through the middle as a drawing-convention dash-dot centerline.
+    </p>
+  </header>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">B1</span><h2>Split Fibers</h2>
+    </div>
+    <p class="why">The boldest reading: solid tension-red top flange, compression-blue bottom
+      flange, dark core between — and the neutral axis dash-dotted in green, the scale's
+      zero-stress color. The flattest and most poster-like of the four.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-beamsplit"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-beamsplit"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-beamsplit"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-beamsplit"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">B2</span><h2>Section Ramp</h2>
+    </div>
+    <p class="why">The signed stress scale sweeping smoothly through the section —
+      red&nbsp;→&nbsp;amber&nbsp;→&nbsp;green&nbsp;→&nbsp;teal&nbsp;→&nbsp;blue, exactly what
+      <code>signedStressColor()</code> paints on the 3D models. Neutral axis in white dash-dot.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-beamramp"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-beamramp"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-beamramp"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-beamramp"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">B3</span><h2>FEA Fringe</h2>
+    </div>
+    <p class="why">The same scale but in five discrete fringes with contour lines between —
+      the classic postprocessor plot look. Crisper than the ramp at large sizes; the bands
+      blend at favicon size.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-beamfringe"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-beamfringe"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-beamfringe"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-beamfringe"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <span class="key">B4</span><h2>Moment Field</h2><span class="chip">SHIPPED</span>
+    </div>
+    <p class="why">The most physically true: signed through the thickness <em>and</em> relaxing
+      to neutral green toward the free end, because the bending moment falls to zero at the
+      tip — red and blue at the wall, calm green where the load arrow lands.</p>
+    <div class="previews">
+      <div class="tile"><svg viewBox="0 0 512 512"><use href="#ic-beamfield"/></svg></div>
+      <div class="ctx">
+        <div class="ctx-row">
+          <div class="ctx-box"><span class="lab">iPhone home screen</span>
+            <div class="homescreen"><svg viewBox="0 0 512 512"><use href="#ic-beamfield"/></svg><span class="app-name">MechCalc</span></div>
+          </div>
+          <div class="ctx-box"><span class="lab">Browser tab</span>
+            <div class="tabbar-sim"><div class="tab"><svg viewBox="0 0 512 512"><use href="#ic-beamfield"/></svg><span>MechCalc — Engineering Calculators</span></div></div>
+          </div>
+        </div>
+        <div class="ctx-box"><span class="lab">App header</span>
+          <div><div class="lockup-sub">ENGINEERING DESIGN-CHECK TOOLKIT</div>
+          <div class="lockup"><svg viewBox="0 0 512 512"><use href="#mk-beamfield"/></svg><span class="word">MechCalc</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <b>To switch designs:</b> set <code>ACTIVE_DESIGN</code> in <code>src/brand.tsx</code> to
+    <code>"blueprint"</code> · <code>"beam"</code> · <code>"hexm"</code> · <code>"gauge"</code> ·
+    <code>"beamsplit"</code> · <code>"beamramp"</code> · <code>"beamfringe"</code> · <code>"beamfield"</code>,
+    then run <code>node scripts/render-icons.mjs</code>. That updates the header mark, favicon,
+    and the home-screen icons (apple-touch-icon + PWA manifest icons) together. Sources live in
+    <code>public/brand/&lt;design&gt;/icon.svg</code>.
+  </footer>
+</div>
+</body>
+</html>

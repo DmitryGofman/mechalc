@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Design C "Hex Monogram" — a bold stroke-built M inside a hex-nut
+       outline. The M is drawn with strokes, not a font, so it renders
+       identically everywhere down to favicon size. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d131a"/>
+      <stop offset="1" stop-color="#080c10"/>
+    </linearGradient>
+    <linearGradient id="hex" x1="167" y1="102" x2="345" y2="410" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#5a95d8"/>
+      <stop offset="1" stop-color="#2e639f"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- hex nut -->
+  <polygon points="434,256 345,101.8 167,101.8 78,256 167,410.2 345,410.2"
+           fill="#0c141c" stroke="url(#hex)" stroke-width="30" stroke-linejoin="round"/>
+
+  <!-- M -->
+  <polyline points="186,336 186,178 256,284 326,178 326,336"
+            fill="none" stroke="#e8edf1" stroke-width="33"
+            stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
