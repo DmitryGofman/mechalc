@@ -79,8 +79,12 @@ its concept, not its letter.
 - Live recompute on every input, no "calculate" button, ever.
 - Verdict colors (green/amber/red) on safety factors; warnings appear only
   when true.
-- Phone-first: usable at 390px, `viewport` meta, touch targets, canvases
-  sized responsively.
+- Phone-first, per the "Mobile compatibility" section of
+  `design-language.md`: `viewport` meta, Pointer Events +
+  `touch-action: none` on any draggable canvas, CSS-driven canvas sizing,
+  no horizontal scroll at 390px, fingertip-sized targets. Prototypes are
+  reviewed from a phone via the Pages link — a desktop-only prototype
+  loses the comparison unfairly.
 - A **no-JS banner** that self-diagnoses: a visible warning `<div>` that an
   inline script immediately removes — so it shows precisely when scripts are
   blocked (chat-app file previews are the usual culprit) and tells the user

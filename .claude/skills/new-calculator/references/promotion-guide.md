@@ -149,8 +149,11 @@ Walk this list; each item verified, not assumed:
 - [ ] Theory tab numbers match Model tab readouts exactly (spot-check three)
 - [ ] Recommendation (if any) always passes its own checks across a sweep
 - [ ] Empty/zero load ⇒ capacity mode, neutral colors
-- [ ] Phone pass at ~390px: header compact, toggle pinned, nothing clipped,
-      canvas responsive, touch drag works
+- [ ] Phone pass at ~390px (see "Mobile compatibility" in
+      `design-language.md`): no horizontal scroll, header compact, toggle
+      pinned, nothing clipped, canvas resizes with the viewport, touch drag
+      grabs the model without scrolling the page (Pointer Events +
+      `touch-action: none`), haptics behind a capability check
 - [ ] PDF export: bench sheet and full report both render on white with a
       crisp figure
 - [ ] Route + Home card + README all updated and consistent

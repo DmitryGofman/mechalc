@@ -166,3 +166,9 @@ honest about scope ("design-check tools, not a substitute for full analysis").
 - **Scope honesty.** Reference-quality typical values, "verify before
   production use", stated validity limits. Never present the tool as more
   than a fast closed-form design check.
+- **Phone-compatible or not done.** Every deliverable in both phases —
+  prototypes and promoted calculators alike — must work one-handed on a
+  ~390px phone: touch-draggable simulation that doesn't scroll the page, no
+  horizontal overflow, compact header. The "Mobile compatibility" section of
+  `references/design-language.md` lists the exact mechanics; the phone pass
+  is a checklist item, not a nice-to-have.

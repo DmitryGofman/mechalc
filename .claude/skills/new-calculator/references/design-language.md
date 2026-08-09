@@ -83,12 +83,43 @@ Sign convention everywhere: + tension warm, − compression cool.
 - Content column max-width ~760–860px, centered, generous vertical rhythm.
 - Two-column input grids that collapse on phones; the simulation gets a full-
   width stage (~300–340px tall, less on phones).
-- **Phone-first is non-negotiable** — these get used at the bench. Headers
-  compact on small widths, unit toggles pin to the top right, number+unit
-  never wraps apart (see the `@media` blocks in `src/styles.css` and the
-  responsive commits in `git log`). Test at ~390px width before calling
-  anything done.
 - Every page ends with a scope-honesty footer line in `--faint` mono.
+
+## Mobile compatibility (non-negotiable)
+
+These tools get used one-handed at the bench and reviewed from a phone in
+chat links — a calculator that only works on a desktop is not done. The
+mechanics the existing calculators use, all of which are required:
+
+- `<meta name="viewport" content="width=device-width, initial-scale=1" />`
+  on every prototype page (the React app already has it).
+- **Interactive canvases use Pointer Events, not mouse events**: one
+  `pointerdown/pointermove/pointerup/pointerleave/pointercancel` set with
+  `setPointerCapture`, listeners registered `{ passive: false }`, plus
+  `el.style.touchAction = "none"` (and a `touchmove` preventDefault blocker)
+  so dragging the model never scrolls the page — copy the wiring from the
+  scene component in `ColumnCalc.tsx`. One code path then serves mouse,
+  touch, and pen.
+- **Canvas sizing lives in CSS**, and the renderer follows it (resize
+  observer / measured mount), so the stage shrinks with the viewport instead
+  of overflowing; stage heights step down on small screens
+  (`.clamp-stage` 340px → 290px at 520px in `styles.css`).
+- **No horizontal scroll, ever.** Grids collapse (`minmax(0, 1fr)` columns,
+  `min-width: 0` on flex/grid children so long labels shrink instead of
+  pushing), the number+unit pair never wraps apart, and trailing hints wrap
+  onto their own line (`Readout` in `ui.tsx` shows the pattern).
+- **Headers compact** below ~560px: title allowed to wrap, formula asides
+  shrink, the metric/imperial toggle stays pinned top-right at a smaller
+  size — see the `.bolt-header` media block in `styles.css` and the
+  "keep the formulas on phones" / "compact the header" commits.
+- **Touch targets** stay comfortable: inputs and tab buttons keep their
+  padding on phones; nothing interactive shrinks below fingertip size.
+- **Haptics degrade gracefully**: `navigator.vibrate` behind a capability
+  check (it is absent on iOS Safari) — feel is a bonus, never a dependency.
+- **Verify on a narrow viewport (~390px) before calling anything done**:
+  resize the browser or use device emulation, and actually drag the scene
+  with touch emulation on. When Playwright is available (it is a dev
+  dependency), a quick scripted screenshot at 390×844 is the honest check.
 
 ## Home catalog
 
