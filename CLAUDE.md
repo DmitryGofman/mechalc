@@ -29,6 +29,16 @@ README. Shared pieces: `ui.tsx` (Field/Select/Readout), `materials.ts`,
 `stressColor.ts`, and the `flexure-*` CSS classes, which carry the responsive
 layout for free.
 
+## Branding
+
+The logo lives in `src/brand.tsx` — `LogoMark` draws it inline (with a reduced
+detail level below 56px, where hatching and dash-dot centerlines stop
+resolving), and `ACTIVE_DESIGN` names which of the candidates in
+`public/brand/` is current. **The favicon and home-screen icons are committed
+PNGs, not generated at build time**: after touching any `public/brand/*/icon.svg`
+or switching `ACTIVE_DESIGN`, run `node scripts/render-icons.mjs` or the site
+keeps serving the old icon.
+
 ## After you change anything: publish a preview
 
 The user wants to **use** the app after a change, not read about it, and has

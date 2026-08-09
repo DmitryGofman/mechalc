@@ -42,7 +42,7 @@ npm run preview    # preview the production build
 src/
   main.tsx                  app entry
   App.tsx                   route table + calculator page shell
-  brand.tsx                 logo mark (four designs; ACTIVE_DESIGN picks one)
+  brand.tsx                 logo mark (eight candidates; ACTIVE_DESIGN picks one)
   router.tsx                minimal history router (hash fallback for file://)
   ui.tsx                    shared Field / Select / Readout controls
   styles.css                global reset + fonts + shared layout
