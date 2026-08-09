@@ -56,6 +56,15 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
+    href: `${import.meta.env.BASE_URL}designs/pinjoint/design-c-3d.html`,
+    tag: "Fasteners",
+    title: "Pin & Bolt Shear Joint",
+    desc: "A pin or bolt loaded in shear through two or three flanges, each its own material — every Shigley 8-23 failure mode checked: pin shear & bending, bearing both ways, net section, edge tear-out. Grab the 3D clevis and pull until something gives; every zone painted by its own failure mode. Alternate prototypes (control panel, pull-to-failure ladder) on the design-study hub.",
+    eq: "τ = F / n·(πd²/4)",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/buckling-calculator",
     tag: "Structures",
     title: "Column Buckling",
