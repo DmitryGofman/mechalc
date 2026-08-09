@@ -62,6 +62,22 @@
   .seg button.on{background:#12253c;color:var(--blue)}
   .note{font-family:var(--sans);font-size:11.5px;color:var(--dim);line-height:1.7;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
   .note strong{color:#c2ccd4}
+
+  .verdict{border:1px solid;border-radius:3px;padding:10px 12px;margin-top:8px}
+  .verdict .v1{font-family:var(--mono);font-size:13px;font-weight:700;letter-spacing:.06em}
+  .verdict .v2{font-family:var(--mono);font-size:9.5px;color:var(--dim);margin-top:3px;line-height:1.7}
+  .mrow{display:grid;grid-template-columns:1fr 86px 60px;gap:8px;align-items:baseline;padding:5px 0;
+    border-bottom:1px solid #10161c;font-family:var(--mono)}
+  .mrow:last-child{border-bottom:none}
+  .mrow .l{font-size:10.5px;color:var(--dim)}
+  .mrow .s{font-size:10px;color:var(--faint);text-align:right;font-variant-numeric:tabular-nums}
+  .mrow .sf{font-size:11.5px;font-weight:600;text-align:right;font-variant-numeric:tabular-nums}
+  .mrow.gov{background:#0d1521;outline:1px solid #17324e;border-radius:2px}
+  .mrow.gov .l{color:var(--ink)}
+  .warn{font-family:var(--mono);font-size:9.5px;line-height:1.7;border:1px solid;border-radius:3px;padding:7px 10px;margin-top:6px}
+  .warn.bad{color:#e0a3a3;border-color:#5a2a2a;background:#160d0f}
+  .warn.warn{color:#d9c391;border-color:#5a4a2a;background:#141008}
+  .warn.info{color:var(--dim);border-color:var(--line2);background:var(--panel)}
 </style>
 </head>
 <body>
@@ -94,6 +110,8 @@
   </div>
   <div class="chips" id="chips"></div>
 
+  <div class="verdict" id="verdict"><div class="v1">—</div><div class="v2">—</div></div>
+
   <details open><summary>Joint · geometry · materials</summary>
     <div class="dbody">
       <div class="seg" id="cfgseg">
@@ -113,6 +131,12 @@
       <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
     </div>
   </details>
+
+  <details><summary>All failure modes — worst governs</summary>
+    <div style="padding:2px 11px 11px" id="mrows"></div>
+  </details>
+
+  <div id="warns"></div>
 
   <div class="note"><strong>What the colors mean:</strong> every zone is painted by its own check — neutral green far
   from yield, amber at half margin, red at the limit. The crescent at each hole is bearing; the ligament to the short
@@ -392,9 +416,37 @@ function render(){
   $("verd").innerHTML=`<span style="color:${vc}">${r.holds?(r.meetsTarget?"HOLDS":"UNDER TARGET"):"FAILS"}</span><br>`+
     `<span style="color:var(--faint);font-weight:400">capacity ${f(r.Fcap/1000,2)} kN</span>`;
 
-  // chips
+  updatePanels();
+}
+
+// The panels below the stage: chips, verdict, mode table, warnings. Throttled —
+// render() runs per orbit frame, but these numbers only move with the inputs.
+let lastPanel=0;
+function updatePanels(force){
+  const now=performance.now();
+  if(!force&&now-lastPanel<100)return;
+  lastPanel=now;
+
   const chips=[["pin",r.partSF.pin],...r.members.map(m=>[m.label,r.partSF[m.key]])];
   $("chips").innerHTML=chips.map(([k,sf])=>`<span class="chip" style="color:${col(sf)};border-color:${col(sf)}">${k} · SF ${f(sf,2)}</span>`).join("");
+
+  const v=$("verdict");
+  const vc=r.holds?(r.meetsTarget?"var(--green)":"var(--amber)"):"var(--red)";
+  v.style.borderColor=vc; v.style.background=r.holds?(r.meetsTarget?"#0d1710":"#151107"):"#170d0e";
+  v.querySelector(".v1").style.color=vc;
+  v.querySelector(".v1").textContent=r.holds?(r.meetsTarget?"JOINT HOLDS":"HOLDS — UNDER TARGET SF"):"JOINT FAILS";
+  v.querySelector(".v2").innerHTML=
+    `governing: <b style="color:var(--ink)">${r.governing.label}</b> · joint SF <b style="color:${vc}">${f(r.SFjoint,2)}</b>`+
+    ` · capacity ≈ <b style="color:var(--ink)">${f(r.Fcap/1000,2)} kN</b>`;
+
+  $("mrows").innerHTML=r.modes.map(m=>`
+    <div class="mrow${m===r.governing?" gov":""}">
+      <span class="l">${m.label}</span>
+      <span class="s">${m.kind} ${f(m.stress,1)} / ${f(m.allow,0)} MPa</span>
+      <span class="sf" style="color:${col(m.SF)}">${f(m.SF,2)}</span>
+    </div>`).join("");
+
+  $("warns").innerHTML=r.warns.map(wn=>`<div class="warn ${wn.level}">${wn.text}</div>`).join("");
 }
 
 function refresh(){
@@ -404,6 +456,7 @@ function refresh(){
   if(+$("F").max!==FMAX)$("F").max=FMAX;
   $("fv").textContent=f(+$("F").value,2)+" kN";
   render();
+  updatePanels(true);
 }
 
 /* ── interaction ── */
