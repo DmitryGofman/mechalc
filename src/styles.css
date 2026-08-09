@@ -378,14 +378,14 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
 
 /* ── PDF export ─────────────────────────────────────────────────────────
    No PDF library can be loaded, so export goes through the browser's own
-   print-to-PDF. It renders a DOCUMENT (#clampPrint, mounted only while
+   print-to-PDF. It renders a DOCUMENT (.calc-print, mounted only while
    printing) rather than re-skinning the live page. The old approach fought
    inline styles it could not win against — an inline `background:#080c10`
    beats any @media print rule without !important — and exports came out with
    black slabs, unreadable dark-on-dark text and a full black page where the
    dimension diagram was. Here the print tree is authored for paper from the
    start, and everything else is simply not printed. */
-#clampPrint { display: none; }
+.calc-print { display: none; }
 
 @media print {
   @page { margin: 15mm 13mm; }
@@ -396,73 +396,73 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   .app-shell { background: #fff !important; min-height: 0 !important; }
   .app-crumb { display: none !important; }
   .clamp-page > * { display: none !important; }
-  .clamp-page > #clampPrint { display: block !important; }
+  .clamp-page > .calc-print { display: block !important; }
   .flexure-shell { max-width: none !important; padding: 0 !important; }
   .clamp-page { max-width: none !important; color: #111; }
 
   /* ── document furniture ── */
-  #clampPrint .ph { border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
-  #clampPrint .ph h1 { font-size: 17px; margin: 0 0 3px; color: #111; font-weight: 600; }
-  #clampPrint .ph .meta { font-family: var(--mono); font-size: 8.5px; color: #555; line-height: 1.65; }
-  #clampPrint .sec { font-size: 12.5px; color: #111; font-weight: 600; margin: 16px 0 6px;
+  .calc-print .ph { border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
+  .calc-print .ph h1 { font-size: 17px; margin: 0 0 3px; color: #111; font-weight: 600; }
+  .calc-print .ph .meta { font-family: var(--mono); font-size: 8.5px; color: #555; line-height: 1.65; }
+  .calc-print .sec { font-size: 12.5px; color: #111; font-weight: 600; margin: 16px 0 6px;
     border-bottom: 1px solid #999; padding-bottom: 3px; page-break-after: avoid; }
-  #clampPrint .sec.brk { page-break-before: always; }
-  #clampPrint .foot { font-family: var(--mono); font-size: 8px; color: #666; line-height: 1.7;
+  .calc-print .sec.brk { page-break-before: always; }
+  .calc-print .foot { font-family: var(--mono); font-size: 8px; color: #666; line-height: 1.7;
     margin-top: 14px; padding-top: 7px; border-top: 1px solid #bbb; }
 
   /* ── the 3D figure ── */
-  #clampPrint .fig { margin: 0 0 12px; page-break-inside: avoid; }
-  #clampPrint .fig img { display: block; width: 100%; height: auto; border: 1px solid #bbb; }
+  .calc-print .fig { margin: 0 0 12px; page-break-inside: avoid; }
+  .calc-print .fig img { display: block; width: 100%; height: auto; border: 1px solid #bbb; }
   /* The bench sheet is a one-page promise, and the figure is the only elastic
      thing on it — cap its height and let the width follow. */
-  #clampPrint.brief .fig { margin-bottom: 8px; }
-  #clampPrint.brief .fig img { width: auto; max-width: 100%; max-height: 34mm; margin: 0 auto; }
-  #clampPrint.brief .ph { padding-bottom: 6px; margin-bottom: 9px; }
-  #clampPrint.brief h2 { margin: 9px 0 3px; }
-  #clampPrint.brief table.rep td, #clampPrint.brief table.rep th { padding: 2px 6px; }
-  #clampPrint.brief .eqs { line-height: 1.7; }
-  #clampPrint.brief .foot { margin-top: 9px; }
-  #clampPrint .fig figcaption { font-family: var(--mono); font-size: 8px; color: #555;
+  .calc-print.brief .fig { margin-bottom: 8px; }
+  .calc-print.brief .fig img { width: auto; max-width: 100%; max-height: 34mm; margin: 0 auto; }
+  .calc-print.brief .ph { padding-bottom: 6px; margin-bottom: 9px; }
+  .calc-print.brief h2 { margin: 9px 0 3px; }
+  .calc-print.brief table.rep td, .calc-print.brief table.rep th { padding: 2px 6px; }
+  .calc-print.brief .eqs { line-height: 1.7; }
+  .calc-print.brief .foot { margin-top: 9px; }
+  .calc-print .fig figcaption { font-family: var(--mono); font-size: 8px; color: #555;
     line-height: 1.6; margin-top: 4px; }
 
   /* ── the one-page bench sheet, reused as the summary of the full report ── */
-  #clampPrint .headline { border: 2px solid #0a6b3d; border-radius: 3px; padding: 9px 12px;
+  .calc-print .headline { border: 2px solid #0a6b3d; border-radius: 3px; padding: 9px 12px;
     margin-bottom: 10px; display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
     background: #fff; page-break-inside: avoid; }
-  #clampPrint .headline .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: #0a6b3d; }
-  #clampPrint .headline .w { font-family: var(--mono); font-size: 9.5px; color: #333; }
-  #clampPrint h2 { font-size: 12px; margin: 12px 0 4px; color: #111;
+  .calc-print .headline .n { font-family: var(--mono); font-size: 20px; font-weight: 700; color: #0a6b3d; }
+  .calc-print .headline .w { font-family: var(--mono); font-size: 9.5px; color: #333; }
+  .calc-print h2 { font-size: 12px; margin: 12px 0 4px; color: #111;
     border-bottom: 1px solid #999; padding-bottom: 3px; page-break-after: avoid; }
-  #clampPrint .eqs { font-family: var(--mono); font-size: 9px; color: #333; line-height: 1.85; }
+  .calc-print .eqs { font-family: var(--mono); font-size: 9px; color: #333; line-height: 1.85; }
 
   /* ── shared content classes, re-coloured for ink ── */
-  #clampPrint .theory { margin-top: 0; }
-  #clampPrint .theory .lab, #clampPrint .eqn .lead { color: #14459b; }
-  #clampPrint .theory p, #clampPrint .theory h3, #clampPrint .theory h4 { color: #222; }
-  #clampPrint .theory p b { color: #000; }
-  #clampPrint .linkish { display: none; }
-  #clampPrint .theory p.pn.warn { color: #7a4e00; }
-  #clampPrint .theory p.pn.bad { color: #8f1a1a; }
-  #clampPrint .theory h3 { page-break-after: avoid; }
-  #clampPrint .mth, #clampPrint .eqn .sub { color: #111; }
-  #clampPrint .eqn .res { color: #0a6b3d; }
-  #clampPrint .eqn .res.bad { color: #a01d1d; }
-  #clampPrint .eqn .res.warn { color: #8a5a00; }
-  #clampPrint .eqn .cmt { color: #444; }
-  #clampPrint .eqn { page-break-inside: avoid; }
-  #clampPrint .tip { border-left-color: #bbb; }
-  #clampPrint .tip.key { border-left-color: #0a6b3d; }
-  #clampPrint .tip.warn { border-left-color: #8a5a00; }
-  #clampPrint .tip.bad { border-left-color: #a01d1d; }
-  #clampPrint .tipnum { background: #f4f4f4; border-left-color: #bbb; color: #444; }
-  #clampPrint .tipnum b { color: #111; }
-  #clampPrint .clamp-dims svg { background: #fff; border: 1px solid #bbb; }
+  .calc-print .theory { margin-top: 0; }
+  .calc-print .theory .lab, .calc-print .eqn .lead { color: #14459b; }
+  .calc-print .theory p, .calc-print .theory h3, .calc-print .theory h4 { color: #222; }
+  .calc-print .theory p b { color: #000; }
+  .calc-print .linkish { display: none; }
+  .calc-print .theory p.pn.warn { color: #7a4e00; }
+  .calc-print .theory p.pn.bad { color: #8f1a1a; }
+  .calc-print .theory h3 { page-break-after: avoid; }
+  .calc-print .mth, .calc-print .eqn .sub { color: #111; }
+  .calc-print .eqn .res { color: #0a6b3d; }
+  .calc-print .eqn .res.bad { color: #a01d1d; }
+  .calc-print .eqn .res.warn { color: #8a5a00; }
+  .calc-print .eqn .cmt { color: #444; }
+  .calc-print .eqn { page-break-inside: avoid; }
+  .calc-print .tip { border-left-color: #bbb; }
+  .calc-print .tip.key { border-left-color: #0a6b3d; }
+  .calc-print .tip.warn { border-left-color: #8a5a00; }
+  .calc-print .tip.bad { border-left-color: #a01d1d; }
+  .calc-print .tipnum { background: #f4f4f4; border-left-color: #bbb; color: #444; }
+  .calc-print .tipnum b { color: #111; }
+  .calc-print .clamp-dims svg { background: #fff; border: 1px solid #bbb; }
 
   /* Tables: the dark fill sat on the CELLS, so a rule on the ROW never won —
      that is the black bar that used to cut through the report. */
-  #clampPrint table.rep { page-break-inside: avoid; }
-  #clampPrint table.rep td { color: #333; background: #fff; border-bottom-color: #ddd; }
-  #clampPrint table.rep th { color: #555; background: #fff; border-bottom-color: #999; }
-  #clampPrint table.rep td.v { color: #111; }
-  #clampPrint table.rep tr.hi td { color: #111; background: #f0f0f0; }
+  .calc-print table.rep { page-break-inside: avoid; }
+  .calc-print table.rep td { color: #333; background: #fff; border-bottom-color: #ddd; }
+  .calc-print table.rep th { color: #555; background: #fff; border-bottom-color: #999; }
+  .calc-print table.rep td.v { color: #111; }
+  .calc-print table.rep tr.hi td { color: #111; background: #f0f0f0; }
 }
