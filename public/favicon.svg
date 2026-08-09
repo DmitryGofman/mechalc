@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <!-- Design B "Stress Beam" — the app's signature: a cantilever bending under
        a tip load, painted by how close it is to yielding (red at the wall,
-       green at the free end), with the undeflected line dashed behind it. -->
+       green at the free end), with the undeflected line dashed behind it.
+       The beam starts under the wall slab (drawn after it), so it emerges
+       from the support instead of butting against a line. -->
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#0d131a"/>
@@ -15,12 +17,6 @@
   </defs>
   <rect width="512" height="512" fill="url(#bg)"/>
 
-  <!-- fixed wall with hatching -->
-  <g stroke="#46515c" stroke-width="9" stroke-linecap="round">
-    <path d="M88 118V330"/>
-    <path d="M88 140 62 166M88 186 62 212M88 232 62 258M88 278 62 304M88 324 62 350" stroke-width="7"/>
-  </g>
-
   <!-- undeflected position -->
   <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
         stroke-linecap="round"/>
@@ -31,7 +27,14 @@
     <path d="M436 316 409 268h54z" stroke="none"/>
   </g>
 
-  <!-- the beam, colored by bending stress -->
-  <path d="M92 196 Q 300 202 434 348" fill="none" stroke="url(#stress)"
+  <!-- the beam, colored by bending stress; starts inside the wall -->
+  <path d="M60 196 Q 300 202 434 348" fill="none" stroke="url(#stress)"
         stroke-width="52" stroke-linecap="round"/>
+
+  <!-- fixed wall: a hatched slab running off the frame, over the beam root -->
+  <rect x="0" y="96" width="92" height="260" fill="#131b23"/>
+  <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
+    <path d="M84 128 56 156M84 172 56 200M84 216 56 244M84 260 56 288M84 304 56 332"/>
+  </g>
+  <path d="M92 96V356" stroke="#6b7884" stroke-width="9" stroke-linecap="round"/>
 </svg>

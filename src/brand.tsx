@@ -36,16 +36,17 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
           <stop offset="1" stopColor="#4fb477" />
         </linearGradient>
       </defs>
-      <g stroke="#6b7884" strokeWidth="16" strokeLinecap="round">
-        <path d="M88 118V330" />
-        <path d="M88 140 62 166M88 186 62 212M88 232 62 258M88 278 62 304M88 324 62 350" strokeWidth="12" />
-      </g>
       <path d="M108 196H436" stroke="#46515c" strokeWidth="12" strokeDasharray="4 30" strokeLinecap="round" />
       <g stroke="#5a95d8" fill="#5a95d8">
         <path d="M436 122V254" strokeWidth="22" strokeLinecap="round" />
         <path d="M436 316 401 254h70z" stroke="none" />
       </g>
-      <path d="M92 196 Q 300 202 434 348" fill="none" stroke="url(#lg-stress)" strokeWidth="62" strokeLinecap="round" />
+      <path d="M60 196 Q 300 202 434 348" fill="none" stroke="url(#lg-stress)" strokeWidth="62" strokeLinecap="round" />
+      <rect x="0" y="96" width="92" height="260" fill="#10161d" />
+      <g stroke="#46515c" strokeWidth="11" strokeLinecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334" />
+      </g>
+      <path d="M92 96V356" stroke="#8b97a3" strokeWidth="15" strokeLinecap="round" />
     </>
   ),
   hexm: (
