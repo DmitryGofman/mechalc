@@ -23,8 +23,8 @@
 
   <!-- tip load arrow -->
   <g stroke="#5a95d8" fill="#5a95d8">
-    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
-    <path d="M436 316 409 268h54z" stroke="none"/>
+    <path d="M436 77V217" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 265 409 217h54z" stroke="none"/>
   </g>
 
   <!-- the beam, colored by bending stress; starts inside the wall -->
