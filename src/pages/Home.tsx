@@ -15,6 +15,7 @@ type CalcCard = {
   eq: string;
   ready: boolean;
   wip?: boolean; // clickable, but still being refined — amber status chip
+  explore?: boolean; // a map to wander, not a check to run — blue status chip
 };
 
 // Three tiers: the refined flagships we stand behind, the ones still in
@@ -125,12 +126,28 @@ const PLANNED: CalcCard[] = [
   },
 ];
 
+// Not calculators: you don't put numbers in and get a check out. You wander
+// around a property space until you know which materials are even candidates.
+const MAPS: CalcCard[] = [
+  {
+    route: "/materials-map",
+    tag: "Materials selection",
+    title: "Materials Map — Ashby Chart",
+    desc: "Every material class as a range-ellipse on log-log axes — any pair of eight properties, zoomable and pannable like a map. Pick a minimum-mass design case (or your own slope) and drag the guideline: the shortlist ranks the survivors by the index, with a property passport per material.",
+    eq: "M = Eᵃ/ρ",
+    ready: true,
+    explore: true,
+    badge: "EXPLORE",
+  },
+];
+
 function Card({ c }: { c: CalcCard }) {
-  // Three visual states: refined (green), in-progress (amber, still clickable),
-  // planned (muted gray, not clickable).
-  const accent = c.wip ? "#cf9f52" : c.ready ? "#4fb477" : "#6b7884";
-  const tagColor = c.wip ? "#b98a3e" : c.ready ? "#3a78c2" : "#46515c";
-  const badgeBorder = c.wip ? "#5a4a2a" : c.ready ? "#4fb477" : "#2a3540";
+  // Four visual states: refined (green), in-progress (amber, still clickable),
+  // exploration map (blue — works, but it's a map not a check), planned
+  // (muted gray, not clickable).
+  const accent = c.explore ? "#5f9bd8" : c.wip ? "#cf9f52" : c.ready ? "#4fb477" : "#6b7884";
+  const tagColor = c.wip && !c.explore ? "#b98a3e" : c.ready ? "#3a78c2" : "#46515c";
+  const badgeBorder = c.explore ? "#2f4d70" : c.wip ? "#5a4a2a" : c.ready ? "#4fb477" : "#2a3540";
   const badgeText = c.badge ?? (c.wip ? "IN PROGRESS" : c.ready ? "READY" : "PLANNED");
   const body = (
     <>
@@ -303,6 +320,15 @@ export default function Home() {
 
         <Section label="Planned" note="On the roadmap, landing in the same style.">
           {PLANNED.map((c) => (
+            <Card key={c.title} c={c} />
+          ))}
+        </Section>
+
+        <Section
+          label="Exploration maps"
+          note="Not calculators — property spaces you can wander to see what's even a candidate."
+        >
+          {MAPS.map((c) => (
             <Card key={c.title} c={c} />
           ))}
         </Section>

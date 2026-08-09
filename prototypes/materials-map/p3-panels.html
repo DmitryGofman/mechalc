@@ -1,0 +1,207 @@
+<title>Material Panels — one material, four views</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --ring: rgba(11, 11, 11, 0.1);
+    --accent: #2a78d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --ring: rgba(255, 255, 255, 0.1);
+      --accent: #3987e5;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 12px 18px 4px; }
+  h1 { font-size: 15px; font-weight: 650; margin: 0; }
+  h1 small { color: var(--muted); font-weight: 450; margin-left: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--ink-2); background: var(--surface); border: 1px solid var(--ring); border-radius: 999px; padding: 3px 10px 3px 7px; cursor: pointer; user-select: none; }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chip.off { opacity: 0.38; }
+  .wrap { display: grid; grid-template-columns: 1fr 292px; gap: 12px; padding: 10px 18px 18px; align-items: start; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .panel { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 10px 10px 4px; }
+  .panel h2 { margin: 0 0 2px 6px; font-size: 12px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+  .panel svg { display: block; width: 100%; height: 250px; }
+  #card { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 14px 16px; position: sticky; top: 12px; min-height: 340px; }
+  #card .empty { color: var(--muted); font-size: 13px; padding-top: 20px; }
+  #card .band { height: 5px; border-radius: 3px; margin: -4px -6px 10px; }
+  #card h3 { margin: 0; font-size: 16px; }
+  #card .fam { font-size: 11px; text-transform: uppercase; letter-spacing: 0.07em; margin: 2px 0 10px; }
+  #card table { width: 100%; border-collapse: collapse; }
+  #card td { padding: 4px 0; font-size: 13px; color: var(--ink-2); border-bottom: 1px solid var(--grid); }
+  #card td:last-child { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #card .pin-note { font-size: 11.5px; color: var(--muted); margin-top: 10px; }
+  @media (max-width: 980px) { .wrap { grid-template-columns: 1fr; } #card { position: static; min-height: 0; } }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+</style>
+
+<header>
+  <h1>Material Panels <small>hover any dot — the same material lights up in all four views; click to pin</small></h1>
+  <div class="chips" id="chips"></div>
+</header>
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+  <div id="card"><div class="empty">Hover a material to see its full property card here.</div></div>
+</div>
+
+<script src="materials-data.js"></script>
+<script>
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const dark = () => document.documentElement.dataset.theme === "dark" || (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const famColor = (fid) => (dark() ? FAM_BY_ID[fid].dark : FAM_BY_ID[fid].light);
+  const lg = Math.log10;
+  const fmt = (v) => (v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? +v.toPrecision(3) : +v.toPrecision(2));
+  const fmtRange = (r, unit) => (r ? `${fmt(r[0])} – ${fmt(r[1])} ${unit}` : "—");
+
+  const PANELS = [
+    { title: "Strength vs density", x: "rho", y: "sig" },
+    { title: "Stiffness vs density", x: "rho", y: "E" },
+    { title: "Conductivity vs expansion", x: "cte", y: "k" },
+    { title: "Toughness vs hardness", x: "hv", y: "kic" },
+  ];
+  const visible = Object.fromEntries(FAMILIES.map((f) => [f.id, true]));
+  let hovered = null, pinned = null;
+  const active = () => pinned || hovered;
+
+  // family chips
+  const chips = document.getElementById("chips");
+  for (const f of FAMILIES) {
+    const c = document.createElement("button");
+    c.className = "chip";
+    c.innerHTML = `<span class="dot"></span>${f.name}`;
+    c.querySelector(".dot").style.background = famColor(f.id);
+    c.onclick = () => { visible[f.id] = !visible[f.id]; c.classList.toggle("off", !visible[f.id]); renderAll(); };
+    chips.appendChild(c);
+  }
+
+  // build panels
+  const grid = document.getElementById("grid");
+  const panels = PANELS.map((p) => {
+    const d = document.createElement("div");
+    d.className = "panel";
+    d.innerHTML = `<h2>${p.title}</h2>`;
+    const s = el("svg");
+    d.appendChild(s);
+    grid.appendChild(d);
+    return { ...p, svg: s };
+  });
+
+  const PAD = { l: 44, r: 10, t: 8, b: 26 };
+  function renderPanel(p) {
+    const svg = p.svg;
+    const w = svg.clientWidth, h = svg.clientHeight;
+    svg.textContent = "";
+    const pts = MATERIALS.filter((m) => m[p.x] && m[p.y] && visible[m.fam]).map((m) => ({ m, x: lg(mid(m[p.x])), y: lg(mid(m[p.y])) }));
+    if (!pts.length) return;
+    const xd = [Math.min(...pts.map((q) => q.x)) - 0.2, Math.max(...pts.map((q) => q.x)) + 0.2];
+    const yd = [Math.min(...pts.map((q) => q.y)) - 0.25, Math.max(...pts.map((q) => q.y)) + 0.25];
+    const X = (v) => PAD.l + ((v - xd[0]) / (xd[1] - xd[0])) * (w - PAD.l - PAD.r);
+    const Y = (v) => h - PAD.b - ((v - yd[0]) / (yd[1] - yd[0])) * (h - PAD.t - PAD.b);
+
+    for (let d = Math.ceil(xd[0]); d <= Math.floor(xd[1]); d++) {
+      svg.appendChild(el("line", { x1: X(d), y1: PAD.t, x2: X(d), y2: h - PAD.b, stroke: "var(--grid)" }));
+      const t = el("text", { x: X(d), y: h - PAD.b + 13, "text-anchor": "middle", fill: "var(--muted)", "font-size": 10 });
+      t.textContent = fmt(10 ** d);
+      svg.appendChild(t);
+    }
+    for (let d = Math.ceil(yd[0]); d <= Math.floor(yd[1]); d++) {
+      svg.appendChild(el("line", { x1: PAD.l, y1: Y(d), x2: w - PAD.r, y2: Y(d), stroke: "var(--grid)" }));
+      const t = el("text", { x: PAD.l - 5, y: Y(d) + 3, "text-anchor": "end", fill: "var(--muted)", "font-size": 10 });
+      t.textContent = fmt(10 ** d);
+      svg.appendChild(t);
+    }
+    // axis captions in the corners, kept quiet
+    const xc = el("text", { x: w - PAD.r, y: h - 4, "text-anchor": "end", fill: "var(--muted)", "font-size": 10.5 });
+    xc.textContent = `${PROPS[p.x].name}, ${PROPS[p.x].unit} →`;
+    svg.appendChild(xc);
+    const yc = el("text", { x: 6, y: 12, fill: "var(--muted)", "font-size": 10.5 });
+    yc.textContent = `↑ ${PROPS[p.y].name}, ${PROPS[p.y].unit}`;
+    svg.appendChild(yc);
+
+    const act = active();
+    for (const q of pts) {
+      const isAct = act && q.m === act;
+      const dim = act && !isAct;
+      svg.appendChild(el("circle", { cx: X(q.x), cy: Y(q.y), r: isAct ? 7 : 4.5, fill: famColor(q.m.fam), "fill-opacity": dim ? 0.18 : 0.85, stroke: isAct ? "var(--ink)" : "var(--surface)", "stroke-width": isAct ? 2 : 1 }));
+    }
+    if (act) {
+      const q = pts.find((q) => q.m === act);
+      if (q) {
+        const t = el("text", { x: X(q.x), y: Y(q.y) - 11, "text-anchor": "middle", fill: "var(--ink)", "font-size": 11.5, "font-weight": 650, "paint-order": "stroke", stroke: "var(--surface)", "stroke-width": 3 });
+        t.textContent = q.m.name;
+        svg.appendChild(t);
+      }
+    }
+    // hover picking
+    svg.onmousemove = (e) => {
+      const r = svg.getBoundingClientRect();
+      const px = e.clientX - r.left, py = e.clientY - r.top;
+      let best = null, bd = 14 * 14;
+      for (const q of pts) {
+        const d2 = (px - X(q.x)) ** 2 + (py - Y(q.y)) ** 2;
+        if (d2 < bd) { bd = d2; best = q.m; }
+      }
+      if (best !== hovered) { hovered = best; renderAll(); }
+    };
+    svg.onmouseleave = () => { if (hovered) { hovered = null; renderAll(); } };
+    svg.onclick = () => { pinned = pinned === hovered ? null : hovered; renderAll(); };
+  }
+
+  function renderCard() {
+    const card = document.getElementById("card");
+    const m = active();
+    if (!m) { card.innerHTML = `<div class="empty">Hover a material to see its full property card here.</div>`; return; }
+    const f = FAM_BY_ID[m.fam];
+    card.innerHTML =
+      `<div class="band" style="background:${famColor(m.fam)}"></div>` +
+      `<h3>${m.name}</h3><div class="fam" style="color:${famColor(m.fam)}">${f.name}</div>` +
+      `<table>` +
+      Object.keys(PROPS).map((k) => `<tr><td>${PROPS[k].name}</td><td>${fmtRange(m[k], PROPS[k].unit)}</td></tr>`).join("") +
+      `</table>` +
+      `<div class="pin-note">${pinned === m ? "Pinned — click the dot again to unpin." : "Click the dot to pin this card."}</div>`;
+  }
+
+  function renderAll() {
+    for (const p of panels) renderPanel(p);
+    renderCard();
+  }
+  new ResizeObserver(renderAll).observe(document.body);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    chips.querySelectorAll(".dot").forEach((d, i) => (d.style.background = famColor(FAMILIES[i].id)));
+    renderAll();
+  });
+  renderAll();
+</script>
