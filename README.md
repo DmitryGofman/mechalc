@@ -40,6 +40,7 @@ npm run preview    # preview the production build
 src/
   main.tsx                  app entry
   App.tsx                   route table + calculator page shell
+  brand.tsx                 logo mark (four designs; ACTIVE_DESIGN picks one)
   router.tsx                minimal history router (hash fallback for file://)
   ui.tsx                    shared Field / Select / Readout controls
   styles.css                global reset + fonts + shared layout
@@ -56,6 +57,15 @@ src/
     materials.ts            shared beam/flexure material library
     stressColor.ts          shared stress → color ramps for the 3D viewers
 ```
+
+## Branding
+Four logo candidates live in `public/brand/<design>/` (`blueprint`, `beam`,
+`hexm`, `gauge`), previewed side by side — home-screen, tab and header mockups —
+at `public/designs/brand/index.html`. The active design is named by
+`ACTIVE_DESIGN` in `src/brand.tsx`; it drives the header mark, and
+`node scripts/render-icons.mjs` re-rasterizes the PNGs and copies the active
+set to `public/` as `favicon.svg`, `apple-touch-icon.png` (the iPhone
+home-screen icon) and the manifest icons.
 
 ## Model notes
 **Flexure** — linear small-deflection (Euler-Bernoulli) theory for an end-loaded

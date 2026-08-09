@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Design B "Stress Beam" — the app's signature: a cantilever bending under
+       a tip load, painted by how close it is to yielding (red at the wall,
+       green at the free end), with the undeflected line dashed behind it. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0d131a"/>
+      <stop offset="1" stop-color="#080c10"/>
+    </linearGradient>
+    <linearGradient id="stress" x1="92" y1="0" x2="436" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d65c5c"/>
+      <stop offset="0.45" stop-color="#d9a441"/>
+      <stop offset="1" stop-color="#4fb477"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" fill="url(#bg)"/>
+
+  <!-- fixed wall with hatching -->
+  <g stroke="#46515c" stroke-width="9" stroke-linecap="round">
+    <path d="M88 118V330"/>
+    <path d="M88 140 62 166M88 186 62 212M88 232 62 258M88 278 62 304M88 324 62 350" stroke-width="7"/>
+  </g>
+
+  <!-- undeflected position -->
+  <path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
+        stroke-linecap="round"/>
+
+  <!-- tip load arrow -->
+  <g stroke="#5a95d8" fill="#5a95d8">
+    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 316 409 268h54z" stroke="none"/>
+  </g>
+
+  <!-- the beam, colored by bending stress -->
+  <path d="M92 196 Q 300 202 434 348" fill="none" stroke="url(#stress)"
+        stroke-width="52" stroke-linecap="round"/>
+</svg>

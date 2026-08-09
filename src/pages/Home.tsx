@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "../router";
+import { LogoMark } from "../brand";
 
 // The toolkit's catalog. Ready calculators link to their route; planned ones
 // are the roadmap — same spirit: closed-form design checks with a live,
@@ -259,7 +260,10 @@ export default function Home() {
           >
             ENGINEERING DESIGN-CHECK TOOLKIT
           </div>
-          <h1 style={{ margin: "8px 0 0", fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em" }}>MechCalc</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+            <LogoMark size={38} />
+            <h1 style={{ margin: 0, fontSize: 30, fontWeight: 600, letterSpacing: "-0.02em" }}>MechCalc</h1>
+          </div>
           <p
             style={{
               fontFamily: "var(--sans)",
