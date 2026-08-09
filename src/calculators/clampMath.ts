@@ -32,6 +32,10 @@ import {
   torqueForPreload,
 } from "./fasteners";
 import type { BoltClass, FastenerSpec, ThreadSpec } from "./fasteners";
+// Material properties come from the toolkit's shared library — the same
+// aluminium here and in the bolted-joint calculator is literally the same
+// entry. See src/materials/library.ts.
+import { E_MPa, menu, requireProps, type MenuEntry } from "../materials";
 
 export { CLASSES, THREADS, TARGET_PRELOAD_FRACTION, bearingArea, BEARING_MARGIN };
 export type { BoltClass, ThreadSpec };
@@ -52,29 +56,48 @@ export type ClampMaterial = {
   printed?: boolean;
   tone: string;
 };
-export const CLAMP_MATS: Record<string, ClampMaterial> = {
-  "PC-ABS (FDM)": { E: 1900, sy: 41, pG: 48, creep: 0.6, printed: true, tone: "#3f3b4d" },
-  "PLA (FDM)": { E: 3500, sy: 50, pG: 55, creep: 0.45, printed: true, tone: "#37452f" },
-  "PETG (FDM)": { E: 2000, sy: 45, pG: 50, creep: 0.55, printed: true, tone: "#31434a" },
-  "ASA (FDM)": { E: 2000, sy: 42, pG: 46, creep: 0.6, printed: true, tone: "#463f33" },
-  "Nylon 12 (FDM)": { E: 1500, sy: 45, pG: 50, creep: 0.55, printed: true, tone: "#3d4433" },
-  "Nylon 12 (MJF)": { E: 1700, sy: 48, pG: 55, creep: 0.55, printed: true, tone: "#40462f" },
-  "Aluminum 5052-H32": { E: 70300, sy: 193, pG: 250, creep: 1, tone: "#4a525a" },
-  "Aluminum 6061-T6": { E: 68900, sy: 276, pG: 300, creep: 1, tone: "#4a525a" },
-  "Mild steel (S235)": { E: 200000, sy: 235, pG: 490, creep: 1, tone: "#39434e" },
-  "Steel (S355 / 4140N)": { E: 200000, sy: 355, pG: 760, creep: 1, tone: "#333d47" },
-};
+const BODY_MENU: MenuEntry[] = [
+  ["PC-ABS (FDM)", "pcabs_fdm"],
+  ["PLA (FDM)", "pla_fdm"],
+  ["PETG (FDM)", "petg_fdm"],
+  ["ASA (FDM)", "asa_fdm"],
+  ["Nylon 12 (FDM)", "pa12_fdm"],
+  ["Nylon 12 (MJF)", "pa12_mjf"],
+  ["Aluminum 5052-H32", "al5052h32"],
+  ["Aluminum 6061-T6", "al6061t6"],
+  ["Mild steel (S235)", "s235"],
+  ["Steel (S355 / 4140N)", "s355"],
+];
+
+export const CLAMP_MATS: Record<string, ClampMaterial> = menu(BODY_MENU, (m) => {
+  const { pG } = requireProps(m, ["pG"], "clamp body (head-bearing check)");
+  return {
+    E: E_MPa(m),
+    sy: m.sigmaY,
+    pG,
+    // Metals do not measurably relax, so an absent creep figure means 1.
+    creep: m.creep ?? 1,
+    ...(m.process === "fdm" || m.process === "mjf" || m.process === "sls" ? { printed: true } : {}),
+    tone: m.tone,
+  };
+});
 
 // The cylinder being clamped.
 export type CylMaterial = { E: number; sy: number };
-export const CYL_MATS: Record<string, CylMaterial> = {
-  "Steel tube (S235 / DOM)": { E: 200000, sy: 235 },
-  "Steel, alloy (S355 / 4140)": { E: 200000, sy: 355 },
-  "Stainless 304 tube": { E: 193000, sy: 215 },
-  "Aluminum 6061-T6": { E: 68900, sy: 276 },
-  "Aluminum 6063-T5": { E: 68900, sy: 145 },
-  "Hard chromed rod": { E: 200000, sy: 600 },
-};
+
+const CYL_MENU: MenuEntry[] = [
+  ["Steel tube (S235 / DOM)", "s235"],
+  ["Steel, alloy (S355 / 4140)", "s355"],
+  ["Stainless 304 tube", "ss304"],
+  ["Aluminum 6061-T6", "al6061t6"],
+  ["Aluminum 6063-T5", "al6063t5"],
+  ["Hard chromed rod", "chromedsteelrod"],
+];
+
+export const CYL_MATS: Record<string, CylMaterial> = menu(CYL_MENU, (m) => ({
+  E: E_MPa(m),
+  sy: m.sigmaY,
+}));
 
 // Bore ↔ cylinder friction. Real values scatter; these are conservative.
 export const MU: Record<string, number> = {

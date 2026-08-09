@@ -11,6 +11,7 @@ family that includes a standalone theory page.
 ## Folder layout
 
 ```
+public/designs/shared/materials.js   the material library, generated (shared)
 public/designs/<slug>/
   <slug>-engine.js     one shared physics engine (plain JS, no build step)
   index.html           picker page linking the variants
@@ -20,8 +21,9 @@ public/designs/<slug>/
   design-d-<name>.html  (3–4 variants; letter + short concept name)
 ```
 
-Everything self-contained: inline CSS and JS, no imports except the engine
-`<script src="…-engine.js">`, no CDNs and no three.js — the existing 3D
+Everything self-contained: inline CSS and JS, no imports beyond the shared
+material library and the engine (`<script src="../shared/materials.js">` then
+`<script src="…-engine.js">`), no CDNs and no three.js — the existing 3D
 variants hand-roll their projection on a plain 2D canvas (see
 `design-f-3d.html`), and the real three.js scene arrives at promotion. Each
 page must open from `file://` and from GitHub Pages unchanged.
@@ -36,6 +38,14 @@ page must open from `file://` and from GitHub Pages unchanged.
 - One global namespace (`window.<SLUG> = (() => { … })()`) exposing the data
   tables (threads, materials, classes…) and one `solve(input) → results`
   entry point plus small helpers.
+- **Material properties come from the shared library, never a local table.**
+  Every prototype page loads `<script src="../shared/materials.js"></script>`
+  before the engine, and the engine builds its picker with
+  `MECHMAT.menu([[label, id], …], project)` — see `clamp-engine.js`. A missing
+  property is asserted with `MECHMAT.requireProps(...)` rather than defaulted.
+  New materials go into `src/materials/library.ts`, then
+  `npm run gen:materials`; the test suite fails if that generated mirror
+  drifts from the library.
 - Internal units strictly metric: mm, N, MPa, N·m. Prototypes may show
   metric only — the imperial toggle is promotion-phase work.
 - Reference-quality typical values with a "verify before production use"

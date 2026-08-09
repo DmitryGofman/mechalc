@@ -28,6 +28,13 @@ If the user is resuming mid-pipeline ("integrate the snap-fit prototype"),
 skip to the matching phase — check `public/designs/` and `src/App.tsx` to see
 where a calculator currently stands.
 
+One rule spans both halves: **material properties live in
+`src/materials/library.ts` and nowhere else.** Prototypes reach it through the
+generated `public/designs/shared/materials.js`; React calculators import it.
+A calculator declares which materials it offers and asserts the properties it
+needs; it never carries its own copy of a number. See `docs/materials.md` for
+the current table.
+
 Reference guides in this skill (read the one for the phase you are in):
 
 - `references/design-language.md` — the visual identity: tokens, typography,

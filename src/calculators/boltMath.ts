@@ -24,6 +24,9 @@ import {
   torqueForPreload,
 } from "./fasteners";
 import type { BoltClass, ThreadSpec } from "./fasteners";
+// Material properties come from the toolkit's shared library, so a value fixed
+// here is fixed everywhere. See src/materials/library.ts.
+import { menu, requireProps, type MenuEntry } from "../materials";
 
 export {
   CLASSES,
@@ -54,23 +57,36 @@ export type PlateMaterial = { E: number; sy: number; pG: number; tone: string };
 // fastening practice (they creep badly above these, so they double as the
 // long-term clamp limit). For anisotropic laminates E is the through-
 // thickness value — that is the direction the clamp actually compresses.
-export const PLATE_MATERIALS: Record<string, PlateMaterial> = {
-  "Mild steel (S235)": { E: 200, sy: 235, pG: 490, tone: "#39434e" },
-  "Alloy steel (S355 / 4140)": { E: 200, sy: 355, pG: 760, tone: "#333d47" },
-  "Stainless 304 / A2": { E: 193, sy: 215, pG: 500, tone: "#3d4a54" },
-  "Aluminum 6061-T6": { E: 68.9, sy: 276, pG: 300, tone: "#4a525a" },
-  "Aluminum 7075-T6": { E: 71.7, sy: 503, pG: 410, tone: "#4a525a" },
-  "Gray cast iron (GJL-250)": { E: 110, sy: 165, pG: 800, tone: "#39404a" },
-  "Brass (CuZn37)": { E: 100, sy: 200, pG: 300, tone: "#544e3a" },
-  "Ti-6Al-4V": { E: 114, sy: 880, pG: 900, tone: "#4c4a42" },
-  "FR-4 PCB (glass-epoxy)": { E: 12, sy: 300, pG: 60, tone: "#2f4a3c" },
-  "POM / Delrin": { E: 3.1, sy: 70, pG: 90, tone: "#4e4c44" },
-  ABS: { E: 2.2, sy: 45, pG: 55, tone: "#4c4644" },
-  "ABS-PC blend": { E: 2.4, sy: 55, pG: 65, tone: "#4a4548" },
-  "Nylon 12 (PA12)": { E: 1.7, sy: 48, pG: 50, tone: "#464a40" },
-  "Nylon 12 GF30 (glass-filled)": { E: 6.0, sy: 110, pG: 110, tone: "#4a4e42" },
-  "Nylon 6/6 (PA66, dry)": { E: 2.8, sy: 80, pG: 70, tone: "#484c42" },
-};
+//
+// The numbers come from the shared library (src/materials); this list only
+// decides which plates the picker offers and what they are called here.
+const PLATE_MENU: MenuEntry[] = [
+  ["Mild steel (S235)", "s235"],
+  ["Alloy steel (S355 / 4140)", "s355"],
+  ["Stainless 304 / A2", "ss304"],
+  ["Aluminum 6061-T6", "al6061t6"],
+  ["Aluminum 7075-T6", "al7075t6"],
+  ["Gray cast iron (GJL-250)", "castiron250"],
+  ["Brass (CuZn37)", "brass37"],
+  ["Ti-6Al-4V", "ti6al4v"],
+  ["FR-4 PCB (glass-epoxy)", "fr4"],
+  ["POM / Delrin", "pom"],
+  ["ABS", "abs"],
+  ["ABS-PC blend", "pcabs"],
+  ["Nylon 12 (PA12)", "pa12_mjf"],
+  ["Nylon 12 GF30 (glass-filled)", "pa12gf30"],
+  ["Nylon 6/6 (PA66, dry)", "pa66dry"],
+];
+
+// Scene-specific tones. The plate stack is lit differently from the clamp
+// body, so where the two scenes want different shades of the same material
+// the local one wins; everything else takes the library's tone.
+const PLATE_TONES: Record<string, string> = { pa12_mjf: "#464a40" };
+
+export const PLATE_MATERIALS: Record<string, PlateMaterial> = menu(PLATE_MENU, (m) => {
+  const { pG } = requireProps(m, ["pG"], "bolted-joint clamped plates (bearing-pressure check)");
+  return { E: m.E, sy: m.sigmaY, pG, tone: PLATE_TONES[m.id] ?? m.tone };
+});
 
 // Fraction of the applied torque that is reacted in the threads (the rest is
 // under-head friction) — the classic ~50/50 split; this part twists the shank.

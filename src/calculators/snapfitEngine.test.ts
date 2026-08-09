@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
+import materialsSource from "../../public/designs/shared/materials.js?raw";
 import engineSource from "../../public/designs/snapfit/snapfit-engine.js?raw";
 
 // The engine is a plain browser script shared by the standalone design
 // prototypes in public/designs/snapfit/. We evaluate its source with a
 // CommonJS shim — the exact file that ships to the browser is what runs here.
+// The pages load the shared material library first (it publishes a global), so
+// the shim does the same before the engine runs.
+const globals: Record<string, unknown> = {};
+new Function("window", materialsSource)(globals);
 const shim = { exports: {} as Record<string, never> };
-new Function("module", engineSource)(shim);
+new Function("module", "window", engineSource)(shim, globals);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const SnapFit = shim.exports as any;
 

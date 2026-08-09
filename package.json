@@ -9,6 +9,7 @@
     "build": "tsc -b && vite build",
     "build:standalone": "tsc -b && vite build --mode single --outDir dist-standalone --emptyOutDir",
     "preview": "vite preview",
+    "gen:materials": "node scripts/gen-materials.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -b --noEmit"

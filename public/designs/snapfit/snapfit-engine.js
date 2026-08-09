@@ -496,21 +496,40 @@
    * Curated educational defaults (§6.3): generic handbook-era values for
    * exploring the tool — NOT production allowables. Each entry says so.
    */
-  const MATERIALS = [
-    { id: "pa66-dam", name: "PA 66 (dry as molded)", Es: 2800, eAllow: 0.04, note: "Generic educational value — unfilled nylon 66, DAM, 23 °C. Not a production allowable." },
-    { id: "pa66-cond", name: "PA 66 (conditioned)", Es: 1200, eAllow: 0.06, note: "Generic educational value — moisture-conditioned nylon 66, 23 °C. Not a production allowable." },
-    { id: "pc", name: "PC", Es: 2300, eAllow: 0.04, note: "Generic educational value — unfilled polycarbonate, 23 °C. Not a production allowable." },
-    { id: "abs", name: "ABS", Es: 2100, eAllow: 0.03, note: "Generic educational value — general-purpose ABS, 23 °C. Not a production allowable." },
-    { id: "pom", name: "POM (acetal)", Es: 2600, eAllow: 0.04, note: "Generic educational value — unfilled acetal, 23 °C. Not a production allowable." },
-    { id: "pp", name: "PP", Es: 1300, eAllow: 0.05, note: "Generic educational value — unfilled polypropylene, 23 °C. Not a production allowable." },
-    { id: "pbt-gf30", name: "PBT-GF30", Es: 8000, eAllow: 0.012, note: "Generic educational value — 30% glass PBT, flow direction, 23 °C. Anisotropy NOT modelled. Not a production allowable." },
-    { id: "pc-abs", name: "PC-ABS blend", Es: 2200, eAllow: 0.03, note: "Generic educational value — molded PC-ABS blend, 23 °C. Grades vary widely by ratio; not a production allowable." },
-    { id: "pa12-mjf", name: "PA12 (MJF printed)", Es: 1700, eAllow: 0.04, printed: true, note: "Generic educational value — HP Multi Jet Fusion nylon 12, XY plane, 23 °C. Near-isotropic for a printed part, but verify with printed coupons. Not a production allowable." },
-    { id: "petg-fdm", name: "PETG (FDM printed)", Es: 1900, eAllow: 0.025, printed: true, note: "Generic educational value — FDM PETG, in-plane (XY). Layer adhesion is far weaker: orient the arm so bending stays in-plane, never across layers. Not a production allowable." },
-    { id: "pla-fdm", name: "PLA (FDM printed)", Es: 3100, eAllow: 0.015, printed: true, note: "Generic educational value — FDM PLA, in-plane (XY). Stiff but brittle and creeps badly; poor choice for reusable snaps. Orient bending in-plane. Not a production allowable." },
-    { id: "abs-fdm", name: "ABS (FDM printed)", Es: 1800, eAllow: 0.02, printed: true, note: "Generic educational value — FDM ABS, in-plane (XY). Layer bonds are the weak point: orient bending in-plane and add a generous root fillet. Not a production allowable." },
-    { id: "custom", name: "Custom…", Es: null, eAllow: null, note: "Enter your own grade-specific secant modulus and permissible strain, with source." },
+  // Secant modulus and permissible strain come from the toolkit's shared
+  // material library — load ../shared/materials.js before this file. The ids,
+  // display names and the snap-fit-specific caveats stay here, because they
+  // are this calculator's copy rather than material data.
+  const MAT = (typeof window !== "undefined" ? window : globalThis).MECHMAT;
+  if (!MAT) {
+    throw new Error(
+      "snapfit-engine.js needs the shared material library. " +
+        'Add <script src="../shared/materials.js"></script> before this file.',
+    );
+  }
+  // [option id, display name, library id, snap-fit note]
+  const MATERIAL_MENU = [
+    ["pa66-dam", "PA 66 (dry as molded)", "pa66dry", "Generic educational value — unfilled nylon 66, DAM, 23 °C. Not a production allowable."],
+    ["pa66-cond", "PA 66 (conditioned)", "pa66cond", "Generic educational value — moisture-conditioned nylon 66, 23 °C. Not a production allowable."],
+    ["pc", "PC", "pc", "Generic educational value — unfilled polycarbonate, 23 °C. Not a production allowable."],
+    ["abs", "ABS", "abs", "Generic educational value — general-purpose ABS, 23 °C. Not a production allowable."],
+    ["pom", "POM (acetal)", "pom", "Generic educational value — unfilled acetal, 23 °C. Not a production allowable."],
+    ["pp", "PP", "pp", "Generic educational value — unfilled polypropylene, 23 °C. Not a production allowable."],
+    ["pbt-gf30", "PBT-GF30", "pbtgf30", "Generic educational value — 30% glass PBT, flow direction, 23 °C. Anisotropy NOT modelled. Not a production allowable."],
+    ["pc-abs", "PC-ABS blend", "pcabs", "Generic educational value — molded PC-ABS blend, 23 °C. Grades vary widely by ratio; not a production allowable."],
+    ["pa12-mjf", "PA12 (MJF printed)", "pa12_mjf", "Generic educational value — HP Multi Jet Fusion nylon 12, XY plane, 23 °C. Near-isotropic for a printed part, but verify with printed coupons. Not a production allowable."],
+    ["petg-fdm", "PETG (FDM printed)", "petg_fdm", "Generic educational value — FDM PETG, in-plane (XY). Layer adhesion is far weaker: orient the arm so bending stays in-plane, never across layers. Not a production allowable."],
+    ["pla-fdm", "PLA (FDM printed)", "pla_fdm", "Generic educational value — FDM PLA, in-plane (XY). Stiff but brittle and creeps badly; poor choice for reusable snaps. Orient bending in-plane. Not a production allowable."],
+    ["abs-fdm", "ABS (FDM printed)", "abs_fdm", "Generic educational value — FDM ABS, in-plane (XY). Layer bonds are the weak point: orient bending in-plane and add a generous root fillet. Not a production allowable."],
   ];
+  const MATERIALS = MATERIAL_MENU.map(function (row) {
+    const m = MAT.requireProps(MAT.material(row[2]), ["Es", "eAllow"], "snap-fit arm (secant-modulus design)");
+    const out = { id: row[0], name: row[1], Es: m.Es * 1000, eAllow: m.eAllow, note: row[3] };
+    if (MAT.isPrinted(m.id)) out.printed = true;
+    return out;
+  }).concat([
+    { id: "custom", name: "Custom…", Es: null, eAllow: null, note: "Enter your own grade-specific secant modulus and permissible strain, with source." },
+  ]);
 
   return {
     PROFILES,

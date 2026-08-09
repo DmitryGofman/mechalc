@@ -16,7 +16,7 @@ src/calculators/<slug>Theory.ts      theory/tips content (only if it outgrows
 
 Plus edits to: `src/App.tsx` (route), `src/pages/Home.tsx` (card),
 `README.md` (table row + model notes), and possibly `src/styles.css`,
-`src/calculators/materials.ts` / `fasteners.ts` (shared tables).
+`src/materials/library.ts` (new materials or properties) / `fasteners.ts`.
 
 ## 1. Math module
 
@@ -28,9 +28,15 @@ recommendation solver), `columnMath.ts` (regime switching).
   numbers in, numbers out, internal units metric (mm, N, MPa, N·m).
 - Carry over the engine's dependency-chain header comment, upgraded with
   anything learned during prototyping.
-- Shared data lives in shared modules: if the calculator needs materials or
-  fasteners that overlap the existing tables, extend `materials.ts` /
-  `fasteners.ts` rather than forking a private copy.
+- **Material properties come from `src/materials/library.ts` — never a private
+  table.** Declare a menu of `[label, material id]` pairs and project it into
+  whatever local shape the math wants, the way `boltMath.ts` and `clampMath.ts`
+  do. Wrap the projection in `requireProps(m, ["pG"], "…")` for every property
+  the calculator depends on, so a material lacking it fails loudly at load
+  instead of silently computing against zero. If the calculator needs a
+  material or a property the library doesn't carry, add it there (with a
+  sourced `note`) and run `npm run gen:materials`. Fastener data follows the
+  same rule via `fasteners.ts`.
 - If the calculator recommends (a torque, a bolt count, a wall), make the
   recommendation a pure function too, and make it survive its own checks —
   see "recommended torque now survives its own crush check" in git history

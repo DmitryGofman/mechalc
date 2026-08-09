@@ -34,6 +34,23 @@ npm run build      # type-check + production build
 npm run preview    # preview the production build
 ```
 
+## Materials
+Every calculator reads its material properties from one table:
+[`src/materials/library.ts`](src/materials/library.ts), browsable as a
+generated page at [`docs/materials.md`](docs/materials.md). Each calculator
+declares a *menu* — which materials it offers and what it calls them — and the
+numbers come from the library, so fixing a value fixes it everywhere. A
+calculator that needs a property a material doesn't carry fails loudly rather
+than computing against a placeholder.
+
+```bash
+npm run gen:materials   # refresh the prototype mirror + docs table after editing
+```
+
+The design prototypes under `public/designs/` can't import TypeScript, so they
+load the generated `public/designs/shared/materials.js` (`window.MECHMAT`)
+instead; tests fail if that copy drifts from the library.
+
 ## Adding a calculator
 New calculators follow a two-phase workflow — standalone HTML design
 prototypes under `public/designs/<slug>/`, then promotion of the chosen
@@ -51,6 +68,11 @@ src/
   styles.css                global reset + fonts + shared layout
   pages/
     Home.tsx                calculator catalog (ready + planned cards)
+  materials/
+    library.ts              THE material table — one source for every calculator
+    types.ts                property definitions + units
+    index.ts                lookup / menu / requireProps helpers
+    render.ts               generators for the prototype mirror & docs table
   calculators/
     FlexureCalc.tsx         cantilever flexure calculator + 3D beam
     BoltCalc.tsx            bolted-joint calculator + 3D screw/nut

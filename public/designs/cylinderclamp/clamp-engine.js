@@ -53,28 +53,50 @@
   // Clamp-body materials. E in MPa; sy = yield/strength MPa (FDM: XY in-plane);
   // pG = permissible bearing pressure under head; creep = fraction of preload
   // RETAINED long-term (plastics relax); printed → orientation warnings.
-  const CLAMP_MATS = {
-    "PC-ABS (FDM)": { E: 1900, sy: 41, pG: 48, creep: 0.6, printed: true, tone: "#3f3b4d" },
-    "PLA (FDM)": { E: 3500, sy: 50, pG: 55, creep: 0.45, printed: true, tone: "#37452f" },
-    "PETG (FDM)": { E: 2000, sy: 45, pG: 50, creep: 0.55, printed: true, tone: "#31434a" },
-    "ASA (FDM)": { E: 2000, sy: 42, pG: 46, creep: 0.6, printed: true, tone: "#463f33" },
-    "Nylon 12 (FDM)": { E: 1500, sy: 45, pG: 50, creep: 0.55, printed: true, tone: "#3d4433" },
-    "Nylon 12 (MJF)": { E: 1700, sy: 48, pG: 55, creep: 0.55, printed: true, tone: "#40462f" },
-    "Aluminum 5052-H32": { E: 70300, sy: 193, pG: 250, creep: 1, tone: "#4a525a" },
-    "Aluminum 6061-T6": { E: 68900, sy: 276, pG: 300, creep: 1, tone: "#4a525a" },
-    "Mild steel (S235)": { E: 200000, sy: 235, pG: 490, creep: 1, tone: "#39434e" },
-    "Steel (S355 / 4140N)": { E: 200000, sy: 355, pG: 760, creep: 1, tone: "#333d47" },
-  };
+  //
+  // The numbers come from the toolkit's shared library — load
+  // ../shared/materials.js before this file. Only the labels and the order the
+  // picker shows them in are decided here.
+  const MAT = (typeof window !== "undefined" ? window : globalThis).MECHMAT;
+  if (!MAT) {
+    throw new Error(
+      "clamp-engine.js needs the shared material library. " +
+        'Add <script src="../shared/materials.js"></script> before this file.',
+    );
+  }
+  const CLAMP_MATS = MAT.menu(
+    [
+      ["PC-ABS (FDM)", "pcabs_fdm"],
+      ["PLA (FDM)", "pla_fdm"],
+      ["PETG (FDM)", "petg_fdm"],
+      ["ASA (FDM)", "asa_fdm"],
+      ["Nylon 12 (FDM)", "pa12_fdm"],
+      ["Nylon 12 (MJF)", "pa12_mjf"],
+      ["Aluminum 5052-H32", "al5052h32"],
+      ["Aluminum 6061-T6", "al6061t6"],
+      ["Mild steel (S235)", "s235"],
+      ["Steel (S355 / 4140N)", "s355"],
+    ],
+    (m) => {
+      MAT.requireProps(m, ["pG"], "clamp body (head-bearing check)");
+      const o = { E: m.E * 1000, sy: m.sigmaY, pG: m.pG, creep: m.creep === undefined ? 1 : m.creep, tone: m.tone };
+      if (MAT.isPrinted(m.id)) o.printed = true;
+      return o;
+    },
+  );
 
   // Cylinder materials (the thing being clamped). E MPa, sy MPa.
-  const CYL_MATS = {
-    "Steel tube (S235 / DOM)": { E: 200000, sy: 235 },
-    "Steel, alloy (S355 / 4140)": { E: 200000, sy: 355 },
-    "Stainless 304 tube": { E: 193000, sy: 215 },
-    "Aluminum 6061-T6": { E: 68900, sy: 276 },
-    "Aluminum 6063-T5": { E: 68900, sy: 145 },
-    "Hard chromed rod": { E: 200000, sy: 600 },
-  };
+  const CYL_MATS = MAT.menu(
+    [
+      ["Steel tube (S235 / DOM)", "s235"],
+      ["Steel, alloy (S355 / 4140)", "s355"],
+      ["Stainless 304 tube", "ss304"],
+      ["Aluminum 6061-T6", "al6061t6"],
+      ["Aluminum 6063-T5", "al6063t5"],
+      ["Hard chromed rod", "chromedsteelrod"],
+    ],
+    (m) => ({ E: m.E * 1000, sy: m.sigmaY }),
+  );
 
   // Bore↔cylinder friction presets. Real values scatter — allow override.
   const MU = {
