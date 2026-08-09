@@ -65,6 +65,15 @@ const IN_PROGRESS: CalcCard[] = [
     wip: true,
   },
   {
+    route: "/shaft-calculator",
+    tag: "Drivetrain",
+    title: "Shaft in Torsion",
+    desc: "Shear stress, wind-up and power rating for solid & hollow circular shafts, with the keyseat, fillet and groove concentrations that decide where a shaft really breaks — push the 3D lever and watch the scribe line shear into a helix.",
+    eq: "τ = 16T / πd³",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/buckling-calculator",
     tag: "Structures",
     title: "Column Buckling",
@@ -85,13 +94,6 @@ const IN_PROGRESS: CalcCard[] = [
 ];
 
 const PLANNED: CalcCard[] = [
-  {
-    tag: "Drivetrain",
-    title: "Shaft in Torsion",
-    desc: "Shear stress, twist angle and power rating for solid & hollow circular shafts, with keyway stress concentration.",
-    eq: "τ = 16T / πd³",
-    ready: false,
-  },
   {
     tag: "Springs",
     title: "Helical Coil Spring",

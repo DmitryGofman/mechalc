@@ -8,6 +8,7 @@ import SimpleBeamCalc from "./calculators/SimpleBeamCalc";
 import ColumnCalc from "./calculators/ColumnCalc";
 import ClampCalc from "./calculators/ClampCalc";
 import PinCalc from "./calculators/PinCalc";
+import ShaftCalc from "./calculators/ShaftCalc";
 
 // Route table: every calculator lives at its own path under the site base,
 // e.g. /mechalc/flexure-calculator on GitHub Pages.
@@ -18,6 +19,7 @@ const ROUTES: Record<string, { title: string; el: ReactNode }> = {
   "/buckling-calculator": { title: "Column Buckling — MechCalc", el: <ColumnCalc /> },
   "/clamp-calculator": { title: "Cylinder Clamp — MechCalc", el: <ClampCalc /> },
   "/pin-calculator": { title: "Pin & Bolt Shear Joint — MechCalc", el: <PinCalc /> },
+  "/shaft-calculator": { title: "Shaft in Torsion — MechCalc", el: <ShaftCalc /> },
 };
 
 export default function App() {
