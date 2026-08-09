@@ -1,0 +1,282 @@
+<title>Material Index — drag the minimum-mass guideline</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --ring: rgba(11, 11, 11, 0.1);
+    --accent: #2a78d6;
+    --accent-soft: rgba(42, 120, 214, 0.07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --axis: #383835;
+      --ring: rgba(255, 255, 255, 0.1);
+      --accent: #3987e5;
+      --accent-soft: rgba(57, 135, 229, 0.1);
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --ring: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --accent-soft: rgba(57, 135, 229, 0.1);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; display: flex; flex-direction: column; }
+  header { padding: 12px 18px 8px; }
+  h1 { font-size: 15px; font-weight: 650; margin: 0; }
+  h1 small { color: var(--muted); font-weight: 450; margin-left: 8px; }
+  .wrap { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 316px; gap: 12px; padding: 0 18px 16px; }
+  .stage { position: relative; background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; overflow: hidden; }
+  .stage svg { position: absolute; inset: 0; width: 100%; height: 100%; cursor: ns-resize; touch-action: none; }
+  aside { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; }
+  .box { background: var(--surface); border: 1px solid var(--ring); border-radius: 12px; padding: 12px 14px; }
+  .box h2 { margin: 0 0 8px; font-size: 11.5px; font-weight: 650; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-2); }
+  .cases { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .case { text-align: left; font: inherit; font-size: 12.5px; color: var(--ink-2); background: var(--page); border: 1px solid var(--ring); border-radius: 8px; padding: 7px 9px; cursor: pointer; }
+  .case b { display: block; color: var(--ink); font-size: 13px; font-weight: 600; }
+  .case.on { border-color: var(--accent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--accent); }
+  #mread { font-size: 13px; color: var(--ink-2); }
+  #mread b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  #ranked { list-style: none; margin: 0; padding: 0; }
+  #ranked li { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-bottom: 1px solid var(--grid); font-size: 13px; cursor: pointer; border-radius: 6px; }
+  #ranked li:hover { background: var(--page); }
+  #ranked .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  #ranked .rank { color: var(--muted); font-size: 11.5px; width: 18px; flex: none; font-variant-numeric: tabular-nums; }
+  #ranked .val { margin-left: auto; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 12.5px; white-space: nowrap; }
+  #passport table { width: 100%; border-collapse: collapse; }
+  #passport td { padding: 3px 0; font-size: 12.5px; color: var(--ink-2); border-bottom: 1px solid var(--grid); }
+  #passport td:last-child { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #passport .empty { color: var(--muted); font-size: 12.5px; }
+  #passport h3 { margin: 0 0 6px; font-size: 14.5px; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; grid-template-rows: 58vh auto; } }
+</style>
+
+<header>
+  <h1>Material Index <small>pick a design case, then drag the guideline — everything above it meets the index, ranked on the right</small></h1>
+</header>
+<div class="wrap">
+  <div class="stage"><svg id="chart"></svg></div>
+  <aside>
+    <div class="box">
+      <h2>Design case — minimize mass of a…</h2>
+      <div class="cases" id="cases"></div>
+      <div id="mread" style="margin-top:10px"></div>
+    </div>
+    <div class="box">
+      <h2>Shortlist above the line</h2>
+      <ol id="ranked"></ol>
+    </div>
+    <div class="box" id="passport"><h2>Material passport</h2><div class="empty">Click a material on the chart or in the shortlist.</div></div>
+  </aside>
+</div>
+
+<script src="materials-data.js"></script>
+<script>
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const svg = document.getElementById("chart");
+  const dark = () => document.documentElement.dataset.theme === "dark" || (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const famColor = (fid) => (dark() ? FAM_BY_ID[fid].dark : FAM_BY_ID[fid].light);
+  const lg = Math.log10;
+  const fmt = (v) => (v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? +v.toPrecision(3) : +v.toPrecision(2));
+  const fmtRange = (r, unit) => (r ? `${fmt(r[0])} – ${fmt(r[1])} ${unit}` : "—");
+
+  // Minimum-mass indices M = y^a / rho. On log axes the guideline has slope 1/a:
+  // materials on the line are equally good; everything above is lighter for the job.
+  const CASES = [
+    { id: "st", name: "Stiff tie", detail: "tension rod", y: "E", a: 1,     label: "E/ρ" },
+    { id: "sb", name: "Stiff beam", detail: "bending",    y: "E", a: 1 / 2, label: "E½/ρ" },
+    { id: "sp", name: "Stiff panel", detail: "plate",     y: "E", a: 1 / 3, label: "E⅓/ρ" },
+    { id: "rt", name: "Strong tie", detail: "tension rod",y: "sig", a: 1,     label: "σ/ρ" },
+    { id: "rb", name: "Strong beam", detail: "bending",   y: "sig", a: 2 / 3, label: "σ⅔/ρ" },
+    { id: "rp", name: "Strong panel", detail: "plate",    y: "sig", a: 1 / 2, label: "σ½/ρ" },
+  ];
+  let cur = CASES[1]; // stiff beam — the classic
+  let M = null; // index threshold, in (yUnit)^a per Mg/m^3
+  let selected = null;
+
+  const indexOf = (m, c) => (m[c.y] ? Math.pow(mid(m[c.y]), c.a) / mid(m.rho) : null);
+
+  // case buttons
+  const casesBox = document.getElementById("cases");
+  for (const c of CASES) {
+    const b = document.createElement("button");
+    b.className = "case";
+    b.innerHTML = `<b>${c.name}</b>${c.detail} · ${c.label}`;
+    b.onclick = () => { cur = c; M = null; syncCases(); render(); };
+    b.dataset.id = c.id;
+    casesBox.appendChild(b);
+  }
+  const syncCases = () => casesBox.querySelectorAll(".case").forEach((b) => b.classList.toggle("on", b.dataset.id === cur.id));
+  syncCases();
+
+  // ---- chart ---------------------------------------------------------------
+  const PAD = { l: 56, r: 16, t: 12, b: 40 };
+  let geo = null; // computed per render for hit-testing
+  function render() {
+    const w = svg.clientWidth, h = svg.clientHeight;
+    svg.textContent = "";
+    const pts = MATERIALS.filter((m) => m[cur.y]).map((m) => ({
+      m,
+      x: lg(mid(m.rho)),
+      y: lg(mid(m[cur.y])),
+      rx: Math.max((lg(m.rho[1]) - lg(m.rho[0])) / 2, 0.02),
+      ry: Math.max((lg(m[cur.y][1]) - lg(m[cur.y][0])) / 2, 0.02),
+      idx: indexOf(m, cur),
+    }));
+    const xd = [Math.min(...pts.map((q) => q.x - q.rx)) - 0.15, Math.max(...pts.map((q) => q.x + q.rx)) + 0.15];
+    const yd = [Math.min(...pts.map((q) => q.y - q.ry)) - 0.2, Math.max(...pts.map((q) => q.y + q.ry)) + 0.2];
+    const X = (v) => PAD.l + ((v - xd[0]) / (xd[1] - xd[0])) * (w - PAD.l - PAD.r);
+    const Y = (v) => h - PAD.b - ((v - yd[0]) / (yd[1] - yd[0])) * (h - PAD.t - PAD.b);
+    const invY = (py) => yd[0] + ((h - PAD.b - py) / (h - PAD.t - PAD.b)) * (yd[1] - yd[0]);
+    const invX = (px) => xd[0] + ((px - PAD.l) / (w - PAD.l - PAD.r)) * (xd[1] - xd[0]);
+    geo = { X, Y, invX, invY, pts, xd, yd, w, h };
+
+    if (M == null) {
+      // start the line so about a third of materials pass
+      const vals = pts.map((q) => q.idx).sort((a, b) => b - a);
+      M = vals[Math.floor(vals.length / 3)] ?? 1;
+    }
+
+    // grid
+    for (let d = Math.ceil(xd[0]); d <= Math.floor(xd[1]); d++) {
+      svg.appendChild(el("line", { x1: X(d), y1: PAD.t, x2: X(d), y2: h - PAD.b, stroke: "var(--grid)" }));
+      const t = el("text", { x: X(d), y: h - PAD.b + 15, "text-anchor": "middle", fill: "var(--muted)", "font-size": 11 });
+      t.textContent = fmt(10 ** d);
+      svg.appendChild(t);
+    }
+    for (let d = Math.ceil(yd[0]); d <= Math.floor(yd[1]); d++) {
+      svg.appendChild(el("line", { x1: PAD.l, y1: Y(d), x2: w - PAD.r, y2: Y(d), stroke: "var(--grid)" }));
+      const t = el("text", { x: PAD.l - 6, y: Y(d) + 3.5, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 });
+      t.textContent = fmt(10 ** d);
+      svg.appendChild(t);
+    }
+    const xt = el("text", { x: (PAD.l + w - PAD.r) / 2, y: h - 8, "text-anchor": "middle", fill: "var(--ink-2)", "font-size": 12.5, "font-weight": 600 });
+    xt.textContent = "Density ρ, Mg/m³ (log)";
+    svg.appendChild(xt);
+    const yt = el("text", { x: 14, y: (PAD.t + h - PAD.b) / 2, fill: "var(--ink-2)", "font-size": 12.5, "font-weight": 600, transform: `rotate(-90 14 ${(PAD.t + h - PAD.b) / 2})`, "text-anchor": "middle" });
+    yt.textContent = `${PROPS[cur.y].name}, ${PROPS[cur.y].unit} (log)`;
+    svg.appendChild(yt);
+
+    // guideline: log y = (log M + log x) / a  → slope 1/a
+    const slope = 1 / cur.a;
+    const lineY = (lx) => (lg(M) + lx) / cur.a;
+    const p1 = [xd[0], lineY(xd[0])], p2 = [xd[1], lineY(xd[1])];
+    // shaded "wins" region above the line, clipped to plot
+    const region = el("path", {
+      d: `M ${X(p1[0])} ${Y(p1[1])} L ${X(p2[0])} ${Y(p2[1])} L ${X(xd[1])} ${PAD.t} L ${X(xd[0])} ${PAD.t} Z`,
+      fill: "var(--accent-soft)",
+    });
+    svg.appendChild(region);
+
+    // material ellipses
+    for (const q of pts) {
+      const pass = q.idx >= M;
+      const isSel = selected === q.m;
+      svg.appendChild(el("ellipse", {
+        cx: X(q.x), cy: Y(q.y),
+        rx: Math.max(q.rx * (w - PAD.l - PAD.r) / (xd[1] - xd[0]), 4),
+        ry: Math.max(q.ry * (h - PAD.t - PAD.b) / (yd[1] - yd[0]), 4),
+        fill: famColor(q.m.fam), "fill-opacity": pass ? 0.6 : 0.12,
+        stroke: isSel ? "var(--ink)" : famColor(q.m.fam), "stroke-opacity": pass ? 1 : 0.25, "stroke-width": isSel ? 2 : 1,
+      }));
+      if (pass || isSel) {
+        const t = el("text", { x: X(q.x), y: Y(q.y) - 5, "text-anchor": "middle", fill: "var(--ink)", "font-size": 11, "font-weight": isSel ? 700 : 550, "paint-order": "stroke", stroke: "var(--surface)", "stroke-width": 3 });
+        t.textContent = q.m.name;
+        svg.appendChild(t);
+      }
+    }
+
+    // the line itself, drawn on top with a grab handle look
+    svg.appendChild(el("line", { x1: X(p1[0]), y1: Y(p1[1]), x2: X(p2[0]), y2: Y(p2[1]), stroke: "var(--accent)", "stroke-width": 2, "stroke-dasharray": "7 5" }));
+    const midX = (xd[0] + xd[1]) / 2;
+    const lab = el("text", { x: X(midX), y: Y(lineY(midX)) - 8, "text-anchor": "middle", fill: "var(--accent)", "font-size": 12, "font-weight": 650, "paint-order": "stroke", stroke: "var(--surface)", "stroke-width": 4 });
+    lab.textContent = `${cur.label} = ${fmt(M)}  (slope ${slope % 1 ? slope.toFixed(1) : slope}) — drag`;
+    svg.appendChild(lab);
+
+    // rail readout + ranked list
+    document.getElementById("mread").innerHTML =
+      `Guideline index <b>${cur.label} = ${fmt(M)}</b> · <b>${pts.filter((q) => q.idx >= M).length}</b> of ${pts.length} materials qualify`;
+    const ranked = document.getElementById("ranked");
+    ranked.textContent = "";
+    pts.filter((q) => q.idx >= M).sort((a, b) => b.idx - a.idx).forEach((q, i) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="rank">${i + 1}</span><span class="dot"></span><span>${q.m.name}</span><span class="val">${fmt(q.idx)}</span>`;
+      li.querySelector(".dot").style.background = famColor(q.m.fam);
+      li.onclick = () => { selected = q.m; render(); };
+      ranked.appendChild(li);
+    });
+    renderPassport();
+  }
+
+  function renderPassport() {
+    const box = document.getElementById("passport");
+    if (!selected) { box.innerHTML = `<h2>Material passport</h2><div class="empty">Click a material on the chart or in the shortlist.</div>`; return; }
+    const m = selected;
+    box.innerHTML =
+      `<h2>Material passport</h2><h3 style="color:${famColor(m.fam)}">${m.name}</h3>` +
+      `<table>` +
+      Object.keys(PROPS).map((k) => `<tr><td>${PROPS[k].name}</td><td>${fmtRange(m[k], PROPS[k].unit)}</td></tr>`).join("") +
+      CASES.map((c) => { const v = indexOf(m, c); return v ? `<tr><td>${c.name} · ${c.label}</td><td>${fmt(v)}</td></tr>` : ""; }).join("") +
+      `</table>`;
+  }
+
+  // ---- dragging the guideline / clicking materials --------------------------
+  let dragging = false;
+  svg.addEventListener("pointerdown", (e) => {
+    svg.setPointerCapture(e.pointerId);
+    // click near a material selects it; otherwise start dragging the line
+    const r = svg.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    let best = null, bd = 13 * 13;
+    for (const q of geo.pts) {
+      const d2 = (px - geo.X(q.x)) ** 2 + (py - geo.Y(q.y)) ** 2;
+      if (d2 < bd) { bd = d2; best = q.m; }
+    }
+    if (best) { selected = best; render(); return; }
+    dragging = true;
+    moveLine(px, py);
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    const r = svg.getBoundingClientRect();
+    moveLine(e.clientX - r.left, e.clientY - r.top);
+  });
+  const stopDrag = () => (dragging = false);
+  svg.addEventListener("pointerup", stopDrag);
+  svg.addEventListener("pointercancel", stopDrag);
+  function moveLine(px, py) {
+    // set M so the guideline passes through the cursor
+    const lx = geo.invX(px), ly = geo.invY(py);
+    M = 10 ** (cur.a * ly - lx);
+    render();
+  }
+
+  new ResizeObserver(render).observe(svg);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", render);
+  render();
+</script>

@@ -1,0 +1,359 @@
+<title>Material Terrain — strength–density as a map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f5f3ec;      /* paper */
+    --surface: #faf8f1;
+    --ink: #1c1a15;
+    --ink-2: #55524a;
+    --muted: #8d8a80;
+    --grid: #e4e1d5;
+    --ring: rgba(28, 26, 21, 0.12);
+    --card: #fffdf7;
+    --accent: #2a78d6;
+    --halo: #faf8f1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #101214;     /* night chart */
+      --surface: #14171a;
+      --ink: #f2f1ec;
+      --ink-2: #b9b7ae;
+      --muted: #83817a;
+      --grid: #23272b;
+      --ring: rgba(242, 241, 236, 0.12);
+      --card: #1b1f23;
+      --accent: #3987e5;
+      --halo: #14171a;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #101214;
+    --surface: #14171a;
+    --ink: #f2f1ec;
+    --ink-2: #b9b7ae;
+    --muted: #83817a;
+    --grid: #23272b;
+    --ring: rgba(242, 241, 236, 0.12);
+    --card: #1b1f23;
+    --accent: #3987e5;
+    --halo: #14171a;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: fixed; inset: 0; width: 100vw; height: 100vh; background: var(--surface); cursor: grab; touch-action: none; }
+  #map.panning { cursor: grabbing; }
+  .card {
+    position: fixed;
+    background: var(--card);
+    border: 1px solid var(--ring);
+    border-radius: 11px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14);
+    z-index: 5;
+  }
+  #search { top: 12px; left: 12px; padding: 10px 12px; width: min(300px, calc(100vw - 24px)); }
+  #search h1 { margin: 0 0 2px; font-size: 14px; font-weight: 700; letter-spacing: 0.01em; }
+  #search .sub { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+  #search input { width: 100%; font: inherit; font-size: 13px; color: var(--ink); background: var(--surface); border: 1px solid var(--ring); border-radius: 7px; padding: 6px 9px; }
+  #results { margin: 6px 0 0; padding: 0; list-style: none; max-height: 180px; overflow: auto; }
+  #results li { padding: 5px 7px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
+  #results li:hover { background: var(--surface); }
+  #results .fam { color: var(--muted); font-size: 11.5px; }
+  #zoomer { top: 12px; right: 12px; display: flex; flex-direction: column; overflow: hidden; }
+  #zoomer button { font: 20px/1 system-ui; width: 38px; height: 38px; border: 0; background: var(--card); color: var(--ink); cursor: pointer; }
+  #zoomer button + button { border-top: 1px solid var(--ring); }
+  #zoomer button:hover { background: var(--surface); }
+  #legend { left: 12px; bottom: 12px; padding: 9px 12px; font-size: 12px; display: grid; grid-template-columns: auto auto; gap: 3px 14px; }
+  #legend .it { display: flex; align-items: center; gap: 7px; color: var(--ink-2); }
+  #legend .sw { width: 11px; height: 11px; border-radius: 3px; }
+  #mini { right: 12px; bottom: 12px; padding: 5px; }
+  #mini svg { display: block; border-radius: 7px; background: var(--surface); }
+  #zoomlabel { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); font-size: 11.5px; color: var(--muted); background: var(--card); border: 1px solid var(--ring); border-radius: 999px; padding: 3px 12px; z-index: 5; pointer-events: none; }
+  @media (max-width: 640px) { #legend { display: none; } }
+</style>
+
+<svg id="map"></svg>
+<div class="card" id="search">
+  <h1>Material Terrain</h1>
+  <div class="sub">Strength–density, explored like a map. Zoom in for materials, further for numbers.</div>
+  <input id="q" placeholder="Fly to a material… (e.g. titanium)" autocomplete="off" />
+  <ul id="results"></ul>
+</div>
+<div class="card" id="zoomer"><button id="zin" title="Zoom in">+</button><button id="zout" title="Zoom out">−</button></div>
+<div class="card" id="legend"></div>
+<div class="card" id="mini"><svg id="minisvg" width="150" height="110"></svg></div>
+<div id="zoomlabel"></div>
+
+<script src="materials-data.js"></script>
+<script>
+  "use strict";
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, a = {}) => { const n = document.createElementNS(NS, t); for (const k in a) n.setAttribute(k, a[k]); return n; };
+  const map = document.getElementById("map");
+  const dark = () => document.documentElement.dataset.theme === "dark" || (document.documentElement.dataset.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+  const famColor = (fid) => (dark() ? FAM_BY_ID[fid].dark : FAM_BY_ID[fid].light);
+  const lg = Math.log10;
+  const fmt = (v) => (v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? +v.toPrecision(3) : +v.toPrecision(2));
+
+  // ---- world: log10(density) x log10(strength) ---------------------------
+  const items = MATERIALS.map((m) => ({
+    m,
+    cx: (lg(m.rho[0]) + lg(m.rho[1])) / 2,
+    cy: (lg(m.sig[0]) + lg(m.sig[1])) / 2,
+    rx: Math.max((lg(m.rho[1]) - lg(m.rho[0])) / 2, 0.025),
+    ry: Math.max((lg(m.sig[1]) - lg(m.sig[0])) / 2, 0.025),
+  }));
+  const dom = {
+    x: [Math.min(...items.map((i) => i.cx - i.rx)) - 0.2, Math.max(...items.map((i) => i.cx + i.rx)) + 0.2],
+    y: [Math.min(...items.map((i) => i.cy - i.ry)) - 0.25, Math.max(...items.map((i) => i.cy + i.ry)) + 0.25],
+  };
+  let base = { sx: 1, sy: 1, ox: 0, oy: 0 };
+  let view = { k: 1, tx: 0, ty: 0 };
+  function fitBase() {
+    const w = map.clientWidth, h = map.clientHeight;
+    base.sx = w / (dom.x[1] - dom.x[0]);
+    base.sy = -h / (dom.y[1] - dom.y[0]);
+    base.ox = -dom.x[0] * base.sx;
+    base.oy = h - dom.y[0] * base.sy;
+  }
+  const SX = (v) => (v * base.sx + base.ox) * view.k + view.tx;
+  const SY = (v) => (v * base.sy + base.oy) * view.k + view.ty;
+
+  // ---- hull helpers (family continents) -----------------------------------
+  function hull(pts) {
+    pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const half = (list) => { const out = []; for (const p of list) { while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop(); out.push(p); } out.pop(); return out; };
+    return half(pts).concat(half(pts.slice().reverse()));
+  }
+  function smoothClosed(pts) {
+    const n = pts.length; if (n < 3) return "";
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+      d += ` C ${(p1[0] + (p2[0] - p0[0]) / 6).toFixed(1)} ${(p1[1] + (p2[1] - p0[1]) / 6).toFixed(1)}, ${(p2[0] - (p3[0] - p1[0]) / 6).toFixed(1)} ${(p2[1] - (p3[1] - p1[1]) / 6).toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d + " Z";
+  }
+  // continents in world (log) coordinates, computed once
+  const continents = FAMILIES.map((f) => {
+    const pts = [];
+    for (const it of items) {
+      if (it.m.fam !== f.id) continue;
+      for (let a = 0; a < 12; a++) {
+        const th = (a / 12) * 2 * Math.PI;
+        pts.push([it.cx + Math.cos(th) * (it.rx + 0.1), it.cy + Math.sin(th) * (it.ry + 0.12)]);
+      }
+    }
+    const hu = hull(pts);
+    const cx = hu.reduce((s, p) => s + p[0], 0) / hu.length;
+    const cy = hu.reduce((s, p) => s + p[1], 0) / hu.length;
+    return { f, hull: hu, cx, cy };
+  });
+
+  // ---- semantic-zoom render ------------------------------------------------
+  const lerp = (a, b, t) => a + (b - a) * Math.max(0, Math.min(1, t));
+  function render() {
+    const w = map.clientWidth, h = map.clientHeight;
+    map.textContent = "";
+    const k = view.k;
+
+    // graticule: decade lines, labeled along edges like a map grid
+    for (let d = Math.floor(dom.x[0]); d <= Math.ceil(dom.x[1]); d++) {
+      const px = SX(d);
+      if (px < -20 || px > w + 20) continue;
+      map.appendChild(el("line", { x1: px, y1: 0, x2: px, y2: h, stroke: "var(--grid)" }));
+      const t = el("text", { x: px + 4, y: h - 6, fill: "var(--muted)", "font-size": 10.5 });
+      t.textContent = fmt(10 ** d) + " Mg/m³";
+      map.appendChild(t);
+    }
+    for (let d = Math.floor(dom.y[0]); d <= Math.ceil(dom.y[1]); d++) {
+      const py = SY(d);
+      if (py < -20 || py > h + 20) continue;
+      map.appendChild(el("line", { x1: 0, y1: py, x2: w, y2: py, stroke: "var(--grid)" }));
+      const t = el("text", { x: 6, y: py - 4, fill: "var(--muted)", "font-size": 10.5 });
+      t.textContent = fmt(10 ** d) + " MPa";
+      map.appendChild(t);
+    }
+
+    // continents — the only thing you see zoomed out
+    const contOp = lerp(0.16, 0.05, (k - 2) / 2); // fade as materials take over
+    for (const c of continents) {
+      if (c.hull.length < 3) continue;
+      const pts = c.hull.map((p) => [SX(p[0]), SY(p[1])]);
+      map.appendChild(el("path", { d: smoothClosed(pts), fill: famColor(c.f.id), "fill-opacity": contOp, stroke: famColor(c.f.id), "stroke-opacity": 0.5, "stroke-width": 1.4 }));
+    }
+    // family names — big italic "ocean labels", fade out past k≈3
+    const famOp = lerp(1, 0, (k - 2.2) / 1.6);
+    if (famOp > 0.02)
+      for (const c of continents) {
+        const t = el("text", { x: SX(c.cx), y: SY(c.cy), "text-anchor": "middle", fill: famColor(c.f.id), opacity: famOp, "font-size": Math.min(15 + 7 * k, 40), "font-style": "italic", "font-weight": 650, "letter-spacing": "0.12em", "paint-order": "stroke", stroke: "var(--halo)", "stroke-width": 4 });
+        t.textContent = c.f.name.toUpperCase();
+        map.appendChild(t);
+      }
+
+    // materials fade in from k≈1.6
+    const matOp = lerp(0, 1, (k - 1.6) / 1.2);
+    if (matOp > 0.02) {
+      for (const it of items) {
+        const cx = SX(it.cx), cy = SY(it.cy);
+        const rx = Math.max(it.rx * base.sx * k, 5), ry = Math.max(it.ry * Math.abs(base.sy) * k, 5);
+        if (cx + rx < 0 || cx - rx > w || cy + ry < 0 || cy - ry > h) continue;
+        map.appendChild(el("ellipse", { cx, cy, rx, ry, fill: famColor(it.m.fam), "fill-opacity": 0.5 * matOp, stroke: famColor(it.m.fam), "stroke-opacity": matOp, "stroke-width": 1 }));
+      }
+      // labels from k≈2.6; numbers from k≈5 — like place names then street data
+      const labOp = lerp(0, 1, (k - 2.6) / 1.2);
+      const numOp = lerp(0, 1, (k - 5) / 2);
+      if (labOp > 0.02)
+        for (const it of items) {
+          const cx = SX(it.cx), cy = SY(it.cy);
+          if (cx < -80 || cx > w + 80 || cy < -40 || cy > h + 40) continue;
+          const t = el("text", { x: cx, y: cy - 3, "text-anchor": "middle", fill: "var(--ink)", opacity: labOp, "font-size": 11.5, "font-weight": 600, "paint-order": "stroke", stroke: "var(--halo)", "stroke-width": 3 });
+          t.textContent = it.m.name;
+          map.appendChild(t);
+          if (numOp > 0.02) {
+            const s = el("text", { x: cx, y: cy + 11, "text-anchor": "middle", fill: "var(--ink-2)", opacity: numOp, "font-size": 10, "paint-order": "stroke", stroke: "var(--halo)", "stroke-width": 3 });
+            s.textContent = `σ ${fmt(mid(it.m.sig))} MPa · ρ ${fmt(mid(it.m.rho))} · E ${fmt(mid(it.m.E))} GPa`;
+            map.appendChild(s);
+          }
+        }
+    }
+
+    document.getElementById("zoomlabel").textContent =
+      k < 1.7 ? "families — zoom in for materials" : k < 2.7 ? "materials" : k < 5 ? "materials · names" : "materials · names · numbers";
+    renderMini();
+  }
+
+  // ---- minimap -------------------------------------------------------------
+  const mini = document.getElementById("minisvg");
+  function renderMini() {
+    const mw = 150, mh = 110;
+    mini.textContent = "";
+    const mx = (v) => ((v - dom.x[0]) / (dom.x[1] - dom.x[0])) * mw;
+    const my = (v) => mh - ((v - dom.y[0]) / (dom.y[1] - dom.y[0])) * mh;
+    for (const c of continents) {
+      if (c.hull.length < 3) continue;
+      mini.appendChild(el("path", { d: smoothClosed(c.hull.map((p) => [mx(p[0]), my(p[1])])), fill: famColor(c.f.id), "fill-opacity": 0.3 }));
+    }
+    // viewport rectangle: invert view transform to world coords
+    const w = map.clientWidth, h = map.clientHeight;
+    const wx = (px) => ((px - view.tx) / view.k - base.ox) / base.sx;
+    const wy = (py) => ((py - view.ty) / view.k - base.oy) / base.sy;
+    const x0 = mx(wx(0)), x1 = mx(wx(w)), y0 = my(wy(0)), y1 = my(wy(h));
+    mini.appendChild(el("rect", { x: Math.min(x0, x1), y: Math.min(y0, y1), width: Math.abs(x1 - x0), height: Math.abs(y1 - y0), fill: "none", stroke: "var(--accent)", "stroke-width": 1.5, rx: 2 }));
+  }
+  mini.addEventListener("pointerdown", (e) => {
+    const r = mini.getBoundingClientRect();
+    const wxv = dom.x[0] + ((e.clientX - r.left) / 150) * (dom.x[1] - dom.x[0]);
+    const wyv = dom.y[0] + (1 - (e.clientY - r.top) / 110) * (dom.y[1] - dom.y[0]);
+    flyTo(wxv, wyv, view.k);
+  });
+
+  // ---- fly-to animation ----------------------------------------------------
+  let anim = null;
+  function flyTo(wx, wy, kTarget) {
+    const w = map.clientWidth, h = map.clientHeight;
+    const from = { ...view };
+    const to = { k: kTarget, tx: w / 2 - (wx * base.sx + base.ox) * kTarget, ty: h / 2 - (wy * base.sy + base.oy) * kTarget };
+    const t0 = performance.now(), dur = 650;
+    cancelAnimationFrame(anim);
+    const ease = (t) => 1 - Math.pow(1 - t, 3);
+    const step = (now) => {
+      const t = ease(Math.min(1, (now - t0) / dur));
+      view = { k: from.k + (to.k - from.k) * t, tx: from.tx + (to.tx - from.tx) * t, ty: from.ty + (to.ty - from.ty) * t };
+      render();
+      if (t < 1) anim = requestAnimationFrame(step);
+    };
+    anim = requestAnimationFrame(step);
+  }
+
+  // ---- search --------------------------------------------------------------
+  const q = document.getElementById("q");
+  const results = document.getElementById("results");
+  q.addEventListener("input", () => {
+    const s = q.value.trim().toLowerCase();
+    results.textContent = "";
+    if (s.length < 2) return;
+    for (const it of items.filter((i) => i.m.name.toLowerCase().includes(s)).slice(0, 7)) {
+      const li = document.createElement("li");
+      li.innerHTML = `<span>${it.m.name}</span><span class="fam">${FAM_BY_ID[it.m.fam].name}</span>`;
+      li.onclick = () => { flyTo(it.cx, it.cy, 7); results.textContent = ""; q.value = it.m.name; };
+      results.appendChild(li);
+    }
+  });
+
+  // ---- pan / zoom ----------------------------------------------------------
+  const pointers = new Map();
+  let panStart = null, pinchStart = null;
+  map.addEventListener("pointerdown", (e) => {
+    map.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    cancelAnimationFrame(anim);
+    if (pointers.size === 1) { panStart = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty }; map.classList.add("panning"); }
+    else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchStart = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, k: view.k, tx: view.tx, ty: view.ty };
+      panStart = null;
+    }
+  });
+  map.addEventListener("pointermove", (e) => {
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, [e.clientX, e.clientY]);
+    if (pinchStart && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const s = Math.max(0.6, Math.min(24, (pinchStart.k * Math.hypot(a[0] - b[0], a[1] - b[1])) / pinchStart.d)) / pinchStart.k;
+      view.k = pinchStart.k * s;
+      view.tx = pinchStart.cx - (pinchStart.cx - pinchStart.tx) * s;
+      view.ty = pinchStart.cy - (pinchStart.cy - pinchStart.ty) * s;
+      render();
+    } else if (panStart) {
+      view.tx = panStart.tx + (e.clientX - panStart.x);
+      view.ty = panStart.ty + (e.clientY - panStart.y);
+      render();
+    }
+  });
+  const endPtr = (e) => { pointers.delete(e.pointerId); if (pointers.size < 2) pinchStart = null; if (!pointers.size) { panStart = null; map.classList.remove("panning"); } };
+  map.addEventListener("pointerup", endPtr);
+  map.addEventListener("pointercancel", endPtr);
+  map.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const s = Math.exp(-e.deltaY * 0.0016);
+    const k = Math.max(0.6, Math.min(24, view.k * s));
+    const real = k / view.k;
+    view.tx = e.clientX - (e.clientX - view.tx) * real;
+    view.ty = e.clientY - (e.clientY - view.ty) * real;
+    view.k = k;
+    render();
+  }, { passive: false });
+  const zoomBy = (f) => {
+    const w = map.clientWidth / 2, h = map.clientHeight / 2;
+    const k = Math.max(0.6, Math.min(24, view.k * f)), real = k / view.k;
+    view.tx = w - (w - view.tx) * real; view.ty = h - (h - view.ty) * real; view.k = k;
+    render();
+  };
+  document.getElementById("zin").onclick = () => zoomBy(1.5);
+  document.getElementById("zout").onclick = () => zoomBy(1 / 1.5);
+  map.addEventListener("dblclick", () => { view = { k: 1, tx: 0, ty: 0 }; render(); });
+
+  // ---- legend --------------------------------------------------------------
+  const legend = document.getElementById("legend");
+  for (const f of FAMILIES) {
+    const it = document.createElement("div");
+    it.className = "it";
+    it.innerHTML = `<span class="sw"></span>${f.name}`;
+    it.querySelector(".sw").style.background = famColor(f.id);
+    legend.appendChild(it);
+  }
+
+  new ResizeObserver(() => { fitBase(); render(); }).observe(map);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    legend.querySelectorAll(".sw").forEach((s, i) => (s.style.background = famColor(FAMILIES[i].id)));
+    render();
+  });
+  fitBase();
+  render();
+</script>
