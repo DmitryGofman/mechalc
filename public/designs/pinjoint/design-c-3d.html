@@ -1,0 +1,451 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pin Joint — Design C: 3D Joint</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:560px;margin:0 auto;padding:14px 10px 40px}
+  a.back{font-family:var(--mono);font-size:9px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:10px;margin:8px 0 12px}
+  .kicker{font-family:var(--mono);font-size:9px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:5px 0 0;font-size:18px;font-weight:600;text-wrap:balance}
+  .sub{font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:5px;line-height:1.7}
+
+  #wrap{position:relative;width:100%;height:340px;border-radius:3px;overflow:hidden;background:var(--panel);
+        border:1px solid var(--line2)}
+  #view{width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+  #view.grabbing{cursor:grabbing}
+  #hud{position:absolute;top:9px;left:11px;font-family:var(--mono);font-size:10px;color:var(--dim);
+       line-height:1.65;pointer-events:none;text-shadow:0 1px 5px #000}
+  #hud b{color:var(--ink);font-weight:600}
+  #verd{position:absolute;top:9px;right:11px;font-family:var(--mono);font-size:10px;font-weight:700;
+        letter-spacing:.1em;text-align:right;pointer-events:none;text-shadow:0 1px 5px #000;line-height:1.6}
+  #hint{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-family:var(--mono);font-size:8.5px;
+        color:var(--faint);pointer-events:none;text-shadow:0 1px 4px #000}
+  @media(max-width:520px){#wrap{height:290px}}
+
+  .bar{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line2);
+       border-radius:3px;padding:9px 11px;margin-top:8px}
+  .bar .lab{font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:var(--mid);white-space:nowrap}
+  .bar input[type=range]{flex:1;accent-color:var(--blue);min-width:0}
+  .bar .val{font-family:var(--mono);font-size:13px;font-weight:600;min-width:74px;text-align:right;font-variant-numeric:tabular-nums}
+  .btn{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;
+       background:#0e1419;border:1px solid var(--line);color:var(--dim);border-radius:2px;padding:7px 10px;white-space:nowrap}
+  .btn:hover{border-color:var(--blue);color:var(--ink)}
+  .btn.on{border-color:var(--blue);color:var(--blue)}
+  .btnrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;border:1px solid;border-radius:2px;padding:3px 7px}
+
+  details{border:1px solid var(--line2);border-radius:3px;background:var(--panel);margin-top:8px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:8.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid);padding:8px 11px}
+  .dbody{padding:2px 11px 11px;display:grid;grid-template-columns:1fr 1fr;gap:7px}
+  .fld label{display:flex;align-items:baseline;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:3px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:5px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 8px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;grid-column:1/-1}
+  .seg button{flex:1;background:#0e1419;border:none;color:var(--mid);font-family:var(--mono);font-size:10px;padding:8px 4px;cursor:pointer}
+  .seg button.on{background:#12253c;color:var(--blue)}
+  .note{font-family:var(--sans);font-size:11.5px;color:var(--dim);line-height:1.7;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}
+  .note strong{color:#c2ccd4}
+</style>
+</head>
+<body>
+<div class="shell">
+<div id="nojs" style="background:#1a0e10;border:1px solid #d65c5c;border-radius:3px;color:#e0a3a3;font:12px/1.6 ui-monospace,Menlo,monospace;padding:10px 12px;margin-bottom:12px">This calculator needs JavaScript. If you can read this, your viewer blocked it — file previews in chat apps do. Save the file, then open it with Safari or Chrome (on iPhone: save to Files, long-press the file → Share → Safari).</div><script>document.getElementById("nojs").remove()</script>
+  <a class="back" href="index.html">← PIN JOINT DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN C · 3D JOINT</div>
+    <h1>Grab the flange, pull until something gives</h1>
+    <div class="sub">Orbit with a drag · pull the loaded plate (grab its end) or use the slider · every surface painted
+    by its own failure mode: bearing glows at the hole, tear-out on the edge ligament, shear on the pin at the planes.</div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="view"></canvas>
+    <div id="hud"></div>
+    <div id="verd"></div>
+    <div id="hint">drag = orbit · drag the loaded plate's end = pull · wheel = zoom</div>
+  </div>
+
+  <div class="bar">
+    <span class="lab">LOAD</span>
+    <input id="F" type="range" min="0" max="20" step="0.05" value="6">
+    <span class="val" id="fv">6.00 kN</span>
+  </div>
+  <div class="btnrow">
+    <button class="btn on" id="bArrows">force arrows</button>
+    <button class="btn" id="bExplode">exploded view</button>
+    <button class="btn" id="bReset">reset view</button>
+  </div>
+  <div class="chips" id="chips"></div>
+
+  <details open><summary>Joint · geometry · materials</summary>
+    <div class="dbody">
+      <div class="seg" id="cfgseg">
+        <button data-v="3" class="on">3 FLANGES · DOUBLE SHEAR</button>
+        <button data-v="2">2 FLANGES · SINGLE SHEAR</button>
+      </div>
+      <div class="fld"><label>Pin Ø d<span>mm</span></label><input id="d" type="number" step="0.5" value="8"></div>
+      <div class="fld"><label>Clevis gap<span>mm/side</span></label><input id="clr" type="number" step="0.1" value="0.2"></div>
+      <div class="fld"><label>Shear plane</label><select id="shank"></select></div>
+      <div class="fld"><label>Pin material</label><select id="pinMat"></select></div>
+      <div class="fld"><label id="l1">Outer t₁<span>mm each</span></label><input id="t1" type="number" step="0.5" value="6"></div>
+      <div class="fld"><label>Material</label><select id="mat1"></select></div>
+      <div class="fld"><label id="l2">Middle t₂<span>mm</span></label><input id="t2" type="number" step="0.5" value="8"></div>
+      <div class="fld"><label>Material</label><select id="mat2"></select></div>
+      <div class="fld"><label>Width w<span>mm</span></label><input id="w" type="number" step="1" value="32"></div>
+      <div class="fld"><label>Edge dist. a<span>mm ctr→edge</span></label><input id="a" type="number" step="0.5" value="12"></div>
+      <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+    </div>
+  </details>
+
+  <div class="note"><strong>What the colors mean:</strong> every zone is painted by its own check — neutral green far
+  from yield, amber at half margin, red at the limit. The crescent at each hole is bearing; the ligament to the short
+  edge is tear-out; the flanks beside the hole are the net section; the pin lights up at the shear planes and, in a
+  clevis, in bending between them. The visible slip and shear-step are exaggerated (~40× on a typical steel joint) so
+  you can see where the joint is heading. Static yield-onset checks — typical values, verify before production.</div>
+</div>
+
+<script src="pin-engine.js"></script>
+<script>
+"use strict";
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=PIN.defaults();
+fill("pinMat",PIN.PIN_MATS,DEF.pinMat); fill("mat1",PIN.PLATE_MATS,DEF.mat1);
+fill("mat2",PIN.PLATE_MATS,DEF.mat2); fill("shank",PIN.SHANKS,DEF.shank);
+const f=PIN.fmt, col=PIN.sfColor;
+
+let config=3;
+$("cfgseg").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  config=+b.dataset.v;
+  $("cfgseg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  $("l1").childNodes[0].textContent=config===3?"Outer t₁":"Plate A t₁";
+  $("l2").childNodes[0].textContent=config===3?"Middle t₂":"Plate B t₂";
+  refresh();
+}));
+
+function read(){return{
+  config, d:+$("d").value||1, shank:$("shank").value, pinMat:$("pinMat").value,
+  t1:+$("t1").value||0.5, mat1:$("mat1").value, t2:+$("t2").value||0.5, mat2:$("mat2").value,
+  w:+$("w").value||2, a:+$("a").value||1, clr:+$("clr").value||0,
+  F:1000*(+$("F").value||0), SFt:+$("SFt").value||1,
+}}
+
+/* ══ 3D viewer — dependency-free canvas painter ═══════════════════════════ */
+const cv=$("view"), wrap=$("wrap"), ctx=cv.getContext("2d");
+let yaw=-0.55, pitch=-0.38, zoom=1, explodeT=0, showArrows=true;
+let W=0,Hpx=0,DPR=1;
+function resize(){
+  DPR=Math.min(window.devicePixelRatio||1,2);
+  W=wrap.clientWidth; Hpx=wrap.clientHeight;
+  cv.width=W*DPR; cv.height=Hpx*DPR;
+}
+window.addEventListener("resize",()=>{resize();render();});
+
+// camera: world mm → screen px. Yaw about Y, pitch about screen X, mild perspective.
+let SCALE=4, CAMD=2600;
+function cam(p){
+  const cy=Math.cos(yaw), sy=Math.sin(yaw);
+  let x=p[0]*cy+p[2]*sy, z=-p[0]*sy+p[2]*cy, y=p[1];
+  const cp=Math.cos(pitch), sp=Math.sin(pitch);
+  const y2=y*cp-z*sp, z2=y*sp+z*cp;
+  return [x*SCALE*zoom, -y2*SCALE*zoom, z2*SCALE*zoom];
+}
+function scr(c){const k=CAMD/(CAMD-c[2]);return [W/2+c[0]*k, Hpx/2+c[1]*k];}
+const LIGHT=(()=>{const l=[0.42,0.62,0.66],n=Math.hypot(...l);return l.map(v=>v/n);})();
+
+let quads=[];
+function quad(pts,rgb){
+  // world-space normal → lambert shade; camera transform; painter depth
+  const [a,b,c]=[pts[0],pts[1],pts[2]];
+  const u=[b[0]-a[0],b[1]-a[1],b[2]-a[2]], v=[c[0]-a[0],c[1]-a[1],c[2]-a[2]];
+  let n=[u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
+  const nn=Math.hypot(...n)||1; n=n.map(x=>x/nn);
+  // rotate normal into camera space (same rotation as cam, no scale)
+  const cy=Math.cos(yaw), sy=Math.sin(yaw), cp=Math.cos(pitch), sp=Math.sin(pitch);
+  let nx=n[0]*cy+n[2]*sy, nz0=-n[0]*sy+n[2]*cy, ny=n[1];
+  const ny2=ny*cp-nz0*sp, nz=ny*sp+nz0*cp;
+  const dd=nx*LIGHT[0]-ny2*LIGHT[1]+nz*LIGHT[2];
+  const sh=0.52+0.48*Math.abs(dd);
+  const cs=pts.map(cam);
+  const zm=(cs[0][2]+cs[1][2]+cs[2][2]+cs[3][2])/4;
+  quads.push({p:cs.map(scr), z:zm, col:`rgb(${rgb.map(x=>Math.round(255*Math.min(1,x*sh))).join(",")})`});
+}
+function flush(){
+  quads.sort((a,b)=>a.z-b.z);
+  for(const q of quads){
+    ctx.fillStyle=q.col; ctx.strokeStyle=q.edge||q.col; ctx.lineWidth=0.5;
+    ctx.beginPath(); ctx.moveTo(q.p[0][0],q.p[0][1]);
+    for(let i=1;i<4;i++)ctx.lineTo(q.p[i][0],q.p[i][1]);
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+  }
+  quads=[];
+}
+
+// mix material tone with the utilization ramp: hot zones glow, idle zones stay material
+function toneRGB(hex){return [parseInt(hex.slice(1,3),16)/255,parseInt(hex.slice(3,5),16)/255,parseInt(hex.slice(5,7),16)/255];}
+function zoneColor(tone,u){
+  const hot=PIN.utilRGB(Math.min(u,1.35));
+  const m=Math.min(1,0.1+0.9*Math.min(u,1.3)/1.3);
+  return [tone[0]+(hot[0]-tone[0])*m, tone[1]+(hot[1]-tone[1])*m, tone[2]+(hot[2]-tone[2])*m];
+}
+
+// ray from hole centre to the rectangle boundary, plate-local (u=Z, v=Y)
+function rayRect(th,zmin,zmax,ymin,ymax){
+  const c=Math.cos(th), s=Math.sin(th); let t=Infinity;
+  if(c>1e-9)t=Math.min(t,zmax/c); if(c<-1e-9)t=Math.min(t,zmin/c);
+  if(s>1e-9)t=Math.min(t,ymax/s); if(s<-1e-9)t=Math.min(t,ymin/s);
+  return [c*t,s*t];
+}
+const wrapPi=(x)=>Math.atan2(Math.sin(x),Math.cos(x));
+
+let inp=read(), r=PIN.solve(inp);
+let handleScr=null, FMAX=20;
+
+function layout(){
+  const {d,clr}=inp, t1=Math.max(inp.t1,.1), t2=Math.max(inp.t2,.1), g=Math.max(clr,0);
+  const dbl=r.double;
+  const L=Math.max(2.5*inp.d, inp.a+1.5*inp.d, 0.8*inp.w);
+  // dir = direction this plate is pulled; short (tear) edge sits on −dir
+  const mk=(x0,x1,m,dir)=>({x0,x1,m,dir,ymin:dir>0?-inp.a:-L,ymax:dir>0?L:inp.a});
+  const plates=dbl
+    ?[mk(-t2/2-g-t1,-t2/2-g,r.members[0],-1), mk(-t2/2,t2/2,r.members[1],1), mk(t2/2+g,t2/2+g+t1,r.members[0],-1)]
+    :[mk(-g-t1,-g,r.members[0],-1), mk(0,t2,r.members[1],1)];
+  const stick=1.15*d;
+  return {plates,dbl,L,stick,X0:plates[0].x0-stick,X1:plates[plates.length-1].x1+stick};
+}
+
+function render(){
+  inp=read(); r=PIN.solve(inp);
+  const {d}=inp;
+  const lay=layout();
+  const uJoint=Math.min(1/r.SFjoint,1.35);
+  const slip=0.16*d*Math.min(uJoint,1.2);      // exaggerated relative slip, mm
+  const exp=explodeT*(1.1*d);                  // exploded-view spread per interface
+
+  // fit scale from static envelope
+  const halfX=(lay.X1-lay.X0)/2+2*exp+d, halfY=lay.L+1.5*d, halfZ=inp.w/2+d;
+  const Rw=Math.hypot(halfX,halfY,halfZ);
+  SCALE=Math.min(W,Hpx)/(2.35*Rw); CAMD=6*Rw*SCALE;
+
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.clearRect(0,0,W,Hpx);
+
+  // per-plate world transform: explode along X, deformation slip along Y
+  const nP=lay.plates.length;
+  const plX=lay.plates.map((p,i)=>(i-(nP-1)/2)*exp);
+  const plY=lay.plates.map(p=>p.dir*slip/2);
+
+  // ── plates ──
+  const NA=26;
+  for(let pi=0;pi<nP;pi++){
+    const p=lay.plates[pi], ox=plX[pi], oy=plY[pi];
+    const tone=toneRGB(p.m.mat.tone);
+    const uB=1/p.m.SFbearPlate, uT=1/p.m.SFtear, uN=1/p.m.SFnet;
+    const thPress=-p.dir*Math.PI/2;            // where the pin presses = tear side
+    // angle set: uniform + exact corners
+    const corners=[[p.ymin,-inp.w/2],[p.ymin,inp.w/2],[p.ymax,-inp.w/2],[p.ymax,inp.w/2]]
+      .map(([vy,vz])=>Math.atan2(vy,vz));
+    const angs=[...Array(NA)].map((_,i)=>-Math.PI+2*Math.PI*i/NA).concat(corners).sort((a,b)=>a-b);
+    const P=(x,vz,vy)=>[x+ox, vy+oy, vz];       // plate-local → world
+    const zoneU=(thMid,ring)=>{
+      const dPress=Math.abs(wrapPi(thMid-thPress));
+      if(ring===0) return dPress<Math.PI/3 ? uB : 0.35*uB;
+      if(dPress<0.62) return uT;               // ligament toward the short edge
+      if(Math.abs(Math.cos(thMid))>0.82) return uN; // flanks: net section
+      return 0.3*Math.max(uT,uN);
+    };
+    for(const xf of [p.x0,p.x1]){
+      const front=xf===p.x1;
+      for(let i=0;i<angs.length;i++){
+        const a0=angs[i], a1=i+1<angs.length?angs[i+1]:angs[0]+2*Math.PI;
+        if(a1-a0<1e-5)continue;
+        const am=(a0+a1)/2;
+        const h0=[d/2*Math.cos(a0),d/2*Math.sin(a0)], h1=[d/2*Math.cos(a1),d/2*Math.sin(a1)];
+        const b0=rayRect(a0,-inp.w/2,inp.w/2,p.ymin,p.ymax), b1=rayRect(a1,-inp.w/2,inp.w/2,p.ymin,p.ymax);
+        const m0=[h0[0]+(b0[0]-h0[0])*0.42,h0[1]+(b0[1]-h0[1])*0.42];
+        const m1=[h1[0]+(b1[0]-h1[0])*0.42,h1[1]+(b1[1]-h1[1])*0.42];
+        const inner=[P(xf,h0[0],h0[1]),P(xf,h1[0],h1[1]),P(xf,m1[0],m1[1]),P(xf,m0[0],m0[1])];
+        const outer=[P(xf,m0[0],m0[1]),P(xf,m1[0],m1[1]),P(xf,b1[0],b1[1]),P(xf,b0[0],b0[1])];
+        quad(front?inner:inner.slice().reverse(), zoneColor(tone,zoneU(am,0)));
+        quad(front?outer:outer.slice().reverse(), zoneColor(tone,zoneU(am,1)));
+      }
+    }
+    // side faces
+    const S=[[[-inp.w/2,p.ymin],[inp.w/2,p.ymin]],[[inp.w/2,p.ymin],[inp.w/2,p.ymax]],
+             [[inp.w/2,p.ymax],[-inp.w/2,p.ymax]],[[-inp.w/2,p.ymax],[-inp.w/2,p.ymin]]];
+    for(const [[za,ya],[zb,yb]] of S){
+      const isTear=(p.dir>0&&ya===p.ymin&&yb===p.ymin)||(p.dir<0&&ya===p.ymax&&yb===p.ymax);
+      quad([P(p.x0,za,ya),P(p.x0,zb,yb),P(p.x1,zb,yb),P(p.x1,za,ya)],
+        zoneColor(tone,isTear?1/p.m.SFtear:0.25*(1/p.m.worst)));
+    }
+    // hole bore: bearing crescent on the press side
+    for(let i=0;i<NA;i++){
+      const a0=-Math.PI+2*Math.PI*i/NA, a1=-Math.PI+2*Math.PI*(i+1)/NA, am=(a0+a1)/2;
+      const rr=d/2*1.02;
+      const c0=[rr*Math.cos(a0),rr*Math.sin(a0)], c1=[rr*Math.cos(a1),rr*Math.sin(a1)];
+      const u=Math.abs(wrapPi(am-thPress))<Math.PI/2?uB:0.15;
+      quad([P(p.x0,c0[0],c0[1]),P(p.x0,c1[0],c1[1]),P(p.x1,c1[0],c1[1]),P(p.x1,c0[0],c0[1])],
+        zoneColor(tone.map(t=>t*0.55),u));
+    }
+  }
+
+  // ── pin: slices follow whichever plate they're inside (shear-steps at the planes) ──
+  // brightened vs the plates so the pin reads as the separate, machined part it is
+  const pinTone=toneRGB(r.pinTone).map(t=>Math.min(1,t*1.6+0.14));
+  const uShear=1/r.SFshear, uBend=isFinite(r.SFbend)?1/r.SFbend:0, uBearPin=1/r.SFbearPinAll;
+  const yPin=(x)=>{
+    for(let i=0;i<nP;i++){const p=lay.plates[i]; if(x>=p.x0+plX[i]-1e-9&&x<=p.x1+plX[i]+1e-9)return plY[i];}
+    let prev=null,next=null;
+    for(let i=0;i<nP;i++){const p=lay.plates[i],x0=p.x0+plX[i],x1=p.x1+plX[i];
+      if(x>x1&&(!prev||x1>prev.x1)) prev={x1,y:plY[i]};
+      if(x<x0&&(!next||x0<next.x0)) next={x0,y:plY[i]};}
+    if(prev&&next){const t=(x-prev.x1)/(next.x0-prev.x1||1e-9);return prev.y+(next.y-prev.y)*t;}
+    return prev?prev.y:next?next.y:0;
+  };
+  const uPin=(x)=>{
+    // near a shear plane → shear; inside a plate → bearing-on-pin; clevis mid-span adds bending
+    for(let i=0;i<nP-1;i++){
+      const xs=(lay.plates[i].x1+plX[i]+lay.plates[i+1].x0+plX[i+1])/2;
+      if(Math.abs(x-xs)<Math.max(d/3,0.8)) return uShear;
+    }
+    for(let i=0;i<nP;i++){const p=lay.plates[i];
+      if(x>=p.x0+plX[i]&&x<=p.x1+plX[i]) return Math.max(uBearPin*0.9, p.dir>0?uBend:0);}
+    return 0.12;
+  };
+  const XP0=lay.X0-((nP-1)/2)*exp, XP1=lay.X1+((nP-1)/2)*exp;
+  const NL=34, NC=16;
+  for(let k=0;k<NL;k++){
+    const xa=XP0+(XP1-XP0)*k/NL, xb=XP0+(XP1-XP0)*(k+1)/NL;
+    const ya=yPin((xa+xb)/2-((xb-xa)/2)), yb=yPin((xa+xb)/2+((xb-xa)/2));
+    const cc=zoneColor(pinTone,uPin((xa+xb)/2));
+    for(let i=0;i<NC;i++){
+      const b0=2*Math.PI*i/NC, b1=2*Math.PI*(i+1)/NC;
+      const p00=[xa, ya+d/2*Math.sin(b0), d/2*Math.cos(b0)], p01=[xa, ya+d/2*Math.sin(b1), d/2*Math.cos(b1)];
+      const p11=[xb, yb+d/2*Math.sin(b1), d/2*Math.cos(b1)], p10=[xb, yb+d/2*Math.sin(b0), d/2*Math.cos(b0)];
+      quad([p00,p01,p11,p10],cc);
+    }
+  }
+  // pin end caps
+  for(const [xe,sgn] of [[XP0,-1],[XP1,1]]){
+    const ye=yPin(xe), cc=zoneColor(pinTone.map(t=>t*0.8),0.12), cap=[];
+    for(let i=0;i<NC;i++){const b=2*Math.PI*i/NC;cap.push([xe,ye+d/2*Math.sin(b),d/2*Math.cos(b)]);}
+    for(let i=1;i<NC-1;i++){
+      const tri=[cap[0],cap[i],cap[i+1],cap[i+1]];
+      quad(sgn>0?tri:tri.slice().reverse(),cc);
+    }
+  }
+
+  flush();
+
+  // ── 2D overlays: force arrows + pull handle ──
+  const proj=(p)=>scr(cam(p));
+  handleScr=null;
+  const loaded=lay.plates.findIndex(p=>p.dir>0);
+  if(showArrows||true){
+    for(let pi=0;pi<nP;pi++){
+      const p=lay.plates[pi];
+      const yEnd=p.dir>0?p.ymax:p.ymin;
+      const base=proj([(p.x0+p.x1)/2+plX[pi], yEnd+plY[pi], 0]);
+      const tip =proj([(p.x0+p.x1)/2+plX[pi], yEnd+plY[pi]+p.dir*1.1*d, 0]);
+      if(pi===loaded) handleScr=tip;
+      if(!showArrows) continue;
+      const cA=col(p.m.worst);
+      ctx.strokeStyle=cA; ctx.fillStyle=cA; ctx.lineWidth=2.4;
+      ctx.beginPath();ctx.moveTo(base[0],base[1]);ctx.lineTo(tip[0],tip[1]);ctx.stroke();
+      const dx=tip[0]-base[0],dy=tip[1]-base[1],dl=Math.hypot(dx,dy)||1,ux=dx/dl,uy=dy/dl;
+      ctx.beginPath();
+      ctx.moveTo(tip[0]+ux*8,tip[1]+uy*8);
+      ctx.lineTo(tip[0]-uy*4.5,tip[1]+ux*4.5);
+      ctx.lineTo(tip[0]+uy*4.5,tip[1]-ux*4.5);
+      ctx.closePath();ctx.fill();
+    }
+  }
+  // grab dot on the loaded plate
+  if(handleScr){
+    ctx.beginPath();ctx.arc(handleScr[0],handleScr[1],7,0,2*Math.PI);
+    ctx.fillStyle="rgba(58,120,194,0.25)";ctx.fill();
+    ctx.lineWidth=1.4;ctx.strokeStyle="#3a78c2";ctx.stroke();
+  }
+
+  // ── HUD ──
+  $("hud").innerHTML=`F = <b>${f(inp.F/1000,2)} kN</b> · ${r.nPlanes} shear plane${r.nPlanes>1?"s":""}<br>`+
+    `τ pin <b>${f(r.tau,1)}</b> MPa · joint SF <b style="color:${col(r.SFjoint)}">${f(r.SFjoint,2)}</b><br>`+
+    `<span style="color:var(--faint)">governs: ${r.governing.label.toLowerCase()}</span>`;
+  const vc=r.holds?(r.meetsTarget?"var(--green)":"var(--amber)"):"var(--red)";
+  $("verd").innerHTML=`<span style="color:${vc}">${r.holds?(r.meetsTarget?"HOLDS":"UNDER TARGET"):"FAILS"}</span><br>`+
+    `<span style="color:var(--faint);font-weight:400">capacity ${f(r.Fcap/1000,2)} kN</span>`;
+
+  // chips
+  const chips=[["pin",r.partSF.pin],...r.members.map(m=>[m.label,r.partSF[m.key]])];
+  $("chips").innerHTML=chips.map(([k,sf])=>`<span class="chip" style="color:${col(sf)};border-color:${col(sf)}">${k} · SF ${f(sf,2)}</span>`).join("");
+}
+
+function refresh(){
+  // re-range the load slider off the ladder (linear ⇒ probe once)
+  const probe=PIN.solve({...read(),F:1000});
+  FMAX=Math.max(2,Math.ceil(Math.min(1.35*Math.max(...probe.ladder.map(m=>m.Fcap/1000)),400)));
+  if(+$("F").max!==FMAX)$("F").max=FMAX;
+  $("fv").textContent=f(+$("F").value,2)+" kN";
+  render();
+}
+
+/* ── interaction ── */
+let drag=null;
+cv.addEventListener("pointerdown",(e)=>{
+  cv.setPointerCapture(e.pointerId); cv.classList.add("grabbing");
+  const rect=cv.getBoundingClientRect(), px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(handleScr&&Math.hypot(px-handleScr[0],py-handleScr[1])<26)
+    drag={mode:"pull",y0:py,F0:+$("F").value};
+  else drag={mode:"orbit",x0:px,y0:py,yaw0:yaw,pitch0:pitch};
+});
+cv.addEventListener("pointermove",(e)=>{
+  if(!drag)return;
+  const rect=cv.getBoundingClientRect(), px=e.clientX-rect.left, py=e.clientY-rect.top;
+  if(drag.mode==="orbit"){
+    yaw=drag.yaw0+(px-drag.x0)*0.011; pitch=Math.max(-1.4,Math.min(1.4,drag.pitch0+(py-drag.y0)*0.011));
+    render();
+  }else{
+    const F=Math.max(0,Math.min(FMAX,drag.F0+(drag.y0-py)*FMAX/260));
+    $("F").value=F; $("fv").textContent=f(F,2)+" kN"; render();
+  }
+});
+const endDrag=()=>{drag=null;cv.classList.remove("grabbing");};
+cv.addEventListener("pointerup",endDrag); cv.addEventListener("pointercancel",endDrag);
+cv.addEventListener("wheel",(e)=>{e.preventDefault();zoom=Math.max(0.4,Math.min(3,zoom*(e.deltaY<0?1.08:0.93)));render();},{passive:false});
+
+$("F").addEventListener("input",()=>{$("fv").textContent=f(+$("F").value,2)+" kN";render();});
+$("bArrows").addEventListener("click",(e)=>{showArrows=!showArrows;e.target.classList.toggle("on",showArrows);render();});
+$("bReset").addEventListener("click",()=>{yaw=-0.55;pitch=-0.38;zoom=1;render();});
+let expTimer=null;
+$("bExplode").addEventListener("click",(e)=>{
+  const target=explodeT>0.5?0:1; e.target.classList.toggle("on",target===1);
+  clearInterval(expTimer);
+  expTimer=setInterval(()=>{
+    explodeT+=(target-explodeT)*0.22;
+    if(Math.abs(explodeT-target)<0.015){explodeT=target;clearInterval(expTimer);}
+    render();
+  },16);
+});
+document.querySelectorAll(".dbody input,.dbody select").forEach(el=>el.addEventListener("input",refresh));
+
+resize(); refresh();
+</script>
+</body>
+</html>

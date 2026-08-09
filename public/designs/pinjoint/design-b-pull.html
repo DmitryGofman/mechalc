@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pin Joint — Design B: Pull-to-Failure Tester</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:780px;margin:0 auto;padding:24px 16px 48px}
+  a.back{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--faint);text-decoration:none}
+  a.back:hover{color:var(--blue)}
+  .header{border-bottom:1px solid var(--line);padding-bottom:14px;margin:10px 0 20px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 0;font-size:22px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:10.5px;color:var(--faint);margin-top:6px;line-height:1.7}
+
+  /* the test rig */
+  .rig{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:18px 18px 14px;margin-bottom:16px}
+  .wlab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid)}
+  .tq{display:flex;align-items:baseline;gap:10px;margin:4px 0 10px}
+  .tq .v{font-family:var(--mono);font-size:46px;font-weight:600;font-variant-numeric:tabular-nums}
+  .tq .u{font-family:var(--mono);font-size:13px;color:var(--faint)}
+  .tq .kgf{font-family:var(--mono);font-size:11px;color:var(--faint);margin-left:auto;text-align:right;line-height:1.6}
+  input[type=range].big{width:100%;accent-color:var(--blue);height:26px}
+  .trange{display:flex;justify-content:space-between;font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:2px}
+
+  /* margin gauge + verdict */
+  .gauges{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+  @media(max-width:560px){.gauges{grid-template-columns:1fr}}
+  .g{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:12px 14px}
+  .g .k{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--mid)}
+  .g .n{font-family:var(--mono);font-size:20px;font-weight:600;margin-top:5px;font-variant-numeric:tabular-nums}
+  .g .n small{font-size:10.5px;color:var(--faint);font-weight:400}
+  .bar{position:relative;height:10px;background:#0e1419;border:1px solid var(--line2);border-radius:2px;margin-top:8px;overflow:visible}
+  .bar .fillB{position:absolute;inset:0;width:0%;border-radius:2px 0 0 2px;background:var(--green)}
+  .bar .tick{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink);opacity:.8}
+  .bar .ticklab{position:absolute;top:13px;transform:translateX(-50%);font-family:var(--mono);font-size:8.5px;color:var(--faint);white-space:nowrap}
+  .g .foot{font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:7px;line-height:1.6}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .chip{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;border:1px solid;border-radius:2px;padding:3px 7px}
+
+  /* the ladder */
+  .ladder{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:14px 16px;margin-bottom:16px}
+  .ladder .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--mid);margin-bottom:10px}
+  .lrow{display:grid;grid-template-columns:76px 14px 1fr;gap:8px;align-items:center;padding:6px 0;font-family:var(--mono)}
+  .lrow .t{font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+  .lrow .dot{width:9px;height:9px;border-radius:50%;justify-self:center}
+  .lrow .l{font-size:11px;color:var(--dim);line-height:1.45}
+  .lrow .l small{color:var(--faint)}
+  .lrow.past .l{color:var(--ink)}
+  .lrow.gov{background:#0d1521;border-radius:2px;outline:1px solid #17324e}
+  .youline{display:grid;grid-template-columns:76px 14px 1fr;gap:8px;font-family:var(--mono);font-size:9.5px;color:var(--blue);
+           letter-spacing:.15em;padding:1px 0}
+  .youline i{grid-column:3;border-top:1px dashed var(--blue);opacity:.6;margin-top:5px}
+
+  details{border:1px solid var(--line2);border-radius:3px;background:var(--panel);margin-bottom:8px}
+  summary{cursor:pointer;font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;
+          color:var(--mid);padding:10px 14px;user-select:none}
+  .dbody{padding:2px 14px 14px;display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  @media(max-width:560px){.dbody{grid-template-columns:1fr}}
+  .fld label{display:flex;align-items:baseline;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--mid);
+    font-family:var(--mono);margin-bottom:4px;white-space:nowrap}
+  .fld label span{text-transform:none;letter-spacing:0;color:var(--faint);margin-left:auto;padding-left:6px}
+  .fld input,.fld select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:7px 9px;font-family:var(--mono);font-size:13px;outline:none}
+  .fld input:focus,.fld select:focus{border-color:var(--blue)}
+  .seg{display:flex;border:1px solid var(--line);border-radius:2px;overflow:hidden;align-self:end}
+  .seg button{flex:1;background:#0e1419;border:none;color:var(--mid);font-family:var(--mono);font-size:10px;padding:8px 4px;cursor:pointer}
+  .seg button.on{background:#12253c;color:var(--blue)}
+  .note{font-family:var(--sans);font-size:12px;color:var(--dim);line-height:1.7;margin-top:18px;border-top:1px solid var(--line);padding-top:14px}
+  .note strong{color:#c2ccd4}
+  @media(max-width:520px){
+    .shell{padding:12px 9px 40px}
+    h1{font-size:16px} .sub{font-size:8.5px}
+    .tq .v{font-size:32px} .tq .kgf{font-size:9px}
+    .g{padding:9px 10px} .g .n{font-size:15px} .g .foot{font-size:8px}
+    .chip{font-size:8.5px;padding:2px 5px}
+    .lrow{grid-template-columns:54px 10px 1fr;gap:6px} .lrow .t{font-size:10.5px} .lrow .l{font-size:9.5px}
+    .youline{grid-template-columns:54px 10px 1fr;gap:6px}
+    .dbody{grid-template-columns:1fr 1fr;gap:7px}
+    .fld input,.fld select{padding:6px 7px;font-size:12px} .fld label{font-size:8.5px}
+    .note{font-size:10.5px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+<div style="background:#1a0e10;border:1px solid #d65c5c;border-radius:3px;color:#e0a3a3;font:12px/1.6 ui-monospace,Menlo,monospace;padding:10px 12px;margin-bottom:12px">This calculator needs JavaScript. If you can read this, your viewer blocked it — file previews in chat apps do. Save the file, then open it with Safari or Chrome (on iPhone: save to Files, long-press the file → Share → Safari).</div><script>document.currentScript.previousElementSibling.remove()</script>
+  <a class="back" href="index.html">← PIN JOINT DESIGNS</a>
+  <div class="header">
+    <div class="kicker">DESIGN B · PULL-TO-FAILURE TESTER</div>
+    <h1>Crank the load, watch what lets go first</h1>
+    <div class="sub">Load-first interaction: one big slider is the test rig. The capacity ladder lists — in order —
+    the load at which every failure mode gives way: pin shear, pin bending, bearing, edge tear-out, net section.
+    Set the joint once, then explore load the way a pull test would.</div>
+  </div>
+
+  <div class="rig">
+    <div class="wlab">APPLIED LOAD</div>
+    <div class="tq">
+      <span class="v" id="tv">6.00</span><span class="u">kN</span>
+      <span class="kgf" id="tkgf"></span>
+    </div>
+    <input class="big" id="F" type="range" min="0" max="20" step="0.05" value="6">
+    <div class="trange"><span>0</span><span id="tmax">20 kN</span></div>
+  </div>
+
+  <div class="gauges">
+    <div class="g">
+      <div class="k">JOINT CAPACITY USED</div>
+      <div class="n" id="capN">—</div>
+      <div class="bar" id="capBar">
+        <div class="fillB" id="capFill"></div>
+        <div class="tick" id="capTick"></div><div class="ticklab" id="capTickLab">target</div>
+      </div>
+      <div class="foot" id="capFoot">bar = applied / capacity · tick = where your target SF sits</div>
+    </div>
+    <div class="g">
+      <div class="k">GOVERNING MODE</div>
+      <div class="n" id="govN">—</div>
+      <div class="foot" id="govFoot">—</div>
+    </div>
+    <div class="g" style="grid-column:1/-1">
+      <div class="k">PART CHECKS AT THIS LOAD</div>
+      <div class="chips" id="chips"></div>
+      <div class="foot">SF vs yield (0.577·Sy in shear) · green ≥2 · amber ≥1.2 · red &lt;1.2 · printed plates: in-plane (XY) values</div>
+    </div>
+  </div>
+
+  <div class="ladder">
+    <div class="k">CAPACITY LADDER — WHAT HAPPENS AS YOU KEEP PULLING</div>
+    <div id="lrows"></div>
+  </div>
+
+  <details open><summary>Joint · geometry · materials</summary>
+    <div class="dbody">
+      <div class="seg" id="cfgseg" style="grid-column:1/-1">
+        <button data-v="3" class="on">3 FLANGES · DOUBLE SHEAR</button>
+        <button data-v="2">2 FLANGES · SINGLE SHEAR</button>
+      </div>
+      <div class="fld"><label>Pin Ø d<span>mm</span></label><input id="d" type="number" step="0.5" value="8"></div>
+      <div class="fld"><label>Clevis gap<span>mm/side</span></label><input id="clr" type="number" step="0.1" value="0.2"></div>
+      <div class="fld"><label>Shear plane</label><select id="shank"></select></div>
+      <div class="fld"><label>Pin material</label><select id="pinMat"></select></div>
+      <div class="fld"><label id="l1">Outer t₁<span>mm each</span></label><input id="t1" type="number" step="0.5" value="6"></div>
+      <div class="fld"><label id="l1m">Outer material</label><select id="mat1"></select></div>
+      <div class="fld"><label id="l2">Middle t₂<span>mm</span></label><input id="t2" type="number" step="0.5" value="8"></div>
+      <div class="fld"><label id="l2m">Middle material</label><select id="mat2"></select></div>
+      <div class="fld"><label>Width w<span>mm</span></label><input id="w" type="number" step="1" value="32"></div>
+      <div class="fld"><label>Edge dist. a<span>mm ctr→edge</span></label><input id="a" type="number" step="0.5" value="12"></div>
+      <div class="fld"><label>Target SF</label><input id="SFt" type="number" step="0.5" value="2"></div>
+    </div>
+  </details>
+
+  <div class="note"><strong>Reading the ladder:</strong> everything below your dashed line has already yielded; the
+  first rung above it is your margin. The right joint has its whole ladder comfortably above the working load — if the
+  first rung is a plate mode, the flanges are the weak link (thicken, widen, or move the hole off the edge); if it's a
+  pin mode, size up or harden the pin. Static yield-onset checks, no stress concentration or preload friction —
+  typical values, verify before production.</div>
+</div>
+
+<script src="pin-engine.js"></script>
+<script>
+const $=(id)=>document.getElementById(id);
+const fill=(id,obj,sel)=>{$(id).innerHTML=Object.keys(obj).map(k=>`<option${k===sel?" selected":""}>${k}</option>`).join("")};
+const DEF=PIN.defaults();
+fill("pinMat",PIN.PIN_MATS,DEF.pinMat); fill("mat1",PIN.PLATE_MATS,DEF.mat1);
+fill("mat2",PIN.PLATE_MATS,DEF.mat2); fill("shank",PIN.SHANKS,DEF.shank);
+const f=PIN.fmt, col=PIN.sfColor;
+let config=3;
+
+$("cfgseg").querySelectorAll("button").forEach(b=>b.addEventListener("click",()=>{
+  config=+b.dataset.v;
+  $("cfgseg").querySelectorAll("button").forEach(x=>x.classList.toggle("on",x===b));
+  $("l1").childNodes[0].textContent = config===3?"Outer t₁":"Plate A t₁";
+  $("l1m").textContent = config===3?"Outer material":"Plate A material";
+  $("l2").childNodes[0].textContent = config===3?"Middle t₂":"Plate B t₂";
+  $("l2m").textContent = config===3?"Middle material":"Plate B material";
+  update();
+}));
+
+function read(){return{
+  config, d:+$("d").value||1, shank:$("shank").value, pinMat:$("pinMat").value,
+  t1:+$("t1").value||0.5, mat1:$("mat1").value, t2:+$("t2").value||0.5, mat2:$("mat2").value,
+  w:+$("w").value||2, a:+$("a").value||1, clr:+$("clr").value||0,
+  F:1000*(+$("F").value||0), SFt:+$("SFt").value||1,
+}}
+
+function update(){
+  const inp=read();
+  // auto-range the slider: 1.4× the last rung of the ladder (probe at any load — linear)
+  const probe=PIN.solve({...inp,F:Math.max(inp.F,1000)});
+  const rungs=probe.ladder.filter(m=>isFinite(m.Fcap));
+  const fmax=Math.max(2, Math.ceil(Math.min(1.35*Math.max(...rungs.map(m=>m.Fcap/1000)), 400)));
+  if(+$("F").max!==fmax){$("F").max=fmax; $("tmax").textContent=fmax+" kN";}
+
+  const r=PIN.solve(inp);
+  $("tv").textContent=f(inp.F/1000,2);
+  $("tkgf").innerHTML=`≈ ${f(inp.F/9.81,0)} kgf hanging<br>${r.nPlanes} shear plane${r.nPlanes>1?"s":""} · τ ${f(r.tau,1)} MPa`;
+
+  // capacity gauge
+  const used=inp.F>0?inp.F/r.Fcap:0;
+  $("capFill").style.width=Math.min(100*used,100)+"%";
+  $("capFill").style.background = used<0.5?"var(--green)":used<1/1.2?"var(--amber)":"var(--red)";
+  const tickAt=Math.min(100/inp.SFt,99);
+  $("capTick").style.left=tickAt+"%"; $("capTickLab").style.left=Math.min(tickAt,92)+"%";
+  $("capN").innerHTML= r.holds
+    ? `${f(100*used,0)}% <small>capacity ${f(r.Fcap/1000,2)} kN · joint SF ${f(r.SFjoint,2)}</small>`
+    : `<span style="color:var(--red)">FAILED</span> <small>capacity ${f(r.Fcap/1000,2)} kN was passed at ${f(100*used,0)}%</small>`;
+
+  // governing
+  $("govN").innerHTML=`<span style="color:${col(r.SFjoint)}">${r.governing.label}</span>`;
+  $("govFoot").textContent=`${r.governing.kind} = ${f(r.governing.stress,1)} MPa vs ${f(r.governing.allow,0)} MPa allowable — the weakest link of ${r.modes.length} checks`;
+
+  // chips: worst SF per part
+  const chips=[["pin",r.partSF.pin],...r.members.map(m=>[m.label,r.partSF[m.key]])];
+  $("chips").innerHTML=chips.map(([k,sf])=>`<span class="chip" style="color:${col(sf)};border-color:${col(sf)}">${k} · SF ${f(sf,2)}</span>`).join("");
+
+  // ladder
+  const rows=[]; let placed=false;
+  const evs=r.ladder.filter(m=>isFinite(m.Fcap)&&m.Fcap<=fmax*1050);
+  for(const ev of evs){
+    if(!placed && inp.F<ev.Fcap){rows.push(`<div class="youline"><span style="text-align:right">${f(inp.F/1000,2)}</span><span>◂</span><span style="letter-spacing:.2em">YOU ARE HERE</span><i></i></div>`);placed=true;}
+    const past=inp.F>=ev.Fcap;
+    rows.push(`<div class="lrow ${past?"past":""} ${ev===r.governing?"gov":""}">
+      <span class="t" style="color:${past?"var(--red)":"var(--faint)"}">${f(ev.Fcap/1000,2)}</span>
+      <span class="dot" style="background:${past?"var(--red)":col(ev.SF)};opacity:${past?1:.5}"></span>
+      <span class="l">${ev.label} <small>kN · ${ev.kind} hits ${f(ev.allow,0)} MPa</small></span></div>`);
+  }
+  if(!placed)rows.push(`<div class="youline"><span style="text-align:right">${f(inp.F/1000,2)}</span><span>◂</span><span style="letter-spacing:.2em">YOU ARE HERE</span><i></i></div>`);
+  $("lrows").innerHTML=rows.join("");
+}
+document.querySelectorAll("input,select").forEach(el=>el.addEventListener("input",update));
+update();
+</script>
+</body>
+</html>

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pin &amp; Bolt Shear Joint — Design Prototypes</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:780px;margin:0 auto;padding:28px 16px 48px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 4px;font-size:24px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.8;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  a.card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:16px;text-decoration:none;color:var(--ink);min-height:150px;transition:border-color .15s,transform .15s}
+  a.card:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .tag{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--blue);margin-bottom:7px}
+  .card h2{margin:0 0 7px;font-size:15.5px;font-weight:600}
+  .card p{margin:0;font-size:12px;color:var(--dim);line-height:1.65;flex:1}
+  .card .for{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)}
+  .theory{margin-top:28px;border-top:1px solid var(--line);padding-top:18px}
+  .theory .lab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
+  .theory p{font-size:12.5px;color:var(--dim);line-height:1.8;margin:0 0 10px}
+  .theory strong{color:#c2ccd4}
+  .chain{font-family:var(--mono);font-size:10.5px;color:var(--mid);line-height:2;background:var(--panel);
+         border:1px solid var(--line2);border-radius:3px;padding:12px 14px;overflow-x:auto;white-space:pre}
+  @media(max-width:520px){
+    .shell{padding:16px 10px 40px}
+    h1{font-size:18px} .sub{font-size:9.5px}
+    .card p{font-size:11px} .card h2{font-size:14px}
+    .chain{font-size:7.8px;padding:9px 10px}
+    .theory p{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="kicker">MECHCALC · DESIGN STUDY</div>
+  <h1>Pin &amp; Bolt Shear Joint — Clevis &amp; Lap</h1>
+  <div class="sub">Three interaction prototypes for one calculator: a pin or bolt carrying a transverse load through
+  two flanges (lap joint, single shear) or three (clevis, double shear), each plate its own material. Same physics
+  engine under all three (pin-engine.js) — what differs is how you drive it.</div>
+
+  <div class="cards">
+    <a class="card" href="design-a-panel.html">
+      <div class="tag">DESIGN A</div><h2>Control Panel</h2>
+      <p>The toolkit's classic form: every input on the left, every failure mode stacked on the right with its SF,
+      plus two live section views — through the pin axis, and the Shigley Fig 8-25 face view with the tear-out and
+      net-section paths drawn on the plate.</p>
+      <div class="for">for: final design checks, documenting a chosen joint</div>
+    </a>
+    <a class="card" href="design-b-pull.html">
+      <div class="tag">DESIGN B</div><h2>Pull-to-Failure Tester</h2>
+      <p>One big load slider is the test rig. A capacity ladder lists — in load order — the force at which every mode
+      lets go: pin shear, pin bending, bearing, tear-out, net section. Find your margin the way a test bench would.</p>
+      <div class="for">for: sizing the joint, building intuition for what governs</div>
+    </a>
+    <a class="card" href="design-c-3d.html">
+      <div class="tag">DESIGN C</div><h2>3D Joint · grab it</h2>
+      <p>The clevis in 3D — orbit it, drag the loaded plate to pull, watch the pin shear-step at the two planes and
+      every part painted by its own safety factor. Switch to two flanges and see the lap joint's offset load path.
+      Exploded view and force arrows on toggles.</p>
+      <div class="for">for: seeing what the numbers mean, showing someone else</div>
+    </a>
+  </div>
+
+  <div class="theory">
+    <div class="lab">THE SHARED MODEL — EVERY WAY THIS JOINT CAN FAIL (SHIGLEY FIG 8-23)</div>
+    <div class="chain">applied load F ─► PIN:    shear τ = F/(n·A)          n = 1 (lap) or 2 (clevis) planes
+              │          bending σ = 32M/πd³  (clevis: M = F/2·(t₂/4 + gap + t₁/2))
+              │          bearing on the pin surface p = Fᵢ/(d·t)
+              │
+              └► PLATES (each, with its own material and share of F):
+                         bearing on the hole wall  σ = Fᵢ/(d·t)        crushes the hole
+                         net-section tension       σ = Fᵢ/((w−d)·t)    tears across the hole
+                         edge tear-out             τ = Fᵢ/(2·t·(a−d/2)) shears the margin out
+
+   capacity of the joint = the smallest of all of them — everything is linear in F</div>
+    <p><strong>The failure modes checked everywhere</strong> — straight from Shigley's Fig 8-23: (c) shear of the pin
+    across one or two planes vs 0.577·Sy; (b) bending of the pin as a tiny clevis beam; (e) bearing of pin on members
+    and members on pin over the projected area t·d; (d) tensile failure across the hole's net section (Eq 8-54); and
+    (f)/(g) edge shear tear-out of the margin (Fig 8-25) on the two ligaments 2·t·(a−d/2). Structural practice avoids
+    tear-out by keeping the hole at least 1.5 diameters from the edge — the calculator warns when you don't.</p>
+    <p><strong>Two or three flanges:</strong> with three plates the load splits symmetrically — two shear planes, outer
+    plates each carry F/2 — and the pin bends like a simply-supported beam. With two plates there is one shear plane,
+    both plates carry the full F, and the offset load path tilts the joint (flagged, not modelled). A bolt option swaps
+    the full shank circle for the ~75% minor-diameter core when threads sit in the shear plane.</p>
+    <p><strong>Materials:</strong> pins from mild steel to hardened dowel, bolt classes 8.8/10.9, stainless, titanium,
+    aluminum, brass; plates in steels, stainless, aluminum, brass, FR-4 and printed plastics (in-plane values, with
+    orientation and creep warnings). Static checks against yield onset — no stress concentration (matters for fatigue),
+    no preload friction. All typical reference values — verify before production use.</p>
+  </div>
+</div>
+</body>
+</html>
