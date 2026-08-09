@@ -5,8 +5,27 @@
 // Before it existed the same aluminium lived in four places with four spellings
 // and, in one case, two different bearing limits; fixing a number meant finding
 // every copy. Now a calculator declares which materials it offers and which
-// properties it needs (see ../calculators/materialMenus.ts), and the numbers
-// come from here.
+// properties it needs — see the *_MENU lists in boltMath.ts, clampMath.ts and
+// calculators/materials.ts — and the numbers come from here.
+//
+// NAMING — one material, one name:
+//
+//     <polymer or alloy>[-<filler>] (<process>[, <condition>])
+//
+//   PA12 (MJF) · PA12-GF30 (molded) · PA66 (molded, conditioned) · PC (FDM)
+//
+// Polymers use their ISO designation, not a trade or generic name, because the
+// generic ones multiply: PA12, nylon 12 and polyamide 12 are the same polymer,
+// and this table once carried it under five spellings across four calculators.
+// "Nylon 12", "Delrin" and the rest live on in `aliases`, which is what
+// `resolveName` searches, so an older label still resolves — they just never
+// appear as a second entry.
+//
+// What DOES earn a separate entry is anything that moves the numbers: the
+// process (molded / FDM / MJF / SLS all give different stiffness, anisotropy
+// and creep for one polymer), the filler, the temper, and the moisture
+// condition for polyamides. Those are different materials wearing one chemical
+// name — the opposite mistake, and just as expensive.
 //
 // ADDING A MATERIAL
 //   1. Add an entry below, in its group, keeping the list alphabetical-ish by
@@ -323,7 +342,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   // ── Molded / bulk plastics ───────────────────────────────────────────────
   pom: M({
     id: "pom",
-    name: "POM / Delrin (acetal)",
+    name: "POM (molded)",
     group: "Plastic",
     process: "molded",
     E: 3.1,
@@ -340,11 +359,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#e6e2d8",
     tone: "#4e4c44",
     note: "Unfilled homopolymer acetal at 23 °C. Es/eAllow are generic educational snap-fit values, not production allowables. Excellent resilience and low friction; poor adhesive bonding.",
-    aliases: ["Delrin (POM)", "POM / Delrin", "POM (acetal)"],
+    aliases: ["Delrin (POM)", "POM / Delrin", "POM (acetal)", "POM / Delrin (acetal)"],
   }),
   pp: M({
     id: "pp",
-    name: "Polypropylene",
+    name: "PP (molded)",
     group: "Plastic",
     process: "molded",
     E: 1.5,
@@ -363,7 +382,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   petg: M({
     id: "petg",
-    name: "PETG",
+    name: "PETG (molded)",
     group: "Plastic",
     process: "molded",
     E: 2.1,
@@ -376,10 +395,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d4dde0",
     tone: "#31434a",
     note: "Extruded/molded copolyester at 23 °C. Tough and clear; softens near 70 °C, so keep it out of hot enclosures and cars.",
+    aliases: ["PETG"],
   }),
   abs: M({
     id: "abs",
-    name: "ABS",
+    name: "ABS (molded)",
     group: "Plastic",
     process: "molded",
     E: 2.2,
@@ -399,7 +419,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pcabs: M({
     id: "pcabs",
-    name: "PC-ABS blend",
+    name: "PC-ABS (molded)",
     group: "Plastic",
     process: "molded",
     E: 2.4,
@@ -419,7 +439,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pc: M({
     id: "pc",
-    name: "Polycarbonate",
+    name: "PC (molded)",
     group: "Plastic",
     process: "molded",
     E: 2.4,
@@ -434,11 +454,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d2dce0",
     tone: "#414c52",
     note: "Unfilled molded polycarbonate at 23 °C. Very tough and ductile, but notch-sensitive and attacked by many solvents — a sharp internal corner or the wrong cleaner turns it brittle.",
-    aliases: ["PC"],
+    aliases: ["PC", "Polycarbonate"],
   }),
   pa66dry: M({
     id: "pa66dry",
-    name: "Nylon 6/6 (PA66, dry)",
+    name: "PA66 (molded, dry)",
     group: "Plastic",
     process: "molded",
     E: 2.8,
@@ -458,7 +478,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pa66cond: M({
     id: "pa66cond",
-    name: "Nylon 6/6 (PA66, conditioned)",
+    name: "PA66 (molded, conditioned)",
     group: "Plastic",
     process: "molded",
     E: 1.2,
@@ -473,11 +493,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#ded9c4",
     tone: "#464a40",
     note: "The same PA66 after moisture conditioning at 23 °C / 50% RH — less than half the stiffness, more ductile. Design to this unless the part lives in a sealed dry environment.",
-    aliases: ["PA 66 (conditioned)"],
+    aliases: ["PA 66 (conditioned)", "Nylon 6/6 (PA66, conditioned)"],
   }),
   pa12gf30: M({
     id: "pa12gf30",
-    name: "Nylon 12 GF30 (glass-filled)",
+    name: "PA12-GF30 (molded)",
     group: "Plastic",
     process: "molded",
     E: 6.0,
@@ -491,10 +511,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d4d8cc",
     tone: "#4a4e42",
     note: "30% glass-filled PA12, molded, at 23 °C. Strongly anisotropic — quoted properties are in the flow direction, and transverse values are much lower. Abrasive to tooling.",
+    aliases: ["Nylon 12 GF30 (glass-filled)"],
   }),
   pbtgf30: M({
     id: "pbtgf30",
-    name: "PBT-GF30",
+    name: "PBT-GF30 (molded)",
     group: "Plastic",
     process: "molded",
     E: 8.0,
@@ -509,6 +530,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d0d0c8",
     tone: "#464a44",
     note: "30% glass PBT, flow direction, 23 °C. Anisotropy is NOT modelled by a single figure. The very low permissible strain is the point: stiff filled plastics make poor snap arms.",
+    aliases: ["PBT-GF30"],
   }),
 
   // ── FDM (filament, in-plane XY) ──────────────────────────────────────────
@@ -616,7 +638,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pc_fdm: M({
     id: "pc_fdm",
-    name: "Polycarbonate (FDM)",
+    name: "PC (FDM)",
     group: "FDM",
     process: "fdm",
     E: 2.2,
@@ -630,10 +652,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d2dce0",
     tone: "#414c52",
     note: "FDM polycarbonate, in-plane (XY) at 23 °C. The stiffest common filament with real heat resistance, but hygroscopic and demanding to print — wet filament loses most of its strength.",
+    aliases: ["Polycarbonate (FDM)"],
   }),
   pa12_fdm: M({
     id: "pa12_fdm",
-    name: "Nylon 12 / PA12 (FDM)",
+    name: "PA12 (FDM)",
     group: "FDM",
     process: "fdm",
     E: 1.5,
@@ -652,7 +675,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pa12cf_fdm: M({
     id: "pa12cf_fdm",
-    name: "Nylon 12 CF (FDM)",
+    name: "PA12-CF (FDM)",
     group: "FDM",
     process: "fdm",
     E: 4.0,
@@ -666,6 +689,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#c4c8cc",
     tone: "#3a3d40",
     note: "Chopped-carbon-filled FDM nylon, in-plane (XY) at 23 °C. Much stiffer and more dimensionally stable than unfilled, but the fibres do nothing for layer adhesion — Z strength stays poor. Abrasive: needs a hardened nozzle.",
+    aliases: ["Nylon 12 CF (FDM)"],
   }),
   pp_fdm: M({
     id: "pp_fdm",
@@ -728,7 +752,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   pa12gb_mjf: M({
     id: "pa12gb_mjf",
-    name: "PA12 GB (MJF, glass-filled)",
+    name: "PA12-GB (MJF)",
     group: "Powder-bed",
     process: "mjf",
     E: 2.6,
@@ -742,6 +766,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#d0d4cc",
     tone: "#43483a",
     note: "Glass-bead-filled MJF nylon 12, XY plane, 23 °C. Stiffer and more dimensionally stable than unfilled, but the beads reduce elongation — stiffer does not mean stronger here.",
+    aliases: ["PA12 GB (MJF, glass-filled)"],
   }),
   pa12_sls: M({
     id: "pa12_sls",
@@ -751,6 +776,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     E: 1.65,
     nu: 0.4,
     sigmaY: 48,
+    pG: 50,
     creep: 0.55,
     rho: 1000,
     alpha: 110,
@@ -758,7 +784,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     cp: 1800,
     color: "#dee0d2",
     tone: "#40462f",
-    note: "Laser-sintered nylon 12, XY plane, 23 °C. Practically interchangeable with MJF PA12 for design-check purposes; surface finish and refresh ratio drive the real scatter.",
+    note: "Laser-sintered nylon 12 (PA12 = polyamide 12 = nylon 12), XY plane, 23 °C. Practically interchangeable with MJF PA12 for design-check purposes — the 1.65 vs 1.70 GPa difference is well inside process scatter, so do not read it as SLS being softer. Surface finish and powder refresh ratio drive the real variation. pG carried over from MJF PA12: same polymer, same order of surface porosity.",
   }),
 
   // ── Elastomers ───────────────────────────────────────────────────────────
@@ -783,7 +809,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
   }),
   tpu85a_fdm: M({
     id: "tpu85a_fdm",
-    name: "TPU 85A (FDM, softer)",
+    name: "TPU 85A (FDM)",
     group: "Elastomer",
     process: "fdm",
     E: 0.012,
@@ -796,10 +822,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#e0d2da",
     tone: "#4a3f46",
     note: "FDM TPU, 85 Shore A, in-plane at 23 °C. Same small-strain caveat as the 95A grade, more so.",
+    aliases: ["TPU 85A (FDM, softer)"],
   }),
   tpe_fdm: M({
     id: "tpe_fdm",
-    name: "TPE (FDM, soft rubber)",
+    name: "TPE (FDM)",
     group: "Elastomer",
     process: "fdm",
     E: 0.01,
@@ -812,10 +839,11 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#e0d2da",
     tone: "#4a3f46",
     note: "Soft FDM thermoplastic elastomer, in-plane at 23 °C. Indicative small-strain figures for feel only — grades vary enormously.",
+    aliases: ["TPE (FDM, soft rubber)"],
   }),
   tpu_mjf: M({
     id: "tpu_mjf",
-    name: "TPU/TPA (MJF, rubber-like)",
+    name: "TPU/TPA (MJF)",
     group: "Elastomer",
     process: "mjf",
     E: 0.08,
@@ -828,6 +856,7 @@ export const MATERIALS: Record<MaterialId, Material> = {
     color: "#e0d2da",
     tone: "#4a3f46",
     note: "Powder-bed rubber-like nylon elastomer, XY plane at 23 °C. Stiffer than filament TPU and near-isotropic; same hyperelastic caveat applies.",
+    aliases: ["TPU/TPA (MJF, rubber-like)"],
   }),
 };
 

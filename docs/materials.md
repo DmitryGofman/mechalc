@@ -63,16 +63,16 @@ process settings all move these numbers. Verify before production use.
 
 | id | Material | Process | E [GPa] | ν | σy [MPa] | σu [MPa] | pG [MPa] | Se [MPa] | Es [GPa] | εallow | creep | ρ [kg/m³] | α [µm/m·K] | k [W/m·K] | cp [J/kg·K] |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `pom` | POM / Delrin (acetal) | molded | 3.1 | 0.35 | 70 | 70 | 90 | — | 2.6 | 0.04 | — | 1410 | 110 | 0.31 | 1470 |
-| `pp` | Polypropylene | molded | 1.5 | 0.42 | 35 | — | — | — | 1.3 | 0.05 | — | 905 | 100 | 0.22 | 1900 |
-| `petg` | PETG | molded | 2.1 | 0.4 | 50 | — | — | — | — | — | — | 1270 | 60 | 0.2 | 1200 |
-| `abs` | ABS | molded | 2.2 | 0.35 | 45 | — | 55 | — | 2.1 | 0.03 | — | 1050 | 90 | 0.17 | 1400 |
-| `pcabs` | PC-ABS blend | molded | 2.4 | 0.36 | 55 | — | 65 | — | 2.2 | 0.03 | — | 1130 | 75 | 0.2 | 1300 |
-| `pc` | Polycarbonate | molded | 2.4 | 0.37 | 62 | — | — | — | 2.3 | 0.04 | — | 1200 | 65 | 0.2 | 1200 |
-| `pa66dry` | Nylon 6/6 (PA66, dry) | molded | 2.8 | 0.39 | 80 | — | 70 | — | 2.8 | 0.04 | — | 1140 | 80 | 0.25 | 1670 |
-| `pa66cond` | Nylon 6/6 (PA66, conditioned) | molded | 1.2 | 0.41 | 55 | — | — | — | 1.2 | 0.06 | — | 1140 | 90 | 0.25 | 1670 |
-| `pa12gf30` | Nylon 12 GF30 (glass-filled) | molded | 6 | 0.38 | 110 | — | 110 | — | — | — | — | 1230 | 40 | 0.3 | 1500 |
-| `pbtgf30` | PBT-GF30 | molded | 8 | 0.38 | 130 | — | — | — | 8 | 0.012 | — | 1520 | 25 | 0.29 | 1300 |
+| `pom` | POM (molded) | molded | 3.1 | 0.35 | 70 | 70 | 90 | — | 2.6 | 0.04 | — | 1410 | 110 | 0.31 | 1470 |
+| `pp` | PP (molded) | molded | 1.5 | 0.42 | 35 | — | — | — | 1.3 | 0.05 | — | 905 | 100 | 0.22 | 1900 |
+| `petg` | PETG (molded) | molded | 2.1 | 0.4 | 50 | — | — | — | — | — | — | 1270 | 60 | 0.2 | 1200 |
+| `abs` | ABS (molded) | molded | 2.2 | 0.35 | 45 | — | 55 | — | 2.1 | 0.03 | — | 1050 | 90 | 0.17 | 1400 |
+| `pcabs` | PC-ABS (molded) | molded | 2.4 | 0.36 | 55 | — | 65 | — | 2.2 | 0.03 | — | 1130 | 75 | 0.2 | 1300 |
+| `pc` | PC (molded) | molded | 2.4 | 0.37 | 62 | — | — | — | 2.3 | 0.04 | — | 1200 | 65 | 0.2 | 1200 |
+| `pa66dry` | PA66 (molded, dry) | molded | 2.8 | 0.39 | 80 | — | 70 | — | 2.8 | 0.04 | — | 1140 | 80 | 0.25 | 1670 |
+| `pa66cond` | PA66 (molded, conditioned) | molded | 1.2 | 0.41 | 55 | — | — | — | 1.2 | 0.06 | — | 1140 | 90 | 0.25 | 1670 |
+| `pa12gf30` | PA12-GF30 (molded) | molded | 6 | 0.38 | 110 | — | 110 | — | — | — | — | 1230 | 40 | 0.3 | 1500 |
+| `pbtgf30` | PBT-GF30 (molded) | molded | 8 | 0.38 | 130 | — | — | — | 8 | 0.012 | — | 1520 | 25 | 0.29 | 1300 |
 
 ## FDM
 
@@ -83,9 +83,9 @@ process settings all move these numbers. Verify before production use.
 | `abs_fdm` | ABS (FDM) | fdm | 2 | 0.35 | 40 | — | 46 | — | 1.8 | 0.02 | 0.6 | 1040 | 90 | 0.17 | 1400 |
 | `asa_fdm` | ASA (FDM) | fdm | 2 | 0.35 | 42 | — | 46 | — | — | — | 0.6 | 1070 | 85 | 0.17 | 1400 |
 | `pcabs_fdm` | PC-ABS (FDM) | fdm | 1.9 | 0.36 | 41 | — | 48 | — | — | — | 0.6 | 1130 | 75 | 0.2 | 1300 |
-| `pc_fdm` | Polycarbonate (FDM) | fdm | 2.2 | 0.37 | 57 | — | — | — | — | — | 0.65 | 1200 | 65 | 0.2 | 1200 |
-| `pa12_fdm` | Nylon 12 / PA12 (FDM) | fdm | 1.5 | 0.4 | 45 | — | 50 | — | — | — | 0.55 | 1010 | 110 | 0.25 | 1800 |
-| `pa12cf_fdm` | Nylon 12 CF (FDM) | fdm | 4 | 0.38 | 70 | — | — | — | — | — | 0.65 | 1090 | 40 | 0.3 | 1600 |
+| `pc_fdm` | PC (FDM) | fdm | 2.2 | 0.37 | 57 | — | — | — | — | — | 0.65 | 1200 | 65 | 0.2 | 1200 |
+| `pa12_fdm` | PA12 (FDM) | fdm | 1.5 | 0.4 | 45 | — | 50 | — | — | — | 0.55 | 1010 | 110 | 0.25 | 1800 |
+| `pa12cf_fdm` | PA12-CF (FDM) | fdm | 4 | 0.38 | 70 | — | — | — | — | — | 0.65 | 1090 | 40 | 0.3 | 1600 |
 | `pp_fdm` | PP (FDM) | fdm | 1.3 | 0.42 | 28 | — | — | — | — | — | 0.5 | 900 | 100 | 0.22 | 1900 |
 
 ## Powder-bed
@@ -94,17 +94,17 @@ process settings all move these numbers. Verify before production use.
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `pa12_mjf` | PA12 (MJF) | mjf | 1.7 | 0.4 | 48 | — | 50 | — | 1.7 | 0.04 | 0.55 | 1010 | 110 | 0.25 | 1800 |
 | `pa11_mjf` | PA11 (MJF) | mjf | 1.6 | 0.4 | 48 | — | — | — | — | — | 0.55 | 1020 | 110 | 0.25 | 1800 |
-| `pa12gb_mjf` | PA12 GB (MJF, glass-filled) | mjf | 2.6 | 0.39 | 44 | — | — | — | — | — | 0.6 | 1230 | 70 | 0.3 | 1600 |
-| `pa12_sls` | PA12 (SLS) | sls | 1.65 | 0.4 | 48 | — | — | — | — | — | 0.55 | 1000 | 110 | 0.25 | 1800 |
+| `pa12gb_mjf` | PA12-GB (MJF) | mjf | 2.6 | 0.39 | 44 | — | — | — | — | — | 0.6 | 1230 | 70 | 0.3 | 1600 |
+| `pa12_sls` | PA12 (SLS) | sls | 1.65 | 0.4 | 48 | — | 50 | — | — | — | 0.55 | 1000 | 110 | 0.25 | 1800 |
 
 ## Elastomer
 
 | id | Material | Process | E [GPa] | ν | σy [MPa] | σu [MPa] | pG [MPa] | Se [MPa] | Es [GPa] | εallow | creep | ρ [kg/m³] | α [µm/m·K] | k [W/m·K] | cp [J/kg·K] |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `tpu95a_fdm` | TPU 95A (FDM) | fdm | 0.04 | 0.48 | 9 | — | — | — | — | — | — | 1200 | 150 | 0.2 | 1800 |
-| `tpu85a_fdm` | TPU 85A (FDM, softer) | fdm | 0.012 | 0.48 | 5 | — | — | — | — | — | — | 1180 | 160 | 0.2 | 1800 |
-| `tpe_fdm` | TPE (FDM, soft rubber) | fdm | 0.01 | 0.48 | 4 | — | — | — | — | — | — | 1150 | 160 | 0.2 | 1800 |
-| `tpu_mjf` | TPU/TPA (MJF, rubber-like) | mjf | 0.08 | 0.48 | 8 | — | — | — | — | — | — | 1100 | 150 | 0.2 | 1800 |
+| `tpu85a_fdm` | TPU 85A (FDM) | fdm | 0.012 | 0.48 | 5 | — | — | — | — | — | — | 1180 | 160 | 0.2 | 1800 |
+| `tpe_fdm` | TPE (FDM) | fdm | 0.01 | 0.48 | 4 | — | — | — | — | — | — | 1150 | 160 | 0.2 | 1800 |
+| `tpu_mjf` | TPU/TPA (MJF) | mjf | 0.08 | 0.48 | 8 | — | — | — | — | — | — | 1100 | 150 | 0.2 | 1800 |
 
 ## Provenance
 
@@ -125,30 +125,30 @@ What each entry is, the condition it applies at, and what it is not.
 - **Ti-6Al-4V** (`ti6al4v`) — Grade 5 titanium, annealed. Note the very low thermal conductivity — it is why it machines badly and why heat concentrates at the cutting edge.
 - **Hard chromed rod** (`chromedsteelrod`) — Induction-hardened, hard-chrome-plated linear shafting (the usual CK45/C60 substrate). Strength is the substrate's; the plating is thin and hard — clamping on it risks flaking rather than yielding.
 - **FR-4 PCB (glass-epoxy)** (`fr4`) — Woven glass/epoxy laminate. E is the THROUGH-THICKNESS value — the direction a bolted joint actually compresses — and is roughly half the in-plane stiffness. σy is an in-plane flexural strength, not a yield point; FR-4 is brittle. The low pG is the number that matters when bolting boards: they crush long before a metal plate would. Through-thickness expansion also runs several times the in-plane α quoted.
-- **POM / Delrin (acetal)** (`pom`) — Unfilled homopolymer acetal at 23 °C. Es/eAllow are generic educational snap-fit values, not production allowables. Excellent resilience and low friction; poor adhesive bonding. _(also called: Delrin (POM); POM / Delrin; POM (acetal))_
-- **Polypropylene** (`pp`) — Unfilled homopolymer PP at 23 °C. The classic living-hinge material — it tolerates very high strain in a thin hinge, which is why eAllow is generous. Creeps heavily under sustained load. _(also called: Polypropylene; PP)_
-- **PETG** (`petg`) — Extruded/molded copolyester at 23 °C. Tough and clear; softens near 70 °C, so keep it out of hot enclosures and cars.
-- **ABS** (`abs`) — General-purpose molded ABS at 23 °C. Es/eAllow are generic educational snap-fit values, not production allowables. _(also called: ABS)_
-- **PC-ABS blend** (`pcabs`) — Molded polycarbonate/ABS alloy at 23 °C. Properties vary widely with the PC:ABS ratio — treat as indicative and check the specific grade. _(also called: ABS-PC blend; PC-ABS blend)_
-- **Polycarbonate** (`pc`) — Unfilled molded polycarbonate at 23 °C. Very tough and ductile, but notch-sensitive and attacked by many solvents — a sharp internal corner or the wrong cleaner turns it brittle. _(also called: PC)_
-- **Nylon 6/6 (PA66, dry)** (`pa66dry`) — Unfilled PA66 dry-as-molded at 23 °C. Nylon absorbs moisture and softens dramatically in service — see the conditioned entry, which is the honest one for most real environments. _(also called: Nylon 6/6 (PA66, dry); PA 66 (dry as molded))_
-- **Nylon 6/6 (PA66, conditioned)** (`pa66cond`) — The same PA66 after moisture conditioning at 23 °C / 50% RH — less than half the stiffness, more ductile. Design to this unless the part lives in a sealed dry environment. _(also called: PA 66 (conditioned))_
-- **Nylon 12 GF30 (glass-filled)** (`pa12gf30`) — 30% glass-filled PA12, molded, at 23 °C. Strongly anisotropic — quoted properties are in the flow direction, and transverse values are much lower. Abrasive to tooling.
-- **PBT-GF30** (`pbtgf30`) — 30% glass PBT, flow direction, 23 °C. Anisotropy is NOT modelled by a single figure. The very low permissible strain is the point: stiff filled plastics make poor snap arms.
+- **POM (molded)** (`pom`) — Unfilled homopolymer acetal at 23 °C. Es/eAllow are generic educational snap-fit values, not production allowables. Excellent resilience and low friction; poor adhesive bonding. _(also called: Delrin (POM); POM / Delrin; POM (acetal); POM / Delrin (acetal))_
+- **PP (molded)** (`pp`) — Unfilled homopolymer PP at 23 °C. The classic living-hinge material — it tolerates very high strain in a thin hinge, which is why eAllow is generous. Creeps heavily under sustained load. _(also called: Polypropylene; PP)_
+- **PETG (molded)** (`petg`) — Extruded/molded copolyester at 23 °C. Tough and clear; softens near 70 °C, so keep it out of hot enclosures and cars. _(also called: PETG)_
+- **ABS (molded)** (`abs`) — General-purpose molded ABS at 23 °C. Es/eAllow are generic educational snap-fit values, not production allowables. _(also called: ABS)_
+- **PC-ABS (molded)** (`pcabs`) — Molded polycarbonate/ABS alloy at 23 °C. Properties vary widely with the PC:ABS ratio — treat as indicative and check the specific grade. _(also called: ABS-PC blend; PC-ABS blend)_
+- **PC (molded)** (`pc`) — Unfilled molded polycarbonate at 23 °C. Very tough and ductile, but notch-sensitive and attacked by many solvents — a sharp internal corner or the wrong cleaner turns it brittle. _(also called: PC; Polycarbonate)_
+- **PA66 (molded, dry)** (`pa66dry`) — Unfilled PA66 dry-as-molded at 23 °C. Nylon absorbs moisture and softens dramatically in service — see the conditioned entry, which is the honest one for most real environments. _(also called: Nylon 6/6 (PA66, dry); PA 66 (dry as molded))_
+- **PA66 (molded, conditioned)** (`pa66cond`) — The same PA66 after moisture conditioning at 23 °C / 50% RH — less than half the stiffness, more ductile. Design to this unless the part lives in a sealed dry environment. _(also called: PA 66 (conditioned); Nylon 6/6 (PA66, conditioned))_
+- **PA12-GF30 (molded)** (`pa12gf30`) — 30% glass-filled PA12, molded, at 23 °C. Strongly anisotropic — quoted properties are in the flow direction, and transverse values are much lower. Abrasive to tooling. _(also called: Nylon 12 GF30 (glass-filled))_
+- **PBT-GF30 (molded)** (`pbtgf30`) — 30% glass PBT, flow direction, 23 °C. Anisotropy is NOT modelled by a single figure. The very low permissible strain is the point: stiff filled plastics make poor snap arms. _(also called: PBT-GF30)_
 - **PLA (FDM)** (`pla_fdm`) — FDM PLA, in-plane (XY), well-tuned print at 23 °C. Stiff but brittle, softens around 55–60 °C, and creeps badly under sustained load — a poor choice for reusable snaps or bolted joints that must hold torque. _(also called: PLA (FDM); PLA (FDM printed))_
 - **PETG (FDM)** (`petg_fdm`) — FDM PETG, in-plane (XY) at 23 °C. Layer adhesion is the weak point: orient bending in-plane, never across layers. _(also called: PETG (FDM); PETG (FDM printed))_
 - **ABS (FDM)** (`abs_fdm`) — FDM ABS, in-plane (XY) at 23 °C. Layer bonds are the weak point — orient bending in-plane and add a generous root fillet. Warps without an enclosure. _(also called: ABS (FDM); ABS (FDM printed))_
 - **ASA (FDM)** (`asa_fdm`) — FDM ASA, in-plane (XY) at 23 °C. ABS-like mechanically but UV-stable — the outdoor choice.
 - **PC-ABS (FDM)** (`pcabs_fdm`) — FDM PC-ABS, in-plane (XY) at 23 °C. Tougher and more heat-tolerant than plain ABS; still needs an enclosure to print well.
-- **Polycarbonate (FDM)** (`pc_fdm`) — FDM polycarbonate, in-plane (XY) at 23 °C. The stiffest common filament with real heat resistance, but hygroscopic and demanding to print — wet filament loses most of its strength.
-- **Nylon 12 / PA12 (FDM)** (`pa12_fdm`) — FDM nylon 12, in-plane (XY) at 23 °C. Tough and fatigue-tolerant — the best common filament for living hinges — but very hygroscopic: dry it before printing and expect service properties to drift with humidity. _(also called: Nylon 12 / PA12 (FDM); Nylon 12 (FDM))_
-- **Nylon 12 CF (FDM)** (`pa12cf_fdm`) — Chopped-carbon-filled FDM nylon, in-plane (XY) at 23 °C. Much stiffer and more dimensionally stable than unfilled, but the fibres do nothing for layer adhesion — Z strength stays poor. Abrasive: needs a hardened nozzle.
+- **PC (FDM)** (`pc_fdm`) — FDM polycarbonate, in-plane (XY) at 23 °C. The stiffest common filament with real heat resistance, but hygroscopic and demanding to print — wet filament loses most of its strength. _(also called: Polycarbonate (FDM))_
+- **PA12 (FDM)** (`pa12_fdm`) — FDM nylon 12, in-plane (XY) at 23 °C. Tough and fatigue-tolerant — the best common filament for living hinges — but very hygroscopic: dry it before printing and expect service properties to drift with humidity. _(also called: Nylon 12 / PA12 (FDM); Nylon 12 (FDM))_
+- **PA12-CF (FDM)** (`pa12cf_fdm`) — Chopped-carbon-filled FDM nylon, in-plane (XY) at 23 °C. Much stiffer and more dimensionally stable than unfilled, but the fibres do nothing for layer adhesion — Z strength stays poor. Abrasive: needs a hardened nozzle. _(also called: Nylon 12 CF (FDM))_
 - **PP (FDM)** (`pp_fdm`) — FDM polypropylene, in-plane (XY) at 23 °C. Chemically resistant and fatigue-tolerant, but warps badly and bonds to almost no bed surface except PP tape.
 - **PA12 (MJF)** (`pa12_mjf`) — HP Multi Jet Fusion nylon 12, XY plane, 23 °C. Near-isotropic for a printed part but verify with printed coupons. pG is the conservative figure the bolted-joint calculator has always used; the clamp calculator previously assumed 55 MPa. _(also called: PA12 (MJF); Nylon 12 (MJF); Nylon 12 (PA12); PA12 (MJF printed))_
 - **PA11 (MJF)** (`pa11_mjf`) — MJF nylon 11, XY plane, 23 °C. Similar stiffness to PA12 but notably more ductile and impact-tolerant — the better choice for snap features and drop loads.
-- **PA12 GB (MJF, glass-filled)** (`pa12gb_mjf`) — Glass-bead-filled MJF nylon 12, XY plane, 23 °C. Stiffer and more dimensionally stable than unfilled, but the beads reduce elongation — stiffer does not mean stronger here.
-- **PA12 (SLS)** (`pa12_sls`) — Laser-sintered nylon 12, XY plane, 23 °C. Practically interchangeable with MJF PA12 for design-check purposes; surface finish and refresh ratio drive the real scatter.
+- **PA12-GB (MJF)** (`pa12gb_mjf`) — Glass-bead-filled MJF nylon 12, XY plane, 23 °C. Stiffer and more dimensionally stable than unfilled, but the beads reduce elongation — stiffer does not mean stronger here. _(also called: PA12 GB (MJF, glass-filled))_
+- **PA12 (SLS)** (`pa12_sls`) — Laser-sintered nylon 12 (PA12 = polyamide 12 = nylon 12), XY plane, 23 °C. Practically interchangeable with MJF PA12 for design-check purposes — the 1.65 vs 1.70 GPa difference is well inside process scatter, so do not read it as SLS being softer. Surface finish and powder refresh ratio drive the real variation. pG carried over from MJF PA12: same polymer, same order of surface porosity.
 - **TPU 95A (FDM)** (`tpu95a_fdm`) — FDM TPU, 95 Shore A, in-plane at 23 °C. The linear modulus quoted is a small-strain tangent only — TPU stiffens dramatically at high strain, so a linear model under-predicts force badly past a few percent.
-- **TPU 85A (FDM, softer)** (`tpu85a_fdm`) — FDM TPU, 85 Shore A, in-plane at 23 °C. Same small-strain caveat as the 95A grade, more so.
-- **TPE (FDM, soft rubber)** (`tpe_fdm`) — Soft FDM thermoplastic elastomer, in-plane at 23 °C. Indicative small-strain figures for feel only — grades vary enormously.
-- **TPU/TPA (MJF, rubber-like)** (`tpu_mjf`) — Powder-bed rubber-like nylon elastomer, XY plane at 23 °C. Stiffer than filament TPU and near-isotropic; same hyperelastic caveat applies.
+- **TPU 85A (FDM)** (`tpu85a_fdm`) — FDM TPU, 85 Shore A, in-plane at 23 °C. Same small-strain caveat as the 95A grade, more so. _(also called: TPU 85A (FDM, softer))_
+- **TPE (FDM)** (`tpe_fdm`) — Soft FDM thermoplastic elastomer, in-plane at 23 °C. Indicative small-strain figures for feel only — grades vary enormously. _(also called: TPE (FDM, soft rubber))_
+- **TPU/TPA (MJF)** (`tpu_mjf`) — Powder-bed rubber-like nylon elastomer, XY plane at 23 °C. Stiffer than filament TPU and near-isotropic; same hyperelastic caveat applies. _(also called: TPU/TPA (MJF, rubber-like))_

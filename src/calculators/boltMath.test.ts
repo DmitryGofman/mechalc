@@ -20,8 +20,8 @@ const M6 = THREADS.M6;
 const C88 = CLASSES["8.8 (medium-carbon, Q&T)"];
 const STEEL = PLATE_MATERIALS["Mild steel (S235)"];
 const ALU = PLATE_MATERIALS["Aluminum 6061-T6"];
-const POM = PLATE_MATERIALS["POM / Delrin"];
-const PA12 = PLATE_MATERIALS["Nylon 12 (PA12)"];
+const POM = PLATE_MATERIALS["POM (molded)"];
+const PA12 = PLATE_MATERIALS["PA12 (MJF)"];
 const FR4 = PLATE_MATERIALS["FR-4 PCB (glass-epoxy)"];
 
 describe("boltResults", () => {

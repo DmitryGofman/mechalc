@@ -54,6 +54,47 @@ describe("library structure", () => {
     for (const m of all) expect(GROUPS).toContain(m.group);
   });
 
+  it("names non-metals as <polymer> (<process>)", () => {
+    // The convention exists because one polymer under several names is how the
+    // table fragmented in the first place. Metals name themselves by alloy and
+    // temper instead, which already identifies them uniquely.
+    for (const m of all) {
+      if (m.group === "Metal" || m.group === "Composite") continue;
+      expect(m.name, `${m.id} name`).toMatch(/\((molded|FDM|MJF|SLS)(,[^)]*)?\)$/);
+    }
+  });
+
+  it("uses ISO polymer designations, never the generic trade names", () => {
+    // PA12 IS nylon 12; POM IS Delrin/acetal. Keeping both spellings as
+    // canonical names is what produced five entries for one polymer. The old
+    // names stay reachable through `aliases` — see the resolve test above.
+    const GENERIC = /\b(nylon|delrin|polycarbonate|polypropylene|acetal)\b/i;
+    for (const m of all) {
+      expect(m.name, `${m.id} should use the ISO designation`).not.toMatch(GENERIC);
+    }
+  });
+
+  it("keeps one entry per process for a given polymer, not per spelling", () => {
+    // Two entries may share a polymer only if something that moves the numbers
+    // differs — process, filler or condition — which the name has to show.
+    const byName = new Map<string, string>();
+    for (const m of all) {
+      const key = `${m.name}`;
+      expect(byName.has(key), `${key} declared twice`).toBe(false);
+      byName.set(key, m.id);
+    }
+    // Every PA12 variant is a distinct process or filler, and says so.
+    const pa12 = all.filter((m) => /^PA12\b/.test(m.name)).map((m) => m.name);
+    expect(pa12).toEqual([
+      "PA12-GF30 (molded)",
+      "PA12 (FDM)",
+      "PA12-CF (FDM)",
+      "PA12 (MJF)",
+      "PA12-GB (MJF)",
+      "PA12 (SLS)",
+    ]);
+  });
+
   it("gives every material a provenance note and both display colours", () => {
     for (const m of all) {
       expect(m.note.length, `${m.id} note`).toBeGreaterThan(30);
@@ -157,26 +198,26 @@ describe("calculator menus", () => {
       "Aluminum 6061-T6",
       "Aluminum 7075",
       "Aluminum 7075-T6",
-      "Delrin (POM)",
-      "Polypropylene",
-      "PETG",
+      "POM (molded)",
+      "PP (molded)",
+      "PETG (molded)",
       "PLA (FDM)",
       "PETG (FDM)",
       "ABS (FDM)",
       "ASA (FDM)",
       "PC-ABS (FDM)",
-      "Polycarbonate (FDM)",
-      "Nylon 12 / PA12 (FDM)",
-      "Nylon 12 CF (FDM)",
+      "PC (FDM)",
+      "PA12 (FDM)",
+      "PA12-CF (FDM)",
       "PP (FDM)",
       "PA12 (MJF)",
       "PA11 (MJF)",
-      "PA12 GB (MJF, glass-filled)",
+      "PA12-GB (MJF)",
       "PA12 (SLS)",
-      "TPU/TPA (MJF, rubber-like)",
+      "TPU/TPA (MJF)",
       "TPU 95A (FDM)",
-      "TPU 85A (FDM, softer)",
-      "TPE (FDM, soft rubber)",
+      "TPU 85A (FDM)",
+      "TPE (FDM)",
     ]);
     expect(PICKER["Aluminum 6061-T6"]).toEqual({
       E: 68.9,
@@ -187,8 +228,8 @@ describe("calculator menus", () => {
     expect(PICKER["PLA (FDM)"]).toMatchObject({ E: 3.5, sigmaY: 50, grp: "FDM", fdm: true });
     expect(PICKER["TPU 95A (FDM)"]).toMatchObject({ E: 0.04, sigmaY: 9, fdm: true, soft: true });
     // Printed flag follows the process, not the display group.
-    expect(PICKER["Delrin (POM)"].fdm).toBeUndefined();
-    expect(PICKER["TPU/TPA (MJF, rubber-like)"]).toMatchObject({ grp: "Powder-bed", soft: true });
+    expect(PICKER["POM (molded)"].fdm).toBeUndefined();
+    expect(PICKER["TPU/TPA (MJF)"]).toMatchObject({ grp: "Powder-bed", soft: true });
   });
 
   it("offers the bolted joint the same plates with the same properties", () => {
@@ -202,16 +243,16 @@ describe("calculator menus", () => {
       "Brass (CuZn37)",
       "Ti-6Al-4V",
       "FR-4 PCB (glass-epoxy)",
-      "POM / Delrin",
-      "ABS",
-      "ABS-PC blend",
-      "Nylon 12 (PA12)",
-      "Nylon 12 GF30 (glass-filled)",
-      "Nylon 6/6 (PA66, dry)",
+      "POM (molded)",
+      "ABS (molded)",
+      "PC-ABS (molded)",
+      "PA12 (MJF)",
+      "PA12-GF30 (molded)",
+      "PA66 (molded, dry)",
     ]);
     expect(PLATE_MATERIALS["Mild steel (S235)"]).toEqual({ E: 200, sy: 235, pG: 490, tone: "#39434e" });
     expect(PLATE_MATERIALS["FR-4 PCB (glass-epoxy)"]).toEqual({ E: 12, sy: 300, pG: 60, tone: "#2f4a3c" });
-    expect(PLATE_MATERIALS["Nylon 12 (PA12)"]).toEqual({ E: 1.7, sy: 48, pG: 50, tone: "#464a40" });
+    expect(PLATE_MATERIALS["PA12 (MJF)"]).toEqual({ E: 1.7, sy: 48, pG: 50, tone: "#464a40" });
   });
 
   it("offers the clamp the same bodies and cylinders", () => {
@@ -220,12 +261,12 @@ describe("calculator menus", () => {
       "PLA (FDM)",
       "PETG (FDM)",
       "ASA (FDM)",
-      "Nylon 12 (FDM)",
-      "Nylon 12 (MJF)",
+      "PA12 (FDM)",
+      "PA12 (MJF)",
       "Aluminum 5052-H32",
       "Aluminum 6061-T6",
       "Mild steel (S235)",
-      "Steel (S355 / 4140N)",
+      "Alloy steel (S355 / 4140)",
     ]);
     expect(CLAMP_MATS["PLA (FDM)"]).toEqual({
       E: 3500,
@@ -264,6 +305,6 @@ describe("calculator menus", () => {
     expect(CLAMP_MATS["Mild steel (S235)"].pG).toBe(PLATE_MATERIALS["Mild steel (S235)"].pG);
     expect(PICKER["Aluminum 6061-T6"].E).toBe(PLATE_MATERIALS["Aluminum 6061-T6"].E);
     // …including the nylon whose bearing limit used to differ by calculator.
-    expect(CLAMP_MATS["Nylon 12 (MJF)"].pG).toBe(PLATE_MATERIALS["Nylon 12 (PA12)"].pG);
+    expect(CLAMP_MATS["PA12 (MJF)"].pG).toBe(PLATE_MATERIALS["PA12 (MJF)"].pG);
   });
 });

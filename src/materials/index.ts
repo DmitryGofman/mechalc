@@ -5,10 +5,13 @@
 // local shape that calculator's math already expects. Two things fall out of
 // this that a plain shared table would not give you:
 //
-//   · Display labels stay under each calculator's control. The clamp calls
-//     something "Steel (S355 / 4140N)" and the bolted joint calls it
-//     "Alloy steel (S355 / 4140)"; both point at one set of numbers, and
-//     renaming a label never silently repoints it at a different material.
+//   · Display labels stay under each calculator's control where the context
+//     genuinely differs — the clamp lists the same steel as "Steel tube
+//     (S235 / DOM)" when it is the thing being gripped and "Mild steel (S235)"
+//     when it is the clamp body — while both resolve to one set of numbers.
+//     Renaming a label never silently repoints it at a different material.
+//     Where the context does NOT differ, use the library's canonical name;
+//     one polymer under several labels is the mess this replaced.
 //   · Missing data fails loudly. `requireProps` turns "this material has no
 //     permissible bearing pressure" into an error at module load and in the
 //     test suite, instead of a safety factor quietly computed against zero.

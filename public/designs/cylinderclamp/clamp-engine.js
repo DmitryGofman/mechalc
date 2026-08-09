@@ -70,12 +70,12 @@
       ["PLA (FDM)", "pla_fdm"],
       ["PETG (FDM)", "petg_fdm"],
       ["ASA (FDM)", "asa_fdm"],
-      ["Nylon 12 (FDM)", "pa12_fdm"],
-      ["Nylon 12 (MJF)", "pa12_mjf"],
+      ["PA12 (FDM)", "pa12_fdm"],
+      ["PA12 (MJF)", "pa12_mjf"],
       ["Aluminum 5052-H32", "al5052h32"],
       ["Aluminum 6061-T6", "al6061t6"],
       ["Mild steel (S235)", "s235"],
-      ["Steel (S355 / 4140N)", "s355"],
+      ["Alloy steel (S355 / 4140)", "s355"],
     ],
     (m) => {
       MAT.requireProps(m, ["pG"], "clamp body (head-bearing check)");

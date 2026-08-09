@@ -40,9 +40,9 @@ const BY_GROUP: Array<[grp: string, entries: MenuEntry[]]> = [
   [
     "Plastic",
     [
-      ["Delrin (POM)", "pom"],
-      ["Polypropylene", "pp"],
-      ["PETG", "petg"],
+      ["POM (molded)", "pom"],
+      ["PP (molded)", "pp"],
+      ["PETG (molded)", "petg"],
     ],
   ],
   [
@@ -53,9 +53,9 @@ const BY_GROUP: Array<[grp: string, entries: MenuEntry[]]> = [
       ["ABS (FDM)", "abs_fdm"],
       ["ASA (FDM)", "asa_fdm"],
       ["PC-ABS (FDM)", "pcabs_fdm"],
-      ["Polycarbonate (FDM)", "pc_fdm"],
-      ["Nylon 12 / PA12 (FDM)", "pa12_fdm"],
-      ["Nylon 12 CF (FDM)", "pa12cf_fdm"],
+      ["PC (FDM)", "pc_fdm"],
+      ["PA12 (FDM)", "pa12_fdm"],
+      ["PA12-CF (FDM)", "pa12cf_fdm"],
       ["PP (FDM)", "pp_fdm"],
     ],
   ],
@@ -64,17 +64,17 @@ const BY_GROUP: Array<[grp: string, entries: MenuEntry[]]> = [
     [
       ["PA12 (MJF)", "pa12_mjf"],
       ["PA11 (MJF)", "pa11_mjf"],
-      ["PA12 GB (MJF, glass-filled)", "pa12gb_mjf"],
+      ["PA12-GB (MJF)", "pa12gb_mjf"],
       ["PA12 (SLS)", "pa12_sls"],
-      ["TPU/TPA (MJF, rubber-like)", "tpu_mjf"],
+      ["TPU/TPA (MJF)", "tpu_mjf"],
     ],
   ],
   [
     "Elastomer",
     [
       ["TPU 95A (FDM)", "tpu95a_fdm"],
-      ["TPU 85A (FDM, softer)", "tpu85a_fdm"],
-      ["TPE (FDM, soft rubber)", "tpe_fdm"],
+      ["TPU 85A (FDM)", "tpu85a_fdm"],
+      ["TPE (FDM)", "tpe_fdm"],
     ],
   ],
 ];

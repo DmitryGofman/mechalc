@@ -70,12 +70,12 @@ const PLATE_MENU: MenuEntry[] = [
   ["Brass (CuZn37)", "brass37"],
   ["Ti-6Al-4V", "ti6al4v"],
   ["FR-4 PCB (glass-epoxy)", "fr4"],
-  ["POM / Delrin", "pom"],
-  ["ABS", "abs"],
-  ["ABS-PC blend", "pcabs"],
-  ["Nylon 12 (PA12)", "pa12_mjf"],
-  ["Nylon 12 GF30 (glass-filled)", "pa12gf30"],
-  ["Nylon 6/6 (PA66, dry)", "pa66dry"],
+  ["POM (molded)", "pom"],
+  ["ABS (molded)", "abs"],
+  ["PC-ABS (molded)", "pcabs"],
+  ["PA12 (MJF)", "pa12_mjf"],
+  ["PA12-GF30 (molded)", "pa12gf30"],
+  ["PA66 (molded, dry)", "pa66dry"],
 ];
 
 // Scene-specific tones. The plate stack is lit differently from the clamp
