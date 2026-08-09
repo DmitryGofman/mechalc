@@ -10,7 +10,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const DESIGNS = ["blueprint", "beam", "hexm", "gauge"];
+const DESIGNS = ["blueprint", "beam", "hexm", "gauge", "beamsplit", "beamramp", "beamfringe", "beamfield"];
 const SIZES = [
   { px: 180, name: "apple-touch-icon.png" },
   { px: 192, name: "icon-192.png" },
