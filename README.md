@@ -13,7 +13,8 @@ yielding.
 | `/bolt-calculator` | **Bolted Joint — Screw Strength** — torque → preload, VDI 2230-style reduced (von Mises) stress, plus the full clamped-sandwich model: per-plate materials, Shigley pressure-cone member stiffness, load sharing, separation and bearing-crush checks; tighten the 3D nut and watch the pressure cone shade with the load it carries | ready |
 | `/beam-calculator` | **Beam on Two Supports** — center-load stiffness, force and peak stress for a span held at both ends, pinned (48EI/L³) or built-in (192EI/L³); press the middle of the 3D beam and the stress colors trace the bending-moment diagram | ready |
 | `/buckling-calculator` | **Column Buckling** — Euler critical load for all four classical end conditions (K = 0.5 / 0.7 / 1.0 / 2.0) with the Johnson parabola for short columns; push the 3D column's load platen and watch the initial imperfection amplify by 1/(1−P/Pcr) into the mode shape | ready |
-| `designs/pinjoint/` | **Pin & Bolt Shear Joint — Clevis & Lap** — a pin or bolt in single or double shear through two or three flanges, each plate its own material. All the Shigley Fig 8-23 failure modes: pin shear and clevis pin bending, bearing on pin and members, net-section tension, edge tear-out — with structural-practice edge-distance warnings. The chosen design (linked from the home page): an interactive 3D clevis — orbit, pull the loaded flange, exploded view — every zone painted by its own failure mode, with the full mode table and warnings below. Alternate prototypes (control panel with section views, pull-to-failure capacity ladder) remain on the study hub | design study |
+| `/pin-calculator` | **Pin & Bolt Shear Joint — Clevis & Lap** — a pin or bolt in single or double shear through two or three flanges, each plate its own material. Every Shigley Fig 8-23 failure mode: pin shear and clevis pin bending, bearing on pin and members, net-section tension, edge tear-out — solid or hollow pin, metal or printed. Orbit the 3D clevis and pull the loaded flange until something gives; every zone is painted by the check that owns it, with a capacity ladder for what lets go first | ready |
+| `designs/pinjoint/` | Design study behind the pin calculator — the three interaction prototypes (control panel with section views, pull-to-failure ladder, 3D joint) on one shared engine | design study |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
 | — | Shaft in Torsion · Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
@@ -53,6 +54,10 @@ src/
     simpleBeamMath.ts       pure two-support beam math (tested)
     ColumnCalc.tsx          column-buckling calculator + 3D column
     columnMath.ts           pure buckling math: Euler/Johnson, modes (tested)
+    PinCalc.tsx             pin/bolt shear-joint calculator + 3D clevis
+    pinMath.ts              pure shear-joint math: every Fig 8-23 mode (tested)
+    pinScene.ts             pin-joint geometry for the 3D viewer
+    scene3d.ts              shared canvas painter for every 3D view
     materials.ts            shared beam/flexure material library
     stressColor.ts          shared stress → color ramps for the 3D viewers
 ```
@@ -86,6 +91,21 @@ is diluted at mid-grip. Hue is that pressure against the pG of whichever
 plate the depth falls in (a mixed stack shows one half hot, the other cool under
 the same force); brightness tracks pressure relative to its peak, so the
 concentration at the bearing faces stays legible far from the limit.
+
+**Pin/bolt shear joint** — every failure mode of Shigley Fig. 8-23 checked at
+once: pin shear across 1 or 2 planes vs `Ssy = 0.577·Sy`, clevis pin bending
+`σ = M/Z` with `M = F/2·(t₂/4 + gap + t₁/2)`, bearing over the projected area
+`t·d` on both the hole wall and the pin, net-section tension across `(w−d)·t`
+(Eq. 8-54) and edge tear-out on the two ligaments `2·t·(a−d/2)` (Fig. 8-25).
+Every check is linear in load, so the solver works in stress-per-newton and
+gets both the stress at F and each mode's capacity from one number — which is
+why the ladder is exact and capacity still means something at zero load. The
+pin can be solid or hollow (`Z = π(d⁴−dᵢ⁴)/32d`), metal or printed. Permissible
+bearing is derived as `1.5·Sy` for ductile metals — bearing on a projected area
+yields later than simple tension because the material is confined — while
+polymers and laminate carry explicit creep-limited figures. Scope: static yield
+onset, no stress concentration (Kt ≈ 2–3 at the hole governs fatigue and
+brittle plates) and no preload friction, i.e. the slipped bearing state.
 
 Material and fastener values are typical reference figures — verify before
 production use.
