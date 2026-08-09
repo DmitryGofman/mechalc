@@ -466,3 +466,44 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   #clampPrint table.rep td.v { color: #111; }
   #clampPrint table.rep tr.hi td { color: #111; background: #f0f0f0; }
 }
+
+/* ── Materials Map ──────────────────────────────────────────────
+   Controls wrap into rows; the chart and the shortlist/passport rail sit
+   side-by-side on desktop and stack on phones. The chart's height is set
+   here so the SVG can size itself from CSS alone. */
+.matmap-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 14px;
+  align-items: end;
+}
+.matmap-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-left: auto;
+  padding-bottom: 2px;
+}
+.matmap-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: 12px;
+  align-items: start;
+}
+.matmap-chart {
+  height: min(62vh, 560px);
+  min-height: 380px;
+}
+@media (max-width: 900px) {
+  .matmap-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .matmap-chips {
+    margin-left: 0;
+  }
+  .matmap-chart {
+    height: 58vh;
+    min-height: 320px;
+  }
+}

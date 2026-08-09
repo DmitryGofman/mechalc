@@ -17,6 +17,7 @@ yielding.
 | `designs/pinjoint/` | Design study behind the pin calculator — the three interaction prototypes (control panel with section views, pull-to-failure ladder, 3D joint) on one shared engine | design study |
 | `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts, with the keyseat / shoulder-fillet / groove concentrations that decide where a shaft really breaks; push the 3D lever and watch the scribe line shear into a helix | ready |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
+| `/materials-map` | **Materials Map — Ashby Chart** — every material class as a range-ellipse on log-log property axes, any pair of eight properties (density, E, strength, hardness, thermal conductivity & expansion, max temp, fracture toughness). Zoom and pan like a map; pick a minimum-mass design case (stiff/strong × tie/beam/panel) or a custom slope and drag the guideline — the shortlist ranks the survivors by the index, with a full property passport per material | in progress |
 | — | Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
 On GitHub Pages the app is served under `/mechalc/`, so calculator URLs look like
@@ -62,10 +63,21 @@ src/
     ShaftCalc.tsx           shaft-torsion calculator + 3D shaft, lever and scribe line
     shaftMath.ts            pure torsion math: J, τ, twist, Kts, power (tested)
     materials.ts            shared beam/flexure material library
+    MaterialsMapCalc.tsx    Ashby property map: zoomable chart + index guidelines
+    materialsMapMath.ts     pure map math: log geometry, indices, hull (tested)
+    materialsMapData.ts     Ashby-style class-envelope property dataset
     stressColor.ts          shared stress → color ramps for the 3D viewers
 ```
 
 ## Model notes
+**Materials Map** — Ashby property-chart presentation: each material class is an
+ellipse spanning its published range on log-log axes, and minimum-mass merit
+indices `M = Eᵃ/ρ` (or `σᵃ/ρ`) draw as straight guidelines of slope `1/a`
+(a = 1 tie, ½/⅔ beam, ⅓/½ panel). Values are textbook-typical class envelopes,
+not datasheets — right for shortlisting families, then verify the chosen grade
+against supplier data. Strength means yield for metals/polymers, MOR for
+ceramics, tensile for composites/elastomers.
+
 **Flexure** — linear small-deflection (Euler-Bernoulli) theory for an end-loaded
 rectangular cantilever: `k = 3EI/L³`, `σ = 3Etδ/2L²`. Aim for a safety factor ≥ 2
 for cyclic / living-hinge duty.

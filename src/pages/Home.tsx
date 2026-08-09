@@ -56,6 +56,15 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
+    route: "/materials-map",
+    tag: "Materials selection",
+    title: "Materials Map — Ashby Chart",
+    desc: "Every material class on log-log property axes — any pair of eight properties, zoomable like a map. Pick a minimum-mass design case and drag the guideline: the shortlist ranks what survives, Ashby-style, with a full property passport per material.",
+    eq: "M = E^a / ρ",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/pin-calculator",
     tag: "Fasteners",
     title: "Pin & Bolt Shear Joint",
