@@ -46,6 +46,8 @@
     border: 1px solid var(--green); color: var(--green); border-radius: 2px; padding: 2px 6px;
     margin-left: auto; white-space: nowrap;
   }
+  /* The direction that won round 1, refined into the shipped mark below. */
+  .chip-picked { border-color: #2a3540; color: var(--mut); }
   .why { font-size: 12px; color: var(--mut); line-height: 1.65; margin: 4px 0 14px; max-width: 70ch; }
 
   .previews { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: stretch; }
@@ -414,13 +416,13 @@
 <div class="wrap">
   <header class="page">
     <div class="eyebrow">DESIGN STUDY · BRAND</div>
-    <h1>MechCalc — four logo candidates</h1>
+    <h1>MechCalc — logo candidates</h1>
     <p class="lede">
       Each mark is built from the toolkit's own visual language — the blueprint blue, the
       green-to-red yield palette, engineering-drawing conventions — and shown where it will
       actually live: the iPhone home screen, the browser tab, the app header.
-      <b>Stress Beam is currently active</b>; switching is one constant in
-      <code>src/brand.tsx</code> plus one script run.
+      <b>Moment Field (B4) is the shipped logo</b>; the rest stay here as the study that
+      chose it. Switching is one constant in <code>src/brand.tsx</code> plus one script run.
     </p>
   </header>
 
@@ -452,7 +454,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="key">B</span><h2>Stress Beam</h2><span class="chip">ACTIVE</span>
+      <span class="key">B</span><h2>Stress Beam</h2><span class="chip chip-picked">CHOSEN DIRECTION</span>
     </div>
     <p class="why">The toolkit's signature moment: a cantilever bent by a tip load, painted by
       how close it is to yielding — red at the wall, green at the free end — with the
@@ -620,7 +622,7 @@
 
   <section class="card">
     <div class="card-head">
-      <span class="key">B4</span><h2>Moment Field</h2>
+      <span class="key">B4</span><h2>Moment Field</h2><span class="chip">SHIPPED</span>
     </div>
     <p class="why">The most physically true: signed through the thickness <em>and</em> relaxing
       to neutral green toward the free end, because the bending moment falls to zero at the

@@ -1,9 +1,14 @@
-// MechCalc brand mark. Four candidate designs live side by side; the one named
-// by ACTIVE_DESIGN is what the header shows and what the icon script copies to
-// the site root (favicon + home-screen icons). To rebrand:
+// MechCalc brand mark — "Moment Field": the cantilever painted by SIGNED
+// bending stress (tension red above the neutral axis, compression blue below,
+// both relaxing to neutral green at the free end where the moment vanishes),
+// emerging from a hatched fixed wall.
+//
+// Every candidate from the study that chose it is still here; the one named by
+// ACTIVE_DESIGN is what the header shows and what the icon script copies to the
+// site root (favicon + home-screen icons). To rebrand:
 //   1. change ACTIVE_DESIGN below
 //   2. run `node scripts/render-icons.mjs`
-// Full-tile previews of all four: public/designs/brand/index.html
+// Full-tile previews of all eight: public/designs/brand/index.html
 export type BrandDesign =
   | "blueprint"
   | "beam"
@@ -13,7 +18,7 @@ export type BrandDesign =
   | "beamramp"
   | "beamfringe"
   | "beamfield";
-export const ACTIVE_DESIGN: BrandDesign = "beam";
+export const ACTIVE_DESIGN: BrandDesign = "beamfield";
 
 // ── Stress-beam tension/compression variants ────────────────────────────
 // Bands offset along the beam's quadratic centerline, painted by SIGNED
@@ -51,8 +56,19 @@ const bAxisD = (() => {
   const [ex, ey] = bPoint(1), len = Math.hypot(268, 292);
   return `${bLine(bEdge(0))} L${(ex + (268 / len) * 30).toFixed(1)} ${(ey + (292 / len) * 30).toFixed(1)}`;
 })();
-const bAxis = (color: string) => (
-  <path d={bAxisD} fill="none" stroke={color} strokeWidth="4.5" strokeDasharray="20 9 5 9" strokeLinecap="round" />
+// The neutral axis. At icon sizes it is a proper dash-dot drawing centerline;
+// inline at text size those dashes shrink below a pixel and read as speckle
+// through the color bands, so the compact mark states it as a plain hairline.
+const bAxis = (color: string, compact: boolean) => (
+  <path
+    d={bAxisD}
+    fill="none"
+    stroke={color}
+    strokeWidth={compact ? 3.5 : 4.5}
+    strokeDasharray={compact ? undefined : "20 9 5 9"}
+    strokeOpacity={compact ? 0.8 : 1}
+    strokeLinecap="round"
+  />
 );
 
 // Scaffolding shared by every beam mark: undeflected line + tip load before
@@ -66,21 +82,27 @@ const beamScaffold = (
     </g>
   </>
 );
-const beamWall = (
+// Support hatching is the other detail that muddies at text size; the compact
+// wall carries the slab and its brighter face instead, which still reads as
+// "built in".
+const beamWall = (compact: boolean) => (
   <>
     <rect x="0" y="96" width="92" height="260" fill="#10161d" />
-    <g stroke="#46515c" strokeWidth="11" strokeLinecap="round">
-      <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334" />
-    </g>
-    <path d="M92 96V356" stroke="#8b97a3" strokeWidth="15" strokeLinecap="round" />
+    {!compact && (
+      <g stroke="#46515c" strokeWidth="11" strokeLinecap="round">
+        <path d="M82 130 54 158M82 174 54 202M82 218 54 246M82 262 54 290M82 306 54 334" />
+      </g>
+    )}
+    <path d="M92 96V356" stroke="#8b97a3" strokeWidth={compact ? 18 : 15} strokeLinecap="round" />
   </>
 );
 
-// Transparent-background header marks. Same geometry as the icon tiles in
-// public/brand/<design>/icon.svg, minus the tile, grid and captions so they
-// sit directly on the page background at text size.
-const MARKS: Record<BrandDesign, JSX.Element> = {
-  blueprint: (
+// Transparent-background header marks, as functions of `compact` — true when
+// the mark renders at text size, where the finest details are dropped. Same
+// geometry as the icon tiles in public/brand/<design>/icon.svg, minus the tile,
+// grid and captions so they sit directly on the page background.
+const MARKS: Record<BrandDesign, (compact: boolean) => JSX.Element> = {
+  blueprint: () => (
     <>
       <g stroke="#3a78c2" strokeWidth="10" opacity="0.6" strokeDasharray="34 12 6 12">
         <path d="M256 30V482" />
@@ -96,7 +118,7 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
       <circle cx="256" cy="256" r="112" fill="none" stroke="#e8edf1" strokeWidth="30" />
     </>
   ),
-  beam: (
+  beam: (compact) => (
     <>
       <defs>
         <linearGradient id="lg-stress" x1="92" y1="0" x2="436" y2="0" gradientUnits="userSpaceOnUse">
@@ -107,43 +129,44 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
       </defs>
       {beamScaffold}
       <path d="M60 196 Q 300 202 434 348" fill="none" stroke="url(#lg-stress)" strokeWidth="62" strokeLinecap="round" />
-      {beamWall}
+      {beamWall(compact)}
     </>
   ),
-  beamsplit: (
+  beamsplit: (compact) => (
     <>
       {beamScaffold}
       <path d={bBand(H, 0.3 * H)} fill={RED} />
       <path d={bBand(0.3 * H, -0.3 * H)} fill="#0c141c" />
       <path d={bBand(-0.3 * H, -H)} fill={BLUE} />
-      {bAxis(GREEN)}
-      {beamWall}
+      {bAxis(GREEN, compact)}
+      {beamWall(compact)}
     </>
   ),
-  beamramp: (
+  beamramp: (compact) => (
     <>
       {beamScaffold}
       {RAMP8.map((c, i) => (
         <path key={c} d={bBand((1 - i / 4) * H, (1 - (i + 1) / 4) * H)} fill={c} />
       ))}
-      {bAxis("#dfe6ec")}
-      {beamWall}
+      {bAxis("#dfe6ec", compact)}
+      {beamWall(compact)}
     </>
   ),
-  beamfringe: (
+  beamfringe: (compact) => (
     <>
       {beamScaffold}
       {FRINGE5.map((c, i) => (
         <path key={c} d={bBand((1 - (2 * i) / 5) * H, (1 - (2 * (i + 1)) / 5) * H)} fill={c} />
       ))}
-      {[1, 2, 3, 4].map((k) => (
-        <path key={k} d={bLine(bEdge((1 - (2 * k) / 5) * H))} fill="none" stroke="#0c141c" strokeWidth="2" />
-      ))}
-      {bAxis("#dfe6ec")}
-      {beamWall}
+      {!compact &&
+        [1, 2, 3, 4].map((k) => (
+          <path key={k} d={bLine(bEdge((1 - (2 * k) / 5) * H))} fill="none" stroke="#0c141c" strokeWidth="2" />
+        ))}
+      {bAxis("#dfe6ec", compact)}
+      {beamWall(compact)}
     </>
   ),
-  beamfield: (
+  beamfield: (compact) => (
     <>
       <defs>
         {FRINGE5.map(
@@ -164,11 +187,11 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
           fill={c === GREEN ? GREEN : `url(#lg-field-${i})`}
         />
       ))}
-      {bAxis("#dfe6ec")}
-      {beamWall}
+      {bAxis("#dfe6ec", compact)}
+      {beamWall(compact)}
     </>
   ),
-  hexm: (
+  hexm: () => (
     <>
       <polygon
         points="434,256 345,101.8 167,101.8 78,256 167,410.2 345,410.2"
@@ -187,7 +210,7 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
       />
     </>
   ),
-  gauge: (
+  gauge: () => (
     <>
       <g fill="none" strokeWidth="44" strokeLinecap="round">
         <path d="M119.2 379 A158 158 0 0 1 228.6 144.4" stroke="#4fb477" />
@@ -201,6 +224,10 @@ const MARKS: Record<BrandDesign, JSX.Element> = {
   ),
 };
 
+// Below this the 512-unit artwork is drawn into fewer than ~48 device pixels,
+// where the dash-dot centerline and support hatching stop resolving.
+const COMPACT_BELOW = 56;
+
 export function LogoMark({ size = 34, design = ACTIVE_DESIGN }: { size?: number; design?: BrandDesign }) {
   return (
     <svg
@@ -210,7 +237,7 @@ export function LogoMark({ size = 34, design = ACTIVE_DESIGN }: { size?: number;
       aria-hidden="true"
       style={{ display: "block", flexShrink: 0 }}
     >
-      {MARKS[design]}
+      {MARKS[design](size < COMPACT_BELOW)}
     </svg>
   );
 }
