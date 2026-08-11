@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wire-Gate Spring — Design A · Control Panel</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  .kicker a{color:var(--faint);text-decoration:none}
+  h1{margin:6px 0 18px;font-size:21px;font-weight:600}
+  .grid{display:grid;grid-template-columns:250px 1fr;gap:22px}
+  @media(max-width:680px){.grid{grid-template-columns:1fr}}
+  label{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);margin:12px 0 4px}
+  input,select{width:100%;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);
+    padding:8px 10px;font-family:var(--mono);font-size:13.5px;outline:none}
+  input:focus,select:focus{border-color:var(--blue)}
+  .hint{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:3px;line-height:1.6}
+  .sf{background:var(--panel);border:1px solid var(--line);border-radius:3px;padding:13px 15px;margin-bottom:12px}
+  .sf .t{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.15em;color:var(--mid)}
+  .sf .n{font-family:var(--mono);font-size:34px;font-weight:600;margin-top:4px}
+  .ro{display:flex;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line2);
+      font-family:var(--mono)}
+  .ro .l{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mid)}
+  .ro .v{font-size:14.5px}
+  .ro .u{font-size:10px;color:var(--faint)}
+  .budget{margin-top:12px}
+  .budget .bar{height:10px;border:1px solid var(--line);border-radius:2px;overflow:hidden;background:#0e1419;position:relative}
+  .budget .fill{height:100%;transition:width .2s}
+  .warn{font-family:var(--mono);font-size:10px;color:var(--amber);line-height:1.7;margin-top:10px}
+  .viz{margin-top:22px;background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:14px}
+  .viz .lab{font-family:var(--mono);font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid);margin-bottom:8px}
+  svg{width:100%;height:auto;display:block}
+  .note{font-family:var(--mono);font-size:9.5px;color:var(--faint);line-height:1.7;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="kicker"><a href="index.html">← WIRE-GATE DESIGN STUDY</a> · DESIGN A</div>
+  <h1>Control Panel</h1>
+
+  <div class="grid">
+    <div>
+      <label>Material</label>
+      <select id="mat"></select>
+      <div class="hint" id="matHint"></div>
+      <div id="customBox" style="display:none">
+        <label>E [MPa]</label><input id="cE" type="number" value="207000" step="1000" />
+        <label>σ allow [MPa]</label><input id="cS" type="number" value="1590" step="10" />
+      </div>
+      <label>Wire diameter d [mm]</label><input id="d" type="number" value="2" step="0.1" min="0.1" />
+      <label>Long leg L₁ (pivot side) [mm]</label><input id="L1" type="number" value="30" step="1" min="1" />
+      <label>Short leg L₂ [mm]</label><input id="L2" type="number" value="26" step="1" min="1" />
+      <label>U-bend width w [mm]</label><input id="w" type="number" value="8" step="0.5" min="1" />
+      <div class="hint" id="cHint"></div>
+      <label>Pin separation a [mm]</label><input id="a" type="number" value="20" step="1" min="1" />
+      <div class="hint">the crank: pivot pin → offset pin · turns swing into spread</div>
+      <label>Assembly preload δ₀ [mm]</label><input id="d0" type="number" value="1.0" step="0.1" min="0" />
+      <div class="hint">offset-hole spread built in at assembly — the snap</div>
+      <label>Nose opening g [mm]</label><input id="g" type="number" value="5" step="0.5" min="0" />
+      <div class="hint" id="gHint"></div>
+    </div>
+
+    <div>
+      <div class="sf" id="sfCard">
+        <div class="t"><span>STATIC SF AT FULL OPEN</span><span id="sfBadge"></span></div>
+        <div class="n" id="sfN">—</div>
+        <div class="t" style="letter-spacing:0"><span id="sfSub"></span></div>
+      </div>
+      <div class="ro"><span class="l">Loop spread rate k</span><span class="v" id="rK">— <span class="u">N/mm</span></span></div>
+      <div class="ro"><span class="l">Closed force (nose)</span><span class="v" id="rF0">— <span class="u">N</span></span></div>
+      <div class="ro"><span class="l">Full-open force (nose)</span><span class="v" id="rFo">— <span class="u">N</span></span></div>
+      <div class="ro"><span class="l">Pin force at open</span><span class="v" id="rFp">— <span class="u">N</span></span></div>
+      <div class="ro"><span class="l">Peak stress at U-bend</span><span class="v" id="rSig">— <span class="u">MPa</span></span></div>
+      <div class="ro"><span class="l">Curved-wire Ki</span><span class="v" id="rKi">—</span></div>
+      <div class="budget">
+        <div class="ro" style="border:none;padding-bottom:4px">
+          <span class="l">Spread budget δ_yield</span><span class="v" id="rDy">— <span class="u">mm</span></span>
+        </div>
+        <div class="bar"><div class="fill" id="budFill"></div></div>
+        <div class="hint" id="budHint"></div>
+      </div>
+      <div class="warn" id="warns"></div>
+    </div>
+  </div>
+
+  <div class="viz">
+    <div class="lab">Plan view — pins in the body, the crank a, the hot U-bend</div>
+    <svg id="plan" viewBox="0 0 560 170" aria-label="plan view of the wire form"></svg>
+  </div>
+
+  <div class="viz">
+    <div class="lab">Thumb force vs nose opening — closed · open · the opening that bends it</div>
+    <svg id="chart" viewBox="0 0 560 190" aria-label="force versus opening"></svg>
+  </div>
+
+  <div class="note">Model: pinned, moment-free tangs; the loop's in-plane spread compliance by Castigliano
+  over legs + U-bend; swing→spread chord s = 2a·sin(φ/2); stress checked at the U-bend apex with the
+  torsion-spring Ki (C = w/d). Static, small swing, no fatigue. Wire strength is typical at ~2 mm.
+  Engine: wiregate-engine.js, shared with Design B.</div>
+</div>
+
+<script src="wiregate-engine.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const matSel = $("mat");
+  WireGate.MATERIALS.forEach((m) => {
+    const o = document.createElement("option");
+    o.value = m.id; o.textContent = m.name;
+    matSel.appendChild(o);
+  });
+
+  const fmt = (v, d) => (isFinite(v) ? v.toFixed(d) : "∞");
+
+  function params() {
+    const m = WireGate.MATERIALS.find((x) => x.id === matSel.value);
+    const custom = m.id === "custom";
+    $("customBox").style.display = custom ? "block" : "none";
+    const E = custom ? +$("cE").value : m.E;
+    const sig = custom ? +$("cS").value : m.sigmaAllow;
+    $("matHint").textContent = custom ? "your own grade data, with source" : "E " + (E / 1000).toFixed(0) + " GPa · σ_allow " + sig + " MPa (typical at ~2 mm)";
+    return {
+      d: +$("d").value, L1: +$("L1").value, L2: +$("L2").value,
+      w: +$("w").value, a: +$("a").value, delta0: +$("d0").value, g: +$("g").value,
+      E, sigmaAllow: sig,
+    };
+  }
+
+  function drawPlan(p) {
+    const svg = $("plan");
+    const L = Math.max(p.L1, p.L2, 1), w = Math.max(p.w, 1);
+    const sc = Math.min(430 / (L + 14), 74 / (w + 8));
+    const x0 = 70, yc = 72;
+    const zt = yc - (w / 2) * sc, zb = yc + (w / 2) * sc;
+    const xN = x0 + L * sc;
+    const x1 = xN - p.L1 * sc;
+    const x2 = xN - p.L2 * sc;
+    const r = (w / 2) * sc;
+    const wr = Math.max(1.5, p.d * sc);
+    const wire = (dd, col) => '<path d="' + dd + '" fill="none" stroke="' + (col || "#c9a04e") + '" stroke-width="' + wr + '" stroke-linecap="round"/>';
+    const dim = (xa, ya, xb, yb, t, dy) =>
+      '<line x1="' + xa + '" y1="' + ya + '" x2="' + xb + '" y2="' + yb + '" stroke="#3a78c2" stroke-width="0.7"/>' +
+      '<text x="' + ((xa + xb) / 2) + '" y="' + (ya + (dy || -4)) + '" fill="#3a78c2" font-size="9" font-family="var(--mono)" text-anchor="middle">' + t + "</text>";
+    const pin = (x, y, label) =>
+      '<circle cx="' + x + '" cy="' + y + '" r="5.5" fill="none" stroke="#5f9bd8" stroke-width="1.3"/>' +
+      '<circle cx="' + x + '" cy="' + y + '" r="1.6" fill="#5f9bd8"/>' +
+      '<text x="' + x + '" y="' + (y - 9) + '" fill="#5f9bd8" font-size="8.5" font-family="var(--mono)" text-anchor="middle">' + label + "</text>";
+    svg.innerHTML =
+      '<rect x="' + (Math.min(x1, x2) - 26) + '" y="' + (zt - 14) + '" width="22" height="' + (zb - zt + 28) + '" fill="#141c22" stroke="#1f2a33"/>' +
+      wire("M" + x1 + " " + zt + " H" + xN) +
+      wire("M" + x2 + " " + zb + " H" + xN) +
+      // hot U-bend
+      wire("M" + xN + " " + zt + " A" + r + " " + r + " 0 0 1 " + xN + " " + zb, "#d65c5c") +
+      pin(x1, zt, "pivot pin") + pin(x2, zb, "offset pin") +
+      '<circle cx="' + (xN + r) + '" cy="' + yc + '" r="3" fill="#4fb477"/>' +
+      '<text x="' + (xN + r + 7) + '" y="' + (yc + 3) + '" fill="#4fb477" font-size="9" font-family="var(--mono)">nose swings about the pivot</text>' +
+      dim(x1, zt - 16, xN, zt - 16, "L1 = " + p.L1 + " mm") +
+      dim(x2, zb + 22, xN, zb + 22, "L2 = " + p.L2 + " mm", 13) +
+      // the crank
+      '<line x1="' + x1 + '" y1="' + zt + '" x2="' + x2 + '" y2="' + zb + '" stroke="#5f9bd8" stroke-width="0.8" stroke-dasharray="4 3"/>' +
+      '<text x="' + ((x1 + x2) / 2 - 14) + '" y="' + ((zt + zb) / 2 + 3) + '" fill="#5f9bd8" font-size="9" font-family="var(--mono)" text-anchor="end">a = ' + p.a + "</text>" +
+      '<text x="' + (Math.min(x1, x2) - 30) + '" y="' + (zb + 52) + '" fill="#46515c" font-size="8.5" font-family="var(--mono)">pins rotate freely — moment-free · red = the hot U-bend (Ki at C = w/d = ' + fmt(p.w / p.d, 1) + ')</text>';
+  }
+
+  function drawChart(p, v) {
+    const svg = $("chart");
+    const W = 560, H = 190, mx = 46, my = 18, pw = W - mx - 14, ph = H - my - 30;
+    const gY = isFinite(v.gYield) ? v.gYield : p.g * 2.5;
+    const gMax = Math.max(gY * 1.25, p.g * 1.2, 1);
+    // sample the thumb-force curve from the engine itself
+    const N = 40;
+    const pts = [];
+    let fMax = 1e-9;
+    for (let i = 0; i <= N; i++) {
+      const gg = (i / N) * gMax;
+      const rr = WireGate.evaluate({ ...p, g: gg });
+      const F = rr.values ? rr.values.FnoseOpen : 0;
+      pts.push([gg, F]);
+      fMax = Math.max(fMax, F);
+    }
+    const X = (gg) => mx + (gg / gMax) * pw;
+    const Y = (ff) => my + ph - (ff / fMax) * ph;
+    const path = pts.map((pt, i) => (i ? "L" : "M") + X(pt[0]).toFixed(1) + " " + Y(pt[1]).toFixed(1)).join(" ");
+    const at = (gg) => {
+      const rr = WireGate.evaluate({ ...p, g: gg });
+      return rr.values ? rr.values.FnoseOpen : 0;
+    };
+    const mark = (gg, col, t) =>
+      '<line x1="' + X(gg) + '" y1="' + Y(at(gg)) + '" x2="' + X(gg) + '" y2="' + (my + ph) + '" stroke="' + col + '" stroke-dasharray="3 3" stroke-width="0.8"/>' +
+      '<circle cx="' + X(gg) + '" cy="' + Y(at(gg)) + '" r="3.4" fill="' + col + '"/>' +
+      '<text x="' + X(gg) + '" y="' + (my + ph + 13) + '" fill="' + col + '" font-size="8.6" font-family="var(--mono)" text-anchor="middle">' + t + "</text>" +
+      '<text x="' + (X(gg) + 6) + '" y="' + (Y(at(gg)) - 5) + '" fill="' + col + '" font-size="8.6" font-family="var(--mono)">' + fmt(at(gg), 1) + " N</text>";
+    svg.innerHTML =
+      (isFinite(v.gYield)
+        ? '<rect x="' + X(v.gYield) + '" y="' + my + '" width="' + Math.max(0, mx + pw - X(v.gYield)) + '" height="' + ph + '" fill="rgba(214,92,92,0.10)"/>'
+        : "") +
+      '<line x1="' + mx + '" y1="' + (my + ph) + '" x2="' + (mx + pw) + '" y2="' + (my + ph) + '" stroke="#1f2a33"/>' +
+      '<line x1="' + mx + '" y1="' + my + '" x2="' + mx + '" y2="' + (my + ph) + '" stroke="#1f2a33"/>' +
+      '<path d="' + path + '" fill="none" stroke="#e8edf1" stroke-width="1.6"/>' +
+      mark(0, "#3a78c2", "closed") +
+      mark(Math.min(p.g, gMax), "#4fb477", "open") +
+      (isFinite(v.gYield) ? mark(v.gYield, "#d65c5c", "bends") : "") +
+      '<text x="' + (mx + pw) + '" y="' + (my + ph + 24) + '" fill="#46515c" font-size="9" font-family="var(--mono)" text-anchor="end">nose opening g [mm] · F at the thumb = k·δ·a·cos(φ/2)/(L+R)</text>' +
+      '<text x="12" y="' + (my + 10) + '" fill="#46515c" font-size="9" font-family="var(--mono)">F [N]</text>';
+  }
+
+  function update() {
+    const p = params();
+    const r = WireGate.evaluate(p);
+    $("cHint").textContent = "U-bend index C = w/d = " + fmt(p.w / Math.max(p.d, 1e-9), 2) + " (keep ≥ " + WireGate.C_VALID_MIN + ")";
+    if (r.status === "invalid") { $("warns").textContent = r.warnings.join(" · "); return; }
+    const v = r.values;
+    $("gHint").textContent = "swing " + fmt((v.phiMax * 180) / Math.PI, 1) + "° → spread +" + fmt(v.s, 2) + " mm on top of δ₀";
+    const col = v.SF >= 1.5 ? "#4fb477" : v.SF >= 1 ? "#d9a441" : "#d65c5c";
+    $("sfN").textContent = fmt(v.SF, 2); $("sfN").style.color = col;
+    $("sfBadge").textContent = v.SF >= 1.5 ? "SAFE" : v.SF >= 1 ? "MARGINAL" : "YIELDS";
+    $("sfBadge").style.color = col;
+    $("sfCard").style.borderColor = col + "55";
+    $("sfSub").textContent = fmt(v.sigmaPeak, 0) + " MPa at the U-bend vs " + p.sigmaAllow + " MPa allowable";
+    $("rK").innerHTML = fmt(v.k, 2) + ' <span class="u">N/mm</span>';
+    $("rF0").innerHTML = fmt(v.Fnose0, 1) + ' <span class="u">N</span>';
+    $("rFo").innerHTML = fmt(v.FnoseOpen, 1) + ' <span class="u">N</span>';
+    $("rFp").innerHTML = fmt(v.FpinOpen, 1) + ' <span class="u">N</span>';
+    $("rSig").innerHTML = fmt(v.sigmaPeak, 0) + ' <span class="u">MPa</span>';
+    $("rKi").textContent = fmt(v.Ki, 3) + " at C " + fmt(v.C, 2);
+    $("rDy").innerHTML = fmt(v.deltaYield, 2) + ' <span class="u">mm</span>';
+    const used = Math.min(1.3, v.budgetUsed);
+    $("budFill").style.width = Math.min(100, used * 100) + "%";
+    $("budFill").style.background = col;
+    $("budHint").textContent = fmt(100 * v.budgetUsed, 0) + "% of the spread budget used at full open · bends open past g = " + (isFinite(v.gYield) ? fmt(v.gYield, 1) + " mm" : "reach");
+    $("warns").textContent = r.warnings.join(" · ");
+    drawPlan(p);
+    drawChart(p, v);
+  }
+
+  document.querySelectorAll("input,select").forEach((el) => el.addEventListener("input", update));
+  update();
+})();
+</script>
+</body>
+</html>

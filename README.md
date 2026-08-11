@@ -17,6 +17,8 @@ yielding.
 | `designs/pinjoint/` | Design study behind the pin calculator — the three interaction prototypes (control panel with section views, pull-to-failure ladder, 3D joint) on one shared engine | design study |
 | `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts. The keyseat, shoulder fillet or circlip groove that decides where a shaft really breaks is an input, and so is its radius: drag it and Kts moves while the 3D view re-cuts the feature. Push the lever to wind the shaft up and watch the scribe line shear into a helix. Theory, design tips and a one-page or full PDF report | ready |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
+| `/wiregate-calculator` | **Wire-Gate Clip Spring** — the bent-wire gate spring on wire-gate carabiners, snap-hook clasps and spring buckle hooks. The wire's ends pivot freely as pins in offset holes, so swinging the gate forces the loop to spread: snap-shut and full-open forces from the pin-separation crank, whole-loop spread rate by Castigliano, U-bend stress with the curved-wire inner-fibre factor Ki, and the spread budget δ_yield with the opening that spends it. Grab the 3D gate nose and swing it about the pivot pin — rigid swing at true scale, spread bow exaggerated, painted pin-cool to apex-hot. Theory, design tips and PDF report | ready |
+| `designs/wiregate/` | Design study behind the wire-gate calculator — two interaction prototypes (control panel with a thumb-force-vs-opening curve, swing-the-gate plan view) on one shared engine | design study |
 | — | Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
 ## Exploration maps
@@ -101,6 +103,26 @@ copies the active set to `public/` as `favicon.svg`, `apple-touch-icon.png`
 (the iPhone home-screen icon) and the manifest icons.
 
 ## Model notes
+**Wire-gate clip spring** — the mechanism the model is built around: the wire's
+two bent tips sit as **pins in holes, rotating freely**, so the ends carry no
+moment and the spring is the loop itself. The gate's swing is rigid-body
+rotation about the long-leg pin; the second pin sits a crank distance `a` away,
+so a swing of φ forces the pinned ends together by the chord `s = 2a·sin(φ/2)`,
+which the whole loop absorbs as an in-plane spread — every part of the wire
+moves a little. Spread compliance per side by Castigliano over leg + quarter
+bend, `δ/F = [L³/3 + πRL²/2 + 2LR² + πR³/4]/EI`, halves in series; assembly
+preload δ0 (offset holes, US 4,423,757) is what snaps the gate shut, with
+closing torque `k·δ0·a`. With pinned ends the moment is `F·x` from each pin —
+zero at the tangs, maximum at the U-bend, where the torsion-spring inner-fibre
+factor `Ki = (4C²−C−1)/(4C(C−1))`, `C = w/d` (Shigley 10-43) multiplies it. The
+design lives inside the spread budget `δ_yield = σ_allow·I/(Ki·(L+R)·c·k)`, and
+the calculator reports the nose opening that spends it. What it does **not**
+do: fatigue (a gate is a fatigue part — the scope notes say so), pin friction
+and clearances, out-of-plane bending and torsion, or any strength claim about
+the hook body itself. The swing-to-spread chord is a worst case — measure the
+real part when it matters. Wire strengths are typical at ~2 mm; wire has a real
+size effect (Sut = A/d^m).
+
 **Materials Map** — Ashby property-chart presentation: each material class is an
 ellipse spanning its published range on log-log axes, and minimum-mass merit
 indices `M = Eᵃ/ρ` (or `σᵃ/ρ`) draw as straight guidelines of slope `1/a`

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wire-Gate Clip Spring — Design Prototypes</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:780px;margin:0 auto;padding:28px 16px 48px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  h1{margin:6px 0 4px;font-size:24px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:11px;color:var(--faint);line-height:1.8;margin-bottom:22px}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+  a.card{display:flex;flex-direction:column;background:var(--panel);border:1px solid var(--line);border-radius:3px;
+    padding:16px;text-decoration:none;color:var(--ink);min-height:150px;transition:border-color .15s,transform .15s}
+  a.card:hover{border-color:var(--blue);transform:translateY(-2px)}
+  .tag{font-family:var(--mono);font-size:9px;letter-spacing:.22em;color:var(--blue);margin-bottom:7px}
+  .card h2{margin:0 0 7px;font-size:15.5px;font-weight:600}
+  .card p{margin:0;font-size:12px;color:var(--dim);line-height:1.65;flex:1}
+  .card .for{font-family:var(--mono);font-size:9.5px;color:var(--faint);margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)}
+  .theory{margin-top:28px;border-top:1px solid var(--line);padding-top:18px}
+  .theory .lab{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue);margin-bottom:10px}
+  .theory p{font-size:12.5px;color:var(--dim);line-height:1.8;margin:0 0 10px}
+  .theory strong{color:#c2ccd4}
+  .chain{font-family:var(--mono);font-size:10.5px;color:var(--mid);line-height:2;background:var(--panel);
+         border:1px solid var(--line2);border-radius:3px;padding:12px 14px;overflow-x:auto;white-space:pre}
+  @media(max-width:520px){
+    .shell{padding:16px 10px 40px}
+    h1{font-size:18px} .sub{font-size:9.5px}
+    .card p{font-size:11px} .card h2{font-size:14px}
+    .chain{font-size:7.8px;padding:9px 10px}
+    .theory p{font-size:11px}
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="kicker">MECHCALC · DESIGN STUDY</div>
+  <h1>Wire-Gate Clip Spring</h1>
+  <div class="sub">Two interaction prototypes for one calculator: the bent-wire gate spring on wire-gate
+  carabiners, snap-hook clasps and spring buckle hooks — a U-loop of spring wire whose own flex is the
+  spring. Same physics engine under both (wiregate-engine.js) — what differs is how you drive it.</div>
+
+  <div class="cards">
+    <a class="card" href="design-a-panel.html">
+      <div class="tag">DESIGN A</div><h2>Control Panel</h2>
+      <p>The toolkit's classic form: every input on the left, the verdict and readouts on the right, plus a
+      dimensioned plan view of the wire form and a live force–deflection line with the closed, open and
+      yield points marked on it. The elastic budget is a bar you watch fill up.</p>
+      <div class="for">for: final design checks, documenting a chosen clip</div>
+    </a>
+    <a class="card" href="design-b-press.html">
+      <div class="tag">DESIGN B</div><h2>Swing the Gate</h2>
+      <p>A plan view of the clip you can actually operate: grab the nose and swing it about the pivot pin.
+      The rotation is rigid-body; the offset pin drags the loop into its spread bow, colour runs pin-cool to
+      apex-hot, a gauge follows your finger, and past the yield arc the gate hangs open. Release and the
+      preload snaps it shut.</p>
+      <div class="for">for: feeling the crank, the snap and the yield budget</div>
+    </a>
+  </div>
+
+  <div class="theory">
+    <div class="lab">The model both prototypes share</div>
+    <p><strong>The mechanism, as the hardware actually builds it:</strong> the two bent tips sit as pins in
+    holes — they rotate freely, so the wire's ends carry no moment. The gate's swing is rigid-body rotation
+    about the long-leg pin. The spring action is geometric: the second pin sits a distance a from the pivot,
+    so a swing of φ tries to move one pinned end relative to the other by the chord 2a·sin(φ/2); both pins
+    are held, so the loop absorbs the mismatch by flexing in its own plane — <strong>every part of the wire
+    moves a little</strong>. Assembly already imposes a preload spread δ₀ through the offset holes
+    (US&nbsp;4,423,757), and that is what snaps the gate shut.</p>
+    <p>With pinned ends the moment is F·x from each pin: zero at the tangs, maximum at the U-bend — so the
+    stress check lives at the apex, on curved wire, with the torsion-spring inner-fibre factor Ki
+    (Shigley 10-43, C = w/d). The loop's spread compliance comes from Castigliano over the full developed
+    length, which is why the rate is a few N/mm where a clamped leg would fight at ten times that.</p>
+    <div class="chain">I = πd⁴/64      R = w/2      δ/F per side = [L³/3 + πRL²/2 + 2LR² + πR³/4]/EI
+k = 1/(δ₁/F + δ₂/F)          φ = g/(L+R)          s = 2a·sin(φ/2)
+F_pin = k·(δ₀+s)     T = k·δ·a·cos(φ/2)     F_nose = T/(L+R)
+σ_peak = Ki·F_pin·(L+R)·c/I         Ki = (4C²−C−1)/(4C(C−1)), C = w/d
+δ_yield = σ_allow·I/(Ki·(L+R)·c·k)      ← the spread budget</div>
+    <p style="margin-top:10px">Scope: static, frictionless pins, in-plane bending, small swing; the
+    swing-to-spread chord is a worst case — measure δ₀ and the real spread on the part when it matters.
+    Wire strength values are typical at ~2 mm — wire has a real size effect (Sut = A/d^m).
+    The production calculator: <a href="../../wiregate-calculator" style="color:#3a78c2">/wiregate-calculator</a>.</p>
+  </div>
+</div>
+</body>
+</html>

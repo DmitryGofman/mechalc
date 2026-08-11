@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Wire-Gate Spring — Design B · Swing the Gate</title>
+<style>
+  :root {
+    --bg:#080c10; --panel:#0b1015; --line:#1f2a33; --line2:#141c22;
+    --ink:#e8edf1; --dim:#8b97a3; --faint:#46515c; --mid:#6b7884;
+    --blue:#3a78c2; --green:#4fb477; --amber:#d9a441; --red:#d65c5c;
+    --mono:"SF Mono","Cascadia Code",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans)}
+  .shell{max-width:860px;margin:0 auto;padding:24px 16px 48px}
+  .kicker{font-family:var(--mono);font-size:10px;letter-spacing:.25em;color:var(--blue)}
+  .kicker a{color:var(--faint);text-decoration:none}
+  h1{margin:6px 0 6px;font-size:21px;font-weight:600}
+  .sub{font-family:var(--mono);font-size:10px;color:var(--faint);margin-bottom:14px;line-height:1.7}
+  .hud{display:flex;gap:18px;flex-wrap:wrap;font-family:var(--mono);font-size:11px;margin-bottom:10px}
+  .hud .b{background:var(--panel);border:1px solid var(--line);border-radius:2px;padding:7px 11px}
+  .hud .l{font-size:8.5px;letter-spacing:.15em;text-transform:uppercase;color:var(--mid);display:block}
+  .stage{background:var(--panel);border:1px solid var(--line2);border-radius:3px;padding:8px;touch-action:none}
+  svg{width:100%;height:auto;display:block;cursor:grab}
+  .cap{font-family:var(--mono);font-size:9.5px;color:var(--faint);text-align:center;margin-top:6px}
+  .row{display:flex;gap:14px;flex-wrap:wrap;margin-top:14px;font-family:var(--mono);font-size:10px;color:var(--mid)}
+  .row label{display:flex;align-items:center;gap:6px}
+  .row input{width:74px;background:#0e1419;border:1px solid var(--line);border-radius:2px;color:var(--ink);padding:5px 7px;font-family:var(--mono)}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div class="kicker"><a href="index.html">← WIRE-GATE DESIGN STUDY</a> · DESIGN B</div>
+  <h1>Swing the Gate</h1>
+  <div class="sub">grab the green nose and swing it open · the gate rotates about the pivot pin — rigid-body —
+  while the offset pin drags the loop into its spread bow · colour runs pin-cool to apex-hot ·
+  past the red arc the wire keeps a set · release to snap shut</div>
+
+  <div class="hud">
+    <div class="b"><span class="l">opening g</span><span id="hG">0 mm</span></div>
+    <div class="b"><span class="l">thumb force</span><span id="hF">0 N</span></div>
+    <div class="b"><span class="l">pin force</span><span id="hP">0 N</span></div>
+    <div class="b"><span class="l">peak stress</span><span id="hS">0 MPa</span></div>
+    <div class="b"><span class="l">of yield</span><span id="hY">0%</span></div>
+  </div>
+
+  <div class="stage"><svg id="v" viewBox="0 0 820 360"></svg></div>
+  <div class="cap" id="cap"></div>
+
+  <div class="row">
+    <label>d <input id="d" type="number" value="2" step="0.1" min="0.5"></label>
+    <label>L1 <input id="L1" type="number" value="30" step="1" min="5"></label>
+    <label>L2 <input id="L2" type="number" value="26" step="1" min="5"></label>
+    <label>w <input id="w" type="number" value="8" step="0.5" min="2"></label>
+    <label>a <input id="a" type="number" value="20" step="1" min="2"></label>
+    <label>δ0 <input id="d0" type="number" value="1.0" step="0.1" min="0"></label>
+    <label>g <input id="g" type="number" value="5" step="0.5" min="0"></label>
+    <label>E [MPa] <input id="E" type="number" value="207000" step="1000"></label>
+    <label>σ_allow <input id="sig" type="number" value="1590" step="10"></label>
+  </div>
+</div>
+
+<script src="wiregate-engine.js"></script>
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const svg = $("v");
+
+  // Plan view (top-down): body at right, loop running left, nose at far left.
+  // The gate swings in this plane about the pivot pin.
+  const XPIV = 640, YC = 180;
+
+  let params = null, res = null, sc = 8, magBow = 1;
+  let phi = 0;         // live swing, rad
+  let setPhi = 0;      // permanent set once yielded
+  let grabbing = false, springing = false, vel = 0;
+
+  function readParams() {
+    params = {
+      d: +$("d").value, L1: +$("L1").value, L2: +$("L2").value,
+      w: +$("w").value, a: +$("a").value, delta0: +$("d0").value, g: +$("g").value,
+      E: +$("E").value, sigmaAllow: +$("sig").value,
+    };
+    const r = WireGate.evaluate(params);
+    res = r.status === "invalid" ? null : r.values;
+    if (res) {
+      sc = Math.min(520 / (params.L1 + params.w + 6), 120 / (params.w + 10));
+      magBow = Math.max(1, Math.min(20, 3 / Math.max(res.deltaYield, 0.05)));
+      phi = 0; setPhi = 0;
+    }
+    draw();
+  }
+
+  const ramp = (t) => {
+    const x = Math.max(0, Math.min(1.3, t));
+    const mix = (a, b, f) => Math.round(a + (b - a) * f);
+    let c;
+    if (x < 0.5) c = [mix(79, 217, x / 0.5), mix(180, 164, x / 0.5), mix(119, 65, x / 0.5)];
+    else c = [mix(217, 214, (x - 0.5) / 0.8), mix(164, 92, (x - 0.5) / 0.8), mix(65, 92, (x - 0.5) / 0.8)];
+    return "rgb(" + c.join(",") + ")";
+  };
+
+  function draw() {
+    if (!res || !params) { svg.innerHTML = ""; return; }
+    const p = params;
+    const R = p.w / 2;
+    const arm = Math.max(p.L1, p.L2) + R;
+    const phiTot = phi + setPhi;
+    const gLive = phiTot * arm;
+    const rr = WireGate.evaluate({ ...p, g: gLive });
+    const v = rr.values || res;
+    const deltaMM = v.delta;
+    const wr = Math.max(2.5, p.d * sc * 0.9);
+
+    // pins in body coordinates (plan): pivot at top leg's end, offset pin below
+    const zT = -R, zB = R;
+    const x1 = XPIV, y1 = YC + zT * sc;               // pivot pin
+    const x2 = XPIV - (p.L1 - p.L2) * sc, y2 = YC + zB * sc; // offset pin
+    const xNose = XPIV - p.L1 * sc;                    // nose start (x of leg tips)
+
+    const cph = Math.cos(phiTot), sph = Math.sin(phiTot);
+    const rot = (x, y) => {
+      const dx = x - x1, dy = y - y1;
+      return [x1 + dx * cph - dy * sph, y1 + dx * sph + dy * cph];
+    };
+    // bow: legs squeezed toward the centreline, zero at apex, full at pins
+    const bow = (deltaMM / 2) * magBow * sc;
+
+    const SEG = 30;
+    let out = "";
+    // body block + pin bosses
+    out += '<rect x="' + (Math.min(x1, x2) - 8) + '" y="' + (y1 - 22) + '" width="' + (Math.abs(x1 - x2) + 44) + '" height="' + (y2 - y1 + 44) + '" fill="#141c22" stroke="#1f2a33"/>';
+    for (const [px, py, lb] of [[x1, y1, "pivot"], [x2, y2, "offset pin"]]) {
+      out += '<circle cx="' + px + '" cy="' + py + '" r="7" fill="none" stroke="#5f9bd8" stroke-width="1.2"/>' +
+        '<text x="' + px + '" y="' + (py - 11) + '" fill="#5f9bd8" font-size="8.5" font-family="var(--mono)" text-anchor="middle">' + lb + "</text>";
+    }
+    // yield arc at the nose radius
+    const gY = isFinite(v.gYield) ? v.gYield : null;
+    if (gY) {
+      const phiY = gY / arm;
+      const nose0 = [xNose - R * sc, YC];
+      const ny = rot(nose0[0], nose0[1]);
+      const yb = [x1 + (nose0[0] - x1) * Math.cos(phiY) - (nose0[1] - y1) * Math.sin(phiY),
+                  y1 + (nose0[0] - x1) * Math.sin(phiY) + (nose0[1] - y1) * Math.cos(phiY)];
+      out += '<circle cx="' + yb[0] + '" cy="' + yb[1] + '" r="4" fill="none" stroke="#d65c5c" stroke-width="1.2"/>' +
+        '<text x="' + yb[0] + '" y="' + (yb[1] + 16) + '" fill="#d65c5c" font-size="8.5" font-family="var(--mono)" text-anchor="middle">bends past here</text>';
+      void ny;
+    }
+    // ghost: closed position
+    out += '<line x1="' + (xNose - R * sc) + '" y1="' + y1 + '" x2="' + x1 + '" y2="' + y1 + '" stroke="#2a3540" stroke-width="1.2" stroke-dasharray="5 5"/>';
+
+    // the wire: leg1 (pivot side), U-bend, leg2 — painted by M/Mmax
+    const paint = (pts, fracs, sigmaSide) => {
+      let s = "";
+      for (let i = 0; i < pts.length - 1; i++) {
+        const stress = sigmaSide * fracs[i];
+        s += '<line x1="' + pts[i][0] + '" y1="' + pts[i][1] + '" x2="' + pts[i + 1][0] + '" y2="' + pts[i + 1][1] +
+          '" stroke="' + ramp(stress / p.sigmaAllow) + '" stroke-width="' + wr + '" stroke-linecap="round"/>';
+      }
+      return s;
+    };
+    // leg 1: from pivot pin to nose top
+    const leg1 = [], f1 = [];
+    for (let i = 0; i <= SEG; i++) {
+      const xi = i / SEG; // 0 at pin, 1 at nose
+      const bx = x1 - xi * p.L1 * sc;
+      const by = y1 + bow * WireGate.spreadShape(((1 - xi) * p.L1 + R) / (p.L1 + R));
+      leg1.push(rot(bx, by));
+      f1.push(WireGate.momentFraction(xi * p.L1, p.L1 + R));
+    }
+    out += paint(leg1, f1, v.sigma1);
+    // leg 2: from offset pin to nose bottom
+    const leg2 = [], f2 = [];
+    for (let i = 0; i <= SEG; i++) {
+      const xi = i / SEG;
+      const bx = x2 - xi * p.L2 * sc;
+      const by = y2 - bow * WireGate.spreadShape(((1 - xi) * p.L2 + R) / (p.L2 + R));
+      leg2.push(rot(bx, by));
+      f2.push(WireGate.momentFraction(xi * p.L2, p.L2 + R));
+    }
+    out += paint(leg2, f2, v.sigma2);
+    // U-bend: semicircle joining the two leg tips, apex-hot with Ki
+    const tip1 = leg1[SEG], tip2 = leg2[SEG];
+    const ub = [], fu = [];
+    for (let i = 0; i <= SEG; i++) {
+      const u = i / SEG;
+      const mx = (tip1[0] + tip2[0]) / 2, my = (tip1[1] + tip2[1]) / 2;
+      const rx = (tip2[0] - tip1[0]) / 2, ry = (tip2[1] - tip1[1]) / 2;
+      const ang = Math.PI * u;
+      // sweep the half-vector from tip1 to tip2, bulging along the outboard
+      // normal (away from the pivot — the nose side)
+      const nxv = -ry, nyv = rx;
+      const len = Math.hypot(rx, ry) || 1;
+      ub.push([mx - rx * Math.cos(ang) + (nxv / len) * Math.sin(ang) * len,
+               my - ry * Math.cos(ang) + (nyv / len) * Math.sin(ang) * len]);
+      const from1 = p.L1 + u * Math.PI * R;
+      const from2 = p.L2 + (1 - u) * Math.PI * R;
+      fu.push(v.Ki * Math.max(
+        WireGate.momentFraction(from1, p.L1 + R) * (v.sigma1 / Math.max(v.sigma1, v.sigma2)),
+        WireGate.momentFraction(from2, p.L2 + R) * (v.sigma2 / Math.max(v.sigma1, v.sigma2)),
+      ));
+    }
+    out += paint(ub, fu, Math.max(v.sigma1, v.sigma2));
+    // grab handle at the apex
+    const apex = ub[Math.floor(SEG / 2)];
+    out += '<circle id="grab" cx="' + apex[0] + '" cy="' + apex[1] + '" r="15" fill="rgba(79,180,119,0.25)" stroke="#4fb477" stroke-width="1.4" style="cursor:grab"/>';
+
+    svg.innerHTML = out;
+
+    // HUD
+    $("hG").textContent = gLive.toFixed(1) + " mm";
+    $("hF").textContent = v.FnoseOpen.toFixed(1) + " N";
+    $("hP").textContent = v.FpinOpen.toFixed(1) + " N";
+    $("hS").textContent = v.sigmaPeak.toFixed(0) + " MPa";
+    const pct = (100 * v.sigmaPeak) / p.sigmaAllow;
+    $("hY").textContent = pct.toFixed(0) + "%";
+    $("hY").style.color = pct >= 100 ? "#d65c5c" : pct >= 70 ? "#d9a441" : "#4fb477";
+    $("cap").textContent = "swing ×1 · spread bow ×" + magBow.toFixed(0) + " · k = " + res.k.toFixed(2) +
+      " N/mm · snaps shut at " + res.Fnose0.toFixed(1) + " N (δ0 = " + p.delta0 + " mm)" +
+      (setPhi > 0 ? " · YIELDED — hangs open " + (setPhi * arm).toFixed(1) + " mm" : "");
+  }
+
+  // Drag maps to swing angle.
+  let x0px = 0, y0px = 0, phi0 = 0;
+  svg.addEventListener("pointerdown", (e) => {
+    grabbing = true; springing = false; vel = 0;
+    x0px = e.clientX; y0px = e.clientY; phi0 = phi;
+    svg.setPointerCapture(e.pointerId);
+    e.preventDefault();
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (!grabbing || !res || !params) return;
+    const rect = svg.getBoundingClientRect();
+    const pxPerUnit = rect.width / 820;
+    const arm = Math.max(params.L1, params.L2) + params.w / 2;
+    const gY = isFinite(res.gYield) ? res.gYield : params.g * 2.5;
+    const phiCap = (gY * 1.35) / arm;
+    // downward drag opens (the nose sweeps down in this view)
+    let np = phi0 + (e.clientY - y0px) / pxPerUnit / (arm * sc);
+    np = Math.max(0, Math.min(phiCap, np));
+    phi = np;
+    const phiY = gY / arm;
+    if (phi > phiY) setPhi = Math.max(setPhi, (phi - phiY) * 0.3);
+    draw();
+    void x0px;
+  });
+  const up = () => {
+    if (!grabbing) return;
+    grabbing = false; springing = true;
+    (function anim() {
+      if (!springing) return;
+      vel = (vel - phi * 0.2) * 0.78;
+      phi += vel;
+      if (Math.abs(phi) < 0.001 && Math.abs(vel) < 0.001) { phi = 0; springing = false; }
+      draw();
+      if (springing) requestAnimationFrame(anim);
+    })();
+  };
+  svg.addEventListener("pointerup", up);
+  svg.addEventListener("pointerleave", up);
+
+  document.querySelectorAll("input").forEach((el) => el.addEventListener("input", readParams));
+  readParams();
+})();
+</script>
+</body>
+</html>

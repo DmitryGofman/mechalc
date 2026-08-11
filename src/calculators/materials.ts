@@ -17,6 +17,11 @@ export const MATERIALS: Record<string, Material> = {
   "Steel 1045 (cold drawn)": { E: 205, sigmaY: 530, color: "#9aa7b4", grp: "Metal", nu: 0.29 },
   "Steel 4140 (heat treated)": { E: 205, sigmaY: 655, color: "#98a3af", grp: "Metal", nu: 0.29 },
   "Spring Steel (1095)": { E: 205, sigmaY: 1200, color: "#9aa7b4", grp: "Metal", nu: 0.29 },
+  // Spring wire, typical at ~2 mm diameter. Wire strength has a real size
+  // effect (Sut = A/d^m, Shigley Table 10-4), so thin wire runs stronger and
+  // thick wire weaker than these figures — treated as typical, not certified.
+  "Stainless 302/304 (spring wire)": { E: 193, sigmaY: 1150, color: "#aeb6bd", grp: "Metal", nu: 0.3 },
+  "Music Wire (ASTM A228)": { E: 207, sigmaY: 1590, color: "#98a3af", grp: "Metal", nu: 0.29 },
   "Ti-6Al-4V": { E: 114, sigmaY: 880, color: "#c4b59a", grp: "Metal", nu: 0.34 },
   "Aluminum 6061": { E: 68.9, sigmaY: 55, color: "#b8bcc0", grp: "Metal", nu: 0.33 }, // O temper (annealed)
   "Aluminum 6061-T6": { E: 68.9, sigmaY: 276, color: "#b8bcc0", grp: "Metal", nu: 0.33 },

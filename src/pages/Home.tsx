@@ -58,6 +58,15 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
+    route: "/wiregate-calculator",
+    tag: "Springs",
+    title: "Wire-Gate Clip Spring",
+    desc: "The bent-wire gate on wire-gate carabiners, snap hooks and spring buckles. Its ends pivot freely as pins in offset holes, so swinging the gate forces the whole loop to flex — snap-shut force, opening force, U-bend stress with the curved-wire Ki factor, and the spread budget that decides when it bends. Swing the 3D gate about its pivot pin; a design study with two interaction prototypes sits behind it.",
+    eq: "s = 2a·sin(φ/2)",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/pin-calculator",
     tag: "Fasteners",
     title: "Pin & Bolt Shear Joint",
