@@ -4,47 +4,40 @@
 <meta charset="utf-8">
 <title>MechCalc — Final Project Report</title>
 <style>
-  @page { size: A4; margin: 17mm 16mm; }
+  @page { size: A4; margin: 14mm 15mm; }
   * { box-sizing: border-box; }
   body {
     font-family: Georgia, "Times New Roman", serif;
-    color: #1a1a1a; margin: 0; font-size: 10.5pt; line-height: 1.52;
+    color: #1a1a1a; margin: 0; font-size: 9.8pt; line-height: 1.42;
   }
-  header { border-bottom: 2.5px solid #1a1a1a; padding-bottom: 10px; margin-bottom: 18px; }
-  .course { font-family: Arial, Helvetica, sans-serif; font-size: 8pt; letter-spacing: .14em;
+  header { border-bottom: 2.5px solid #1a1a1a; padding-bottom: 7px; margin-bottom: 12px; }
+  .course { font-family: Arial, Helvetica, sans-serif; font-size: 7.5pt; letter-spacing: .13em;
     text-transform: uppercase; color: #555; }
-  h1 { font-size: 20pt; margin: 4px 0 2px; letter-spacing: -0.01em; }
-  .sub { font-size: 10.5pt; color: #333; font-style: italic; }
-  .meta { font-family: Arial, sans-serif; font-size: 8.5pt; color: #444; margin-top: 8px; line-height: 1.7; }
+  h1 { font-size: 17pt; margin: 3px 0 1px; letter-spacing: -0.01em; }
+  .sub { font-size: 9.5pt; color: #333; font-style: italic; }
+  .meta { font-family: Arial, sans-serif; font-size: 8pt; color: #444; margin-top: 6px; line-height: 1.6; }
   .meta a { color: #14459b; text-decoration: none; }
-  h2 { font-family: Arial, Helvetica, sans-serif; font-size: 12.5pt; margin: 20px 0 6px;
-    border-bottom: 1px solid #999; padding-bottom: 3px; page-break-after: avoid; }
-  h3 { font-family: Arial, Helvetica, sans-serif; font-size: 10.5pt; margin: 13px 0 4px; page-break-after: avoid; }
-  p { margin: 0 0 8px; text-align: justify; }
-  figure { margin: 10px 0 12px; page-break-inside: avoid; }
+  h2 { font-family: Arial, Helvetica, sans-serif; font-size: 11.5pt; margin: 13px 0 4px;
+    border-bottom: 1px solid #999; padding-bottom: 2px; page-break-after: avoid; }
+  h3 { font-family: Arial, Helvetica, sans-serif; font-size: 9.8pt; margin: 9px 0 3px; page-break-after: avoid; }
+  p { margin: 0 0 6px; text-align: justify; }
+  figure { margin: 7px 0 9px; page-break-inside: avoid; }
   figure img { width: 100%; display: block; border: 1px solid #bbb; }
-  figcaption { font-family: Arial, sans-serif; font-size: 8pt; color: #555; margin-top: 4px; line-height: 1.5; }
-  .figrow { display: flex; gap: 3%; page-break-inside: avoid; margin: 10px 0 12px; }
+  figcaption { font-family: Arial, sans-serif; font-size: 7.4pt; color: #555; margin-top: 3px; line-height: 1.45; }
+  .figrow { display: flex; gap: 2.5%; page-break-inside: avoid; margin: 7px 0 9px; align-items: flex-start; }
   .figrow figure { flex: 1; margin: 0; }
-  .prompt { border-left: 3px solid #14459b; background: #f4f6fa; padding: 7px 10px; margin: 8px 0;
+  .crop { height: 150px; overflow: hidden; border: 1px solid #bbb; }
+  .crop img { border: 0; height: 100%; width: 100%; object-fit: cover; object-position: 45% 50%; }
+  .prompt { border-left: 3px solid #14459b; background: #f4f6fa; padding: 5px 9px; margin: 6px 0;
     page-break-inside: avoid; }
-  .prompt .q { font-family: "Courier New", monospace; font-size: 8.8pt; color: #14459b; display: block;
-    margin-bottom: 4px; }
-  .prompt .a { font-size: 9.5pt; color: #222; display: block; }
-  .prompt .src { font-family: Arial, sans-serif; font-size: 7.5pt; color: #777; display: block; margin-top: 3px; }
-  table { border-collapse: collapse; width: 100%; font-size: 9pt; margin: 8px 0 10px; }
-  th { font-family: Arial, sans-serif; font-size: 8pt; text-transform: uppercase; letter-spacing: .06em;
-    text-align: left; border-bottom: 1.5px solid #333; padding: 3px 8px 3px 0; }
-  td { border-bottom: 1px solid #ddd; padding: 4px 8px 4px 0; vertical-align: top; }
-  .note { font-family: Arial, sans-serif; font-size: 8.5pt; color: #555; border: 1px dashed #aaa;
-    padding: 7px 10px; margin: 10px 0; }
+  .prompt .q { font-family: "Courier New", monospace; font-size: 8.2pt; color: #14459b; display: block;
+    margin-bottom: 3px; }
+  .prompt .a { font-size: 8.8pt; color: #222; display: block; }
+  .prompt .src { font-family: Arial, sans-serif; font-size: 7pt; color: #777; display: block; margin-top: 2px; }
   .fill { background: #fff3c4; padding: 0 3px; }
-  ul { margin: 0 0 8px; padding-left: 18px; }
-  li { margin-bottom: 3px; }
-  .brk { page-break-before: always; }
+  .foot { border-top: 1px solid #999; margin-top: 12px; padding-top: 6px;
+    font-family: Arial, sans-serif; font-size: 7.5pt; color: #555; line-height: 1.6; }
   strong { color: #000; }
-  .foot { border-top: 1px solid #999; margin-top: 22px; padding-top: 8px;
-    font-family: Arial, sans-serif; font-size: 8pt; color: #555; line-height: 1.7; }
 </style>
 </head>
 <body>
@@ -54,8 +47,8 @@
   <h1>MechCalc — an Engineering Design-Check Toolkit</h1>
   <div class="sub">Replacing the Excel-and-paper round-trip with calculators you can feel, built by co-coding with AI</div>
   <div class="meta">
-    Submitted by <span class="fill">[Name 1]</span> and <span class="fill">[Name 2]</span> (submission in pairs)<br>
-    Product: <a href="https://dmitrygofman.github.io/mechalc/">https://dmitrygofman.github.io/mechalc/</a> ·
+    Submitted by <span class="fill">[Name 1]</span> and <span class="fill">[Name 2]</span> ·
+    Product: <a href="https://dmitrygofman.github.io/mechalc/">dmitrygofman.github.io/mechalc</a> ·
     Code: <a href="https://github.com/DmitryGofman/mechalc">github.com/DmitryGofman/mechalc</a> ·
     also attached as a self-contained offline <em>index.html</em>
   </div>
@@ -66,15 +59,12 @@
 I am a mechanical design engineer. In this work there is a small set of closed-form equations I keep
 coming back to, year after year: the cantilever under a tip load, the strain at the root of a snap arm,
 torque to preload in a bolted joint. These are the daily design checks — the quick calculations that
-decide whether a part survives before anyone commits to detailed analysis or manufacturing.
-</p>
-<p>
-Where I work, in a military organization, design calculation happens on a standalone, air-gapped
-network. The checks live in Excel sheets and MathCAD files I can return to — but every project needs
-its own adjustments, the files fork and drift, and it is often faster to redo the equation on paper.
-Beyond the repetition there is a deeper problem: <strong>a spreadsheet gives a number with no physical
-feel</strong>. It will not show a junior engineer <em>how close</em> the part is to failing, where, or
-what that closeness would feel like in the hand.
+decide whether a part survives before anyone commits to detailed analysis or manufacturing. Where I
+work, in a military organization, design calculation happens on a standalone, air-gapped network. The
+checks live in Excel sheets and MathCAD files — but every project needs its own adjustments, the files
+fork and drift, and it is often faster to redo the equation on paper. Beyond the repetition there is a
+deeper problem: <strong>a spreadsheet gives a number with no physical feel</strong>. It will not show a
+junior engineer <em>how close</em> the part is to failing, or where.
 </p>
 <p>
 <strong>The required achievement:</strong> a toolkit of design-check calculators that replaces the
@@ -87,121 +77,90 @@ grows tool by tool.
 
 <h2>2 · The final product</h2>
 <p>
-MechCalc is live at <strong>dmitrygofman.github.io/mechalc</strong>. It is a growing catalog — seven
-finished tools today (cantilever flexure, cantilever snap-fit, bolted joint, beam on two supports,
-column buckling, pin &amp; bolt shear joint, shaft in torsion, plus a materials-map explorer). Any
-engineer can use it without instructions: open a calculator, type geometry, load and material, and every
-readout updates live; grab the 3D model — bend the beam, tighten the nut — and the stress colors and
-readouts follow the drag. This report focuses on the three calculators that tell the story.
+MechCalc is live at <strong>dmitrygofman.github.io/mechalc</strong> — a catalog of five working
+calculators: <em>cantilever flexure, cantilever snap-fit, bolted joint, split-collar cylinder clamp,
+and pin &amp; bolt shear joint</em> (every Shigley 8-23 failure mode, with a capacity ladder for what
+lets go first). Any engineer can use them without instructions: type geometry, load and material, and
+every readout updates live; grab the 3D model — bend the beam, tighten the nut — and the stress colors
+follow the drag. Three of them tell the story.
 </p>
-
-<figure>
-  <img src="report-assets/home.png" alt="MechCalc home catalog">
-  <figcaption><strong>Fig. 1 — The catalog.</strong> Each card is one design check; refined tools carry full
-  validation, scope notes and a grabbable 3D model.</figcaption>
-</figure>
 
 <h3>2.1 The cantilever beam — where it started</h3>
 <p>
-The first calculator simulated a simple cantilever of rectangular cross-section with linear
-(Euler–Bernoulli) tip-deflection theory: material, length, thickness, width and target deflection in;
-stiffness, required force and peak bending stress against yield out. It was made to check that a design
-works — but just as much to give a <em>feel</em> for the flexibility of the material and the beam. The 3D
-beam bends as you drag its tip; colors show the extension and compression of different parts of the beam
-computed from the actual stress field; as the beam approaches failure a rising tone plays, so you can
-hear when it is about to snap — and on a phone the app vibrates in your hand. That feel proved to be the
-useful part: junior engineers picked the tool up to design 3D-printed compliant beams (the material
-library carries printed polymers with honest anisotropy warnings), and used it to validate designs and
-estimate forces before printing.
+The first calculator simulates a rectangular cantilever with Euler–Bernoulli tip-deflection theory:
+material, geometry and target deflection in; stiffness, required force and peak stress against yield
+out. It was made to check that a design works — but just as much to give a <em>feel</em>: the 3D beam
+bends as you drag its tip, colors show the stress field, a rising tone plays as it approaches failure,
+and on a phone it vibrates in your hand. That feel proved to be the useful part: junior engineers picked
+it up to design 3D-printed compliant parts — the latching clips of Fig. 2c were dimensioned with it,
+strain-checked and force-estimated before printing (the material library carries printed polymers with
+honest anisotropy warnings).
 </p>
 
 <div class="figrow">
-  <figure>
-    <img src="report-assets/flexure-default.png" alt="Flexure calculator, safe state">
-    <figcaption><strong>Fig. 2a — Same tool, first parameter set.</strong> A PA12 (MJF-printed) blade,
-    40 × 10 × 2 mm, asked for 4 mm of deflection: safety factor 3.76, SAFE.</figcaption>
+  <figure style="flex: 1.15">
+    <div class="crop" style="height:150px"><img src="report-assets/flexure-default.png" alt="Flexure, safe"></div>
+    <figcaption><strong>Fig. 2a — First parameter set.</strong> A PA12 (MJF) blade, 40 × 10 × 2 mm, asked
+    for 4 mm of deflection: safety factor 3.76, SAFE.</figcaption>
   </figure>
-  <figure>
-    <img src="report-assets/flexure-fail.png" alt="Flexure calculator, marginal state">
-    <figcaption><strong>Fig. 2b — Second parameter set.</strong> The same blade asked for 12 mm: the factor
-    drops to 1.25 and turns MARGINAL, the force readout picks up an uncertainty factor, and the beam's
-    colors shift toward the loaded root.</figcaption>
+  <figure style="flex: 1.15">
+    <div class="crop" style="height:150px"><img src="report-assets/flexure-fail.png" alt="Flexure, marginal"></div>
+    <figcaption><strong>Fig. 2b — Same tool, second set.</strong> The same blade at 12 mm: the factor drops
+    to 1.25, MARGINAL, and the force readout picks up an uncertainty factor.</figcaption>
+  </figure>
+  <figure style="flex: 1">
+    <div class="crop" style="height:150px"><img src="report-assets/printed-parts.jpg" alt="Printed parts"></div>
+    <figcaption><strong>Fig. 2c — Real parts, in service.</strong> 3D-printed latching clips whose
+    cantilever arms were designed with this calculator.</figcaption>
   </figure>
 </div>
 
-<p class="note">
-<span class="fill">[Add here 1–2 photos of real 3D-printed parts designed with this calculator.]</span>
-</p>
-
 <h3>2.2 The snap-fit — a real design, not just a beam</h3>
 <p>
-Once the simple version proved itself, a second tool was designed around a real cantilever snap-fit with
-its engaging tooth: entry and return angles, friction, root fillet, uniform or tapered profiles. It
-computes root strain against the material's strain budget, deflection force, and the insertion and
-removal forces from the wedge action of the tooth — with a self-locking guard for return angles that can
-never release, and validity checks on the beam proportions. This tool went through the most iteration of
-the three: it began as <em>four competing design candidates built on one shared, tested engine</em>, one
-was chosen, and about ten further rounds of debugging and refinement followed (layout, physics of the
-bend, fillet modeling, warnings). The engine is covered by a ~40-case test suite including a numeric
-cross-check of the closed forms, and a Classical-vs-Snap-Fit tab plus a full theory page explain where
-the model comes from and where it stops.
+The second tool wraps that beam in a real cantilever snap-fit with its engaging tooth: entry and return
+angles, friction, root fillet, uniform or tapered profiles. It computes root strain against the
+material's strain budget, deflection force, and insertion/removal forces from the tooth's wedge action —
+with a self-locking guard for return angles that can never release. It went through the most iteration
+of the five: it began as <em>four competing design candidates on one shared, tested engine</em>, one was
+chosen, and about ten refinement rounds followed. The engine carries a ~40-case test suite including a
+numeric cross-check of the closed forms, and a Classical-vs-Snap-Fit tab plus a full theory page explain
+where the model comes from and where it stops.
 </p>
 
-<figure>
-  <img src="report-assets/snapfit.png" alt="Snap-fit calculator">
-  <figcaption><strong>Fig. 3 — The snap-fit tool.</strong> PA66 arm: strain utilization 0.40 (PASS),
-  insertion force 14.6 N, removal 25.6 N; the tooth's wedge action and the strain budget are checked
-  together.</figcaption>
-</figure>
-
-<h3>2.3 The bolt torque calculator</h3>
+<h3>2.3 The bolt torque calculator — and reports, not just readouts</h3>
 <p>
 The third tool answers the most repeated question of all: how hard to tighten. Torque → preload through
-the nut-factor model, the VDI 2230-style reduced stress while the wrench is on, and the full clamped
-sandwich: each plate its own material and thickness, Shigley 30° pressure-cone member stiffness, load
-sharing under the external load, separation and bearing-crush checks. The simulation is interactive —
-grab the nut and drag to tighten, and watch the torque climb, the bolt stretch, the plates squash, and
-the pressure cone shade with the load each material carries. The recommended torques were not taken from
-the equations alone: <strong>a research pass compared the outputs against known published torque
-tables</strong>. The model reproduces the familiar handbook figures for steel joints (≈9 N·m for a dry M6
-class 8.8) and — because the target preload also respects the <em>plates'</em> bearing limits — drops to
-the much lower values plastics suppliers publish for printed and molded materials (≈1 N·m for M5 into
-nylon), matching the separate tables those suppliers issue.
+the nut-factor model, VDI 2230-style reduced stress while the wrench is on, and the full clamped
+sandwich: each plate its own material, Shigley pressure-cone member stiffness, load sharing, separation
+and bearing-crush checks. Grab the 3D nut and drag to tighten — the torque climbs, the bolt stretches,
+and the pressure cone shades with the load each material carries. The recommended torques were not taken
+from the equations alone: <strong>a research pass compared the outputs against published torque
+tables</strong>. The model reproduces the handbook figures for steel joints (≈9 N·m, dry M6 class 8.8)
+and — because the target preload also respects the <em>plates'</em> bearing limits — drops to the
+much lower values plastics suppliers publish (≈1 N·m, M5 into nylon), matching their separate tables.
 </p>
-
-<figure>
-  <img src="report-assets/bolt-3d.png" alt="Bolt calculator 3D view">
-  <figcaption><strong>Fig. 4 — The interactive joint.</strong> Drag the nut sideways to tighten; the cone
-  is the clamp load spreading through the plates, shaded by local pressure, and each part is colored by
-  how close it is to its own limit. The scope note under the canvas states plainly what the model does
-  not cover.</figcaption>
-</figure>
-
-<h3>2.4 Reports, not just readouts</h3>
 <p>
-Every calculation can leave the screen as a typeset document — a one-page bench sheet someone can carry
-to the machine, or a full report: the 3D figure snapshotted onto paper white, the worked equations step
-by step in the user's own numbers, the joint diagram, design tips, scope notes and references. The
-attached sample PDFs were generated by the app itself for this report.
+Every calculation can leave the screen as a typeset document — a one-page bench sheet (Fig. 5) or a full
+report: the 3D figure snapshotted onto paper white, the worked equations in the user's own numbers,
+design tips, scope notes and references. The attached sample PDFs were generated by the app itself.
 </p>
 
-<figure style="width: 72%; margin-left: auto; margin-right: auto;">
+<figure style="width: 58%; margin-left: auto; margin-right: auto;">
   <img src="report-assets/bolt-benchsheet.png" alt="Generated bench sheet">
-  <figcaption><strong>Fig. 5 — A bench sheet the app generated</strong> for the joint of Fig. 4: verdict,
-  figure, every result, the equations used, and the honest scope footer — one page, filed like any
-  engineering document.</figcaption>
+  <figcaption><strong>Fig. 5 — A bench sheet the app generated:</strong> verdict, 3D figure, every result,
+  the equations used, and the honest scope footer — one page, filed like any engineering document.</figcaption>
 </figure>
 
-<h2 class="brk">3 · Use of AI in the project</h2>
+<h2>3 · Use of AI in the project</h2>
 <p>
 The app was built by co-coding with Claude Code, following the working method set in the course. The
-basic design came first: an architecture plan written in VS Code before any feature — pure, tested math
-modules separated from the pages, one shared 3D painter, a shared materials library — and only then the
+basic design came first: an architecture plan written before any feature — pure, tested math modules
+separated from the pages, one shared 3D painter, a shared materials library — and only then the
 building. I also ran a research pass on the equations engineers use most, with the idea of making
-calculator generation automatic; the research was useful but the conclusion was the opposite — the best
-leverage is to <strong>build a calculator instead of each calculation</strong> I would otherwise do in
-Excel or on paper, one at a time, as real need appears. As I work I keep adding tools, and it genuinely
-makes life easier.
+calculator generation automatic; the conclusion was the opposite — the best leverage is to
+<strong>build a calculator instead of each calculation</strong> I would otherwise do in Excel or on
+paper, one at a time, as real need appears. As I work I keep adding tools, and it genuinely makes life
+easier.
 </p>
 
 <h3>3.1 The prototype-first workflow</h3>
@@ -210,15 +169,13 @@ Each significant tool starts as standalone HTML prototypes with deliberately dis
 interaction concepts for the same calculator, cheap to build and cheap to throw away. Claude then asks
 questions about how the design should continue; I pick a direction and we iterate; then I use the tool
 myself and check the physics against handbook numbers before it ships. The repository's history shows
-the pattern directly: the snap-fit began as <em>“four snap-fit calculator design candidates on one tested
-engine,”</em> the materials map as four prototypes, and even the logo as a design study of eight
-candidates previewed in real context (browser tab, home screen) before one was chosen.
+the pattern directly: the snap-fit began as <em>“four snap-fit calculator design candidates on one
+tested engine”</em> (commit a535a1b) — Design E won and became the calculator of §2.2. The same standing
+instruction, “publish a live preview after every change, without being asked” (commit 7da6616), became a
+rule in the repository's CLAUDE.md, so every session ends with a clickable build, not a description of one.
 </p>
 
 <h3>3.2 Prompts and what came back</h3>
-<p>
-One exchange from the working sessions, verbatim, with its outcome:
-</p>
 <div class="prompt">
   <span class="q">“report for the bolt calculator. also create the report itself with all the needed
   stuff inside”</span>
@@ -231,10 +188,6 @@ One exchange from the working sessions, verbatim, with its outcome:
   published — one prompt, one complete feature.</span>
   <span class="src">Verbatim from the session that produced commit df727e2; Fig. 5 is that feature's output.</span>
 </div>
-<p>
-Three more exchanges, reconstructed from the project's commit and pull-request record (the cited commits
-are the documented outcomes):
-</p>
 <div class="prompt">
   <span class="q">“The beam's cross-sections look wrong when it bends — check the physics of the 3D model.”</span>
   <span class="a"><strong>Outcome:</strong> a genuine model error found by <em>looking</em> at the
@@ -242,44 +195,23 @@ are the documented outcomes):
   chord. The fix is commit <em>a1fa8dd, “Fix beam bending physics: cross-sections must be perpendicular
   to the tangent.”</em> This is the checking-the-AI habit the course calls co-coding — the number was
   right, the picture wasn't, and the picture is part of the product.</span>
-  <span class="src">Reconstructed; outcome documented in commit a1fa8dd.</span>
-</div>
-<div class="prompt">
-  <span class="q">“Build the snap-fit as several competing designs on one shared engine, so we can feel
-  which interaction works before committing.”</span>
-  <span class="a"><strong>Outcome:</strong> commit <em>a535a1b</em> — four candidates on one tested
-  engine; Design E won, gained a Classical-vs-Snap-Fit comparison tab, and became the calculator of
-  Fig. 3 after ~10 documented refinement rounds.</span>
-  <span class="src">Reconstructed; outcomes documented in commits a535a1b through 4ce7a98.</span>
-</div>
-<div class="prompt">
-  <span class="q">“After every change, publish a live preview I can open and use — without me asking each time.”</span>
-  <span class="a"><strong>Outcome:</strong> commit <em>7da6616, “Publish a live preview after every
-  change, without being asked”</em> — the instruction became a standing rule in the repository's
-  CLAUDE.md and later a skill, so every session ends with a clickable build, not a description of one.</span>
-  <span class="src">Reconstructed; outcome documented in commit 7da6616 and the preview skill.</span>
+  <span class="src">Reconstructed from the commit record (paraphrase); the outcome is the cited commit.</span>
 </div>
 
 <h3>3.3 Skills: turning the process into an asset</h3>
 <p>
 Two skills were written for this project (both attached). <strong><code>new-calculator</code></strong>
-is the definition of done: a finished calculator is four things at once — tested closed-form math, a
-grabbable 3D model, a worked printable report, and honest scope notes. It carries the exact file
-anatomy, working code for the two mechanisms that kept going wrong (the print-document flow; snapshotting
-the 3D view onto paper white), and a verification checklist that ends in a real browser, because the bugs
-that matter never fail a unit test. Critically, it is <strong>institutional memory of real, paid-for
-mistakes</strong> — the print export that once rendered as a black slab, the decoration that leaned the
-wrong way on a sign convention, the mis-framed camera — each is now a rule no future session repeats.
-<strong><code>preview</code></strong> publishes the working tree as a live clickable app at the end of
-every change, so review happens by using the tool, not reading a diff.
-</p>
-<p>
-<strong>With and without the skill — the repository's own evidence.</strong> The calculators built
-<em>before</em> the skill existed show exactly what an unguided session produces: the flexure shipped as
-a working single-page tool with no report and no PDF export, and the bolt calculator needed roughly
-fifteen documented refinement commits (kinematics, crush checks, torque recommendation, mobile layout)
-to reach its standard — and still only received PDF export during the writing of this report. The
-calculators built <em>after</em> the skill (shaft in torsion, pin joint) each shipped complete in
+is the definition of done: a finished calculator is tested closed-form math, a grabbable 3D model, a
+worked printable report, and honest scope notes — with the exact file anatomy, working code for the two
+mechanisms that kept going wrong, and a verification checklist that ends in a real browser, because the
+bugs that matter never fail a unit test. It is institutional memory of real, paid-for mistakes: the
+print export that once rendered as a black slab, the decoration that leaned the wrong way on a sign
+convention — each now a rule no future session repeats. <strong><code>preview</code></strong> publishes
+the working tree as a live clickable app after every change. <strong>With and without the skill — the
+repository's own evidence:</strong> the calculators built <em>before</em> the skill show what an
+unguided session produces — the flexure shipped with no report or PDF export, and the bolt needed
+roughly fifteen documented refinement commits to reach its standard. The rounds completed <em>after</em>
+the skill existed — the pin joint's finishing pass, the bolt's report export — each shipped complete in
 essentially one round: math, tests, 3D, theory, report, PDF, catalog wiring. Same developer, same AI —
 the difference is the encoded definition of done.
 </p>
@@ -287,42 +219,38 @@ the difference is the encoded definition of done.
 <h3>3.4 Working correctly, not blindly</h3>
 <p>
 Two habits kept this co-coding rather than vibe-coding. Every physics result had to reproduce a named
-public anchor before shipping: the bolt against published torque tables, the shaft's stress-concentration
-fit against Shigley's Table 7-1 anchors, the snap-fit's closed forms against a numeric integration of the
-same beam — and the tests compare against textbook identities, never against last run's output. And every
-session ends with driving the real app — dragging the handles, printing the report, checking the phone
-width — which is how the invisible-keyseat and black-print bugs were found. A small illustration of
-reading AI output critically: the assignment PDF itself contains a hidden instruction planted for AIs
-that read it. It was caught and not followed — reviewing everything the AI produces, including this
-report, is the whole point.
+public anchor before shipping: the bolt against published torque tables, the snap-fit's closed forms
+against a numeric integration of the same beam, the pin joint against Shigley's failure-mode
+formulas — and the tests compare against textbook identities, never against last run's output. And every
+session ends with driving the real app — dragging the handles, printing the report — which is how the
+black-print bugs of §3.2 were found. A small illustration of reading AI output critically: the
+assignment PDF itself contains a hidden instruction planted for AIs that read it. It was caught and not
+followed — reviewing everything the AI produces, including this report, is the whole point.
 </p>
 
 <h2>4 · Summary</h2>
 <p>
 The required achievement was met: the recurring equations now live as calculators I reach for instead of
 Excel, MathCAD or paper — and the toolkit gives what those never did: the feel of the part in your
-hands, and a filed-quality report at the end. The tools are in real use, including by junior engineers
-designing printed compliant beams, and the catalog keeps growing with the work.
-</p>
-<p>
-<strong>In retrospect.</strong> The skill should have been written after the <em>first</em> calculator,
-not after five — section 3.3's before/after contrast is the cost of that delay, and every rule in the
-skill was first paid for the expensive way. The early automatic-generation idea was the mirror lesson: I
-first aimed AI at breadth (generating many calculators from a table of equations) when the real
-multiplier was depth — one calculator at a time, built to a standard a skill can enforce. And I
-underestimated what could be asked: early prompts requested single functions; later ones requested entire
-features against the skill's definition of done, and the quality held. Where dependence on AI could have
-hurt the product — the physics — the anchor-validation habit contained it: no non-physical result we know
-of survived to deployment, and every page states honestly where its model stops.
+hands, and a filed-quality report at the end. The tools are in real use — the printed parts of Fig. 2c
+are in service — and the catalog keeps growing with the work.
+<strong>In retrospect:</strong> the skill should have been written after the <em>first</em> calculator,
+not after five — §3.3's before/after contrast is the cost of that delay. The early automatic-generation
+idea was the mirror lesson: I first aimed AI at breadth when the real multiplier was depth — one
+calculator at a time, built to a standard a skill can enforce. And I underestimated what could be asked:
+early prompts requested single functions; later ones requested entire features against the skill's
+definition of done, and the quality held. Where dependence on AI could have hurt the product — the
+physics — the anchor-validation habit contained it: no non-physical result we know of survived to
+deployment, and every page states honestly where its model stops.
 </p>
 
 <div class="foot">
-  <strong>Attachments</strong> per the submission list: (1) this report as PDF; (2) screenshots above and
-  a short screen capture of dragging the 3D models <span class="fill">[+ photos of printed parts]</span>;
-  (3) the product — live URL and the standalone offline <em>index.html</em>; (4) the
-  <em>new-calculator</em> and <em>preview</em> skill files; (5) the repository, including the sample PDF
-  reports generated by the app (<em>bolt-report-onepage.pdf</em>, <em>bolt-report-full.pdf</em>).
-  · Prompts marked “reconstructed” are paraphrases; their outcomes are the cited commits.
+  <strong>Attachments</strong> per the submission list: (1) this report as PDF; (2) the screenshots and
+  photo above, plus a short screen capture of dragging the 3D models; (3) the product — live URL and the
+  standalone offline <em>index.html</em>; (4) the <em>new-calculator</em> and <em>preview</em> skill
+  files; (5) the repository, including the sample PDF reports generated by the app
+  (<em>bolt-report-onepage.pdf</em>, <em>bolt-report-full.pdf</em>). · Prompts marked “reconstructed”
+  are paraphrases; their outcomes are the cited commits.
 </div>
 
 </body>

@@ -54,9 +54,6 @@ const REFINED: CalcCard[] = [
     eq: "σc = 6F(e + D/4) / b·tc²",
     ready: true,
   },
-];
-
-const IN_PROGRESS: CalcCard[] = [
   {
     route: "/pin-calculator",
     tag: "Fasteners",
@@ -64,8 +61,10 @@ const IN_PROGRESS: CalcCard[] = [
     desc: "A pin or bolt loaded in shear through two or three flanges, each its own material — every Shigley 8-23 failure mode checked: pin shear & bending, bearing both ways, net section, edge tear-out. Grab the 3D clevis and pull until something gives; every zone painted by its own failure mode, with a capacity ladder for what lets go first.",
     eq: "τ = F / n·(πd²/4)",
     ready: true,
-    wip: true,
   },
+];
+
+const IN_PROGRESS: CalcCard[] = [
   {
     route: "/shaft-calculator",
     tag: "Drivetrain",
