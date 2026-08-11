@@ -230,7 +230,14 @@ export default function PinCalc() {
             <span style={{ color: vc }}>{res.holds ? (res.meetsTarget ? "HOLDS" : "UNDER TARGET") : "FAILS"}</span><br />
             <span style={{ color: "#46515c", fontWeight: 400 }}>capacity {kN(res.Fcap)}</span>
           </div>
-          <div className="clamp-hint">drag the loaded flange to pull · drag elsewhere to orbit</div>
+          {/* When the pin is the weak link, the place it gives way is inside
+              the stack — hidden, and correctly so. Say where to look rather
+              than reddening the ends, which carry nothing. */}
+          <div className="clamp-hint">
+            {res.governing.part === "pin" && explode < 0.5 && inp.F > 0
+              ? <span style={{ color: PM.sfColor(res.SFjoint) }}>the pin governs, inside the stack — tap EXPLODED to see where</span>
+              : "drag the loaded flange to pull · drag elsewhere to orbit"}
+          </div>
         </div>
 
         <div style={{ ...panel, display: "flex", alignItems: "center", gap: 9 }}>

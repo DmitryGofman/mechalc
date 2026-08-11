@@ -11,8 +11,13 @@
 //   the crescent around the loaded half of the hole  → bearing
 //   the ligament between hole and the loaded edge    → tear-out
 //   the flanks either side of the hole               → net section
-//   the pin at each shear plane                      → shear
-//   the pin between the planes (clevis)              → bending
+//   the pin, along its length                        → its own shear and
+//                                                      moment diagrams
+//
+// The pin's colour is a DISTRIBUTION, not one number. Painting it flat was
+// wrong twice over: the whole pin reddened when only its mid-span was failing,
+// and the exploded view keyed off shear, so a pin governed by bending stayed
+// calm exactly where it was giving way.
 //
 // Deformation is exaggerated: the flanges slide apart and the pin steps at the
 // shear planes, so a joint heading for failure visibly comes apart.
@@ -109,6 +114,11 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const nP = lay.plates.length;
   const plX = lay.plates.map((_, i) => (i - (nP - 1) / 2) * exp);
   const plY = lay.plates.map((p) => (p.dir * slip) / 2);
+  // Withdrawing the pin upward would leave the assembly hanging in the top of
+  // the frame with dead space beneath, so the whole scene slides down by half
+  // the withdrawal and the composition stays centred as it opens.
+  const pinLift = o.explode * (lay.L + 0.8 * d);
+  const yShift = -pinLift / 2;
 
   // ── the flanges ──
   // Depth is per polygon, so a big face sorts by one centroid and can win
@@ -119,7 +129,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const NA = 44;
   const RINGS = [0, 0.22, 0.48, 0.74, 1]; // fractions from hole edge to plate edge
   for (let pi = 0; pi < nP; pi++) {
-    const p = lay.plates[pi], ox = plX[pi], oy = plY[pi];
+    const p = lay.plates[pi], ox = plX[pi], oy = plY[pi] + yShift;
     // The material tones are picked for flat SVG fills; under the painter's
     // 0.3 ambient a face angled away from the light lands near black and the
     // whole flange reads as a silhouette. Lift them into the range the shading
@@ -232,38 +242,103 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // ── the pin ──
   // Brightened against the flanges so it reads as the separate machined part.
   const pinTone = hex2rgb(res.pinTone).map((t) => Math.min(1, t * 1.6 + 0.14)) as [number, number, number];
-  const uShear = util(res.SFshear), uBend = util(res.SFbend), uBearPin = util(res.SFbearPinAll);
+  const uShear = util(res.SFshear), uBend = util(res.SFbend);
 
+  // Everything about the pin is reckoned in TRUE coordinates — the joint as
+  // built — and only mapped to drawn positions at the end. Exploding the stack
+  // must not change the physics: computing the moment diagram from the drawn
+  // positions lengthened the bending arm as the view opened, so the colours
+  // shifted while the joint stood still.
+  //
+  // Which flange a point on the pin belongs to, and hence how far it has
+  // slipped, and where it is drawn once the stack is opened out.
+  const spanOf = (x: number) => {
+    for (let i = 0; i < nP; i++) {
+      const p = lay.plates[i];
+      if (x >= p.x0 - 1e-9 && x <= p.x1 + 1e-9) return { inside: i, prev: i, next: i, t: 0 };
+    }
+    let prev = -1, next = -1;
+    for (let i = 0; i < nP; i++) {
+      if (x > lay.plates[i].x1) prev = i;
+      if (x < lay.plates[i].x0 && next < 0) next = i;
+    }
+    if (prev >= 0 && next >= 0) {
+      const a = lay.plates[prev].x1, b = lay.plates[next].x0;
+      return { inside: -1, prev, next, t: (x - a) / (b - a || 1e-9) };
+    }
+    const only = prev >= 0 ? prev : next >= 0 ? next : 0;
+    return { inside: -1, prev: only, next: only, t: 0 };
+  };
+  const lerpBy = (x: number, arr: number[]) => {
+    const s2 = spanOf(x);
+    if (s2.inside >= 0) return arr[s2.inside];
+    return arr[s2.prev] + (arr[s2.next] - arr[s2.prev]) * s2.t;
+  };
   // Each slice follows whichever flange it is inside, so the pin visibly STEPS
   // at every shear plane instead of staying a straight cylinder.
-  const yPin = (x: number) => {
-    for (let i = 0; i < nP; i++) {
-      const p = lay.plates[i];
-      if (x >= p.x0 + plX[i] - 1e-9 && x <= p.x1 + plX[i] + 1e-9) return plY[i];
+  //
+  // Exploding also WITHDRAWS the pin, fully clear of the stack. Spreading the
+  // flanges along the pin can never expose its middle — the peak bending
+  // moment is at mid-span, directly under the flange that causes it — so the
+  // one place the pin is actually failing stayed hidden. Lifting it right out
+  // shows the whole length with its whole distribution, and, since nothing
+  // then interpenetrates anything, removes the sorting hazard that let a
+  // buried pin punch through a flange. It stays aligned along x, so you can
+  // still read which stretch of pin sat in which flange.
+  const yPin = (x: number) => lerpBy(x, plY) + pinLift + yShift;
+  // True position → where it is drawn once the stack is exploded.
+  const xDraw = (x: number) => x + lerpBy(x, plX);
+
+  // ── where along the pin each check actually bites ────────────────────────
+  // Painting the pin one flat colour was wrong in both directions: assembled,
+  // the whole pin went red when only its mid-span was failing; exploded, the
+  // per-slice guess keyed off shear, so a pin governed by BENDING stayed calm
+  // exactly where it was giving way. The honest answer is the pin's own shear
+  // and moment diagrams.
+  //
+  // Each flange delivers its share of the load spread over its own thickness:
+  // the middle flange pushes one way with F, the outer flanges hold the other
+  // with F/2 each. Integrate that once for shear, twice for moment.
+  const NS = 240;
+  const xa0 = lay.X0, xa1 = lay.X1;           // true, unexploded
+  const dxS = (xa1 - xa0) / NS;
+  const Vx: number[] = [], Mx: number[] = [];
+  {
+    let V = 0, M = 0;
+    for (let i = 0; i <= NS; i++) {
+      const x = xa0 + i * dxS;
+      let w = 0; // load per unit length on the pin at x
+      for (let j = 0; j < nP; j++) {
+        const p = lay.plates[j];
+        if (x >= p.x0 && x <= p.x1) w += (p.dir * p.m.share * Math.max(inp.F, 0)) / Math.max(p.x1 - p.x0, 1e-9);
+      }
+      M += V * dxS;      // moment is the running integral of shear
+      V += w * dxS;      // shear is the running integral of load
+      Vx.push(V); Mx.push(M);
     }
-    let prev: { x: number; y: number } | null = null, next: { x: number; y: number } | null = null;
-    for (let i = 0; i < nP; i++) {
-      const x0 = lay.plates[i].x0 + plX[i], x1 = lay.plates[i].x1 + plX[i];
-      if (x > x1 && (!prev || x1 > prev.x)) prev = { x: x1, y: plY[i] };
-      if (x < x0 && (!next || x0 < next.x)) next = { x: x0, y: plY[i] };
-    }
-    if (prev && next) {
-      const t = (x - prev.x) / (next.x - prev.x || 1e-9);
-      return prev.y + (next.y - prev.y) * t;
-    }
-    return prev ? prev.y : next ? next.y : 0;
+  }
+  const Vpk = Math.max(...Vx.map(Math.abs), 1e-9);
+  const Mpk = Math.max(...Mx.map(Math.abs), 1e-9);
+  const sampleAt = (arr: number[], x: number) => {
+    const t = Math.max(0, Math.min(NS, ((x - xa0) / dxS)));
+    const i = Math.min(Math.floor(t), NS - 1);
+    return arr[i] + (arr[i + 1] - arr[i]) * (t - i);
   };
 
+  // Local utilization: whichever check is worst AT THIS POINT, scaled by how
+  // much of its own peak the pin is carrying here. So a pin failing in bending
+  // reddens at mid-span and stays cool at the ends; one failing in shear
+  // reddens at the planes; and one being crushed reddens inside the flange
+  // doing the crushing.
   const uPin = (x: number) => {
-    for (let i = 0; i < nP - 1; i++) {
-      const xs = (lay.plates[i].x1 + plX[i] + lay.plates[i + 1].x0 + plX[i + 1]) / 2;
-      if (Math.abs(x - xs) < Math.max(d / 3, 0.8)) return uShear;
-    }
+    const uV = uShear * (Math.abs(sampleAt(Vx, x)) / Vpk);
+    const uM = res.double ? uBend * (Math.abs(sampleAt(Mx, x)) / Mpk) : 0;
+    let uP = 0;
     for (let i = 0; i < nP; i++) {
       const p = lay.plates[i];
-      if (x >= p.x0 + plX[i] && x <= p.x1 + plX[i]) return Math.max(0.9 * uBearPin, p.dir > 0 ? uBend : 0);
+      if (x >= p.x0 && x <= p.x1) uP = Math.max(uP, util(p.m.SFbearPin));
     }
-    return 0.12;
+    return Math.max(uV, uM, uP);
   };
 
   // The pin fills its hole, so any slice inside a flange is completely hidden
@@ -275,24 +350,24 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const buried = (x: number) => {
     for (let i = 0; i < nP; i++) {
       const p = lay.plates[i];
-      if (x > p.x0 + plX[i] + 1e-6 && x < p.x1 + plX[i] - 1e-6) return true;
+      if (x > p.x0 + 1e-6 && x < p.x1 - 1e-6) return true;
     }
     return false;
   };
   const hideBuried = o.explode < 0.06;
-  // With the middle hidden, the exposed ends have to carry the pin's verdict —
-  // otherwise a pin at its limit shows nothing but two calm green stubs.
-  const uPinWorst = Math.max(uShear, uBend, uBearPin);
 
-  const XP0 = lay.X0 - ((nP - 1) / 2) * exp, XP1 = lay.X1 + ((nP - 1) / 2) * exp;
-  const NL = 34, NC = 16;
+  // Walk the pin in TRUE coordinates, draw each slice where the explode
+  // transform puts it. Sampling in drawn space instead would stretch the load
+  // distribution along with the view.
+  const NL = 56, NC = 16;
   for (let k = 0; k < NL; k++) {
-    const xa = XP0 + ((XP1 - XP0) * k) / NL, xb = XP0 + ((XP1 - XP0) * (k + 1)) / NL;
-    const xm = (xa + xb) / 2;
-    if (hideBuried && buried(xm)) continue;
-    const ya = yPin(xa), yb = yPin(xb);
-    const c = zoneColor(pinTone, hideBuried ? uPinWorst : uPin(xm));
-    const O = [xm * s, ((ya + yb) / 2) * s, 0];
+    const ta = lay.X0 + ((lay.X1 - lay.X0) * k) / NL, tb = lay.X0 + ((lay.X1 - lay.X0) * (k + 1)) / NL;
+    const tm = (ta + tb) / 2;
+    if (hideBuried && buried(tm)) continue;
+    const xa = xDraw(ta), xb = xDraw(tb);
+    const ya = yPin(ta), yb = yPin(tb);
+    const c = zoneColor(pinTone, uPin(tm));
+    const O = [((xa + xb) / 2) * s, ((ya + yb) / 2) * s, 0];
     for (let i = 0; i < NC; i++) {
       const b0 = (2 * Math.PI * i) / NC, b1 = (2 * Math.PI * (i + 1)) / NC;
       S.push({
@@ -311,11 +386,12 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const ri = res.di / 2;
   if (ri > 0) {
     for (let k = 0; k < NL; k++) {
-      const xa = XP0 + ((XP1 - XP0) * k) / NL, xb = XP0 + ((XP1 - XP0) * (k + 1)) / NL;
-      const xm = (xa + xb) / 2;
-      if (hideBuried && buried(xm)) continue;
-      const ya = yPin(xa), yb = yPin(xb);
-      const c = dim(zoneColor(pinTone, hideBuried ? uPinWorst : uPin(xm)), 0.45);
+      const ta = lay.X0 + ((lay.X1 - lay.X0) * k) / NL, tb = lay.X0 + ((lay.X1 - lay.X0) * (k + 1)) / NL;
+      const tm = (ta + tb) / 2;
+      if (hideBuried && buried(tm)) continue;
+      const xa = xDraw(ta), xb = xDraw(tb);
+      const ya = yPin(ta), yb = yPin(tb);
+      const c = dim(zoneColor(pinTone, uPin(tm)), 0.45);
       for (let i = 0; i < NC; i++) {
         const b0 = (2 * Math.PI * i) / NC, b1 = (2 * Math.PI * (i + 1)) / NC;
         // Wound the other way round: this surface faces the axis, and it must
@@ -333,8 +409,8 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
     }
   }
   // End caps — a full disc for a solid pin, an annulus for a tube.
-  for (const [xe, sgn] of [[XP0, -1], [XP1, 1]] as const) {
-    const ye = yPin(xe), c = zoneColor(dim(pinTone, 0.8), hideBuried ? uPinWorst : 0.12);
+  for (const [te, sgn] of [[lay.X0, -1], [lay.X1, 1]] as const) {
+    const xe = xDraw(te), ye = yPin(te), c = zoneColor(dim(pinTone, 0.8), uPin(te));
     const ring = (r: number, b: number) => [xe * s, (ye + r * Math.sin(b)) * s, (r * Math.cos(b)) * s];
     if (ri <= 0) {
       const cap: number[][] = [];
@@ -354,7 +430,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // pull the joint. It is published in scene space and comes back projected.
   for (let pi = 0; pi < nP; pi++) {
     const p = lay.plates[pi];
-    const yEnd = (p.dir > 0 ? p.ymax : p.ymin) + plY[pi];
+    const yEnd = (p.dir > 0 ? p.ymax : p.ymin) + plY[pi] + yShift;
     const xm = ((p.x0 + p.x1) / 2 + plX[pi]) * s;
     const tail = (yEnd + p.dir * 0.35 * d) * s;
     const tip = tail + p.dir * ARROW_LEN;
@@ -374,7 +450,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // rather than the empty corners.
   const fitR = 0.8 * Math.hypot(
     (Math.max(Math.abs(lay.X0), Math.abs(lay.X1)) + explodeMax) * s,
-    lay.L * s + ARROW_LEN,
+    ((lay.L + (lay.L + 0.8 * d) / 2 + d) * s) + ARROW_LEN, // incl. the withdrawn pin
     (inp.w / 2) * s,
   );
   return { S, fitR, handles };
