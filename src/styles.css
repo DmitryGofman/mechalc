@@ -342,6 +342,10 @@ input[type="number"] {
    give them an ink-readable tone instead of pale amber on white paper. */
 .theory p.pn.warn { color: #e6c98a; }
 .theory p.pn.bad { color: #e0a3a3; }
+/* The "In short" close of a long-form page. Colors live here rather than
+   inline so the print stylesheet can re-ink them for paper. */
+.theory p.pn.insum { margin-top: 16px; padding-top: 12px; border-top: 1px dashed #1f2a33; color: #b9c3cc; }
+.theory p.pn.insum b { color: #e8edf1; text-decoration: underline; text-underline-offset: 3px; }
 .clamp-dims svg, .theory-fig svg { width: 100%; height: auto; display: block; background: #0b1015;
   border: 1px solid #141c22; border-radius: 3px; }
 
@@ -461,6 +465,11 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   .calc-print .linkish { display: none; }
   .calc-print .theory p.pn.warn { color: #7a4e00; }
   .calc-print .theory p.pn.bad { color: #8f1a1a; }
+  .calc-print .theory p.pn.insum { color: #333; border-top-color: #999; }
+  .calc-print .theory p.pn.insum b { color: #000; }
+  /* Diagrams carry the dark canvas tone on screen; on paper they sit on
+     white like every other figure. */
+  .calc-print .theory-fig svg { background: #fff; border: 1px solid #bbb; }
   .calc-print .theory h3 { page-break-after: avoid; }
   .calc-print .mth, .calc-print .eqn .sub { color: #111; }
   .calc-print .eqn .res { color: #0a6b3d; }

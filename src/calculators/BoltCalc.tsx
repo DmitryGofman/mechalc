@@ -54,6 +54,7 @@ function Bolt3D({
   torque,
   interactive,
   onLiveTorque,
+  snapRef,
 }: {
   thread: ThreadSpec;
   cls: BoltClass;
@@ -68,6 +69,8 @@ function Bolt3D({
   torque: number;
   interactive: boolean;
   onLiveTorque: (T: number | null) => void;
+  /** Filled with a function that renders the scene onto paper white for print. */
+  snapRef?: { current: (() => string) | null };
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const stateRef = useRef({ yaw: 0.7, pitch: -0.25, dragging: false, lx: 0, ly: 0 });
@@ -155,7 +158,10 @@ function Bolt3D({
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 1000);
     camera.position.set(0, 0, 6.4);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // preserveDrawingBuffer keeps the canvas readable after the frame is
+    // presented, which is what lets the report grab a figure of the exact
+    // model on screen.
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     mount.appendChild(renderer.domElement);
@@ -363,6 +369,23 @@ function Bolt3D({
       yieldRef.current = false;
     };
 
+    // The report needs a figure of this exact model. Re-rendering it on paper
+    // white beats screenshotting the dark canvas: a black rectangle is the
+    // thing that ruins a printed calculation sheet.
+    if (snapRef) {
+      snapRef.current = () => {
+        const dpr = renderer.getPixelRatio();
+        scene.background = new THREE.Color("#ffffff");
+        renderer.setPixelRatio(2);
+        renderer.render(scene, camera);
+        const url = renderer.domElement.toDataURL("image/png");
+        scene.background = new THREE.Color("#0b1015");
+        renderer.setPixelRatio(dpr);
+        renderer.render(scene, camera);
+        return url;
+      };
+    }
+
     let raf = 0;
     let lastApplied = NaN;
     const animate = () => {
@@ -515,6 +538,7 @@ function Bolt3D({
         /* ignore */
       }
       audioRef.current = null;
+      if (snapRef) snapRef.current = null;
       renderer.dispose();
       if (el.parentNode) el.parentNode.removeChild(el);
     };
@@ -861,6 +885,8 @@ export default function BoltCalc() {
   const [tab, setTab] = useState<Tab>("model");
   const [interactive, setInteractive] = useState(true);
   const [liveTorque, setLiveTorque] = useState<number | null>(null); // N·m, while tightening
+  const [printDoc, setPrintDoc] = useState<{ brief: boolean; img: string } | null>(null);
+  const snapRef = useRef<(() => string) | null>(null);
 
   const U = unitsFor(sys);
 
@@ -991,6 +1017,46 @@ export default function BoltCalc() {
     return {};
   }, [tab, state]) as Partial<Record<"diagram" | "how" | "report" | "preload" | "tips", string>>;
 
+  // Printing renders a document of its own rather than re-skinning the live
+  // page: inline dark backgrounds beat any @media print rule, and re-skinning
+  // is what turns an exported calculation sheet into black slabs.
+  const exportPDF = (brief: boolean) => setPrintDoc({ brief, img: snapRef.current?.() ?? "" });
+  useEffect(() => {
+    if (!printDoc) return;
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        setPrintDoc(null);
+      }
+    };
+    window.addEventListener("afterprint", finish);
+    // Two frames: one to mount the print document, one to lay it out.
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        window.print();
+        setTimeout(finish, 700);
+      }),
+    );
+    return () => {
+      window.removeEventListener("afterprint", finish);
+      cancelAnimationFrame(raf);
+    };
+  }, [printDoc]);
+
+  const exportBtn: React.CSSProperties = {
+    fontFamily: "var(--mono)",
+    fontSize: 10,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    cursor: "pointer",
+    borderRadius: 2,
+    padding: "7px 11px",
+    background: "#0e1419",
+    border: "1px solid #1f2a33",
+    color: "#8b97a3",
+  };
+
   const toggleBtn = (on: boolean): React.CSSProperties => ({
     fontFamily: "var(--mono)",
     fontSize: 10,
@@ -1017,7 +1083,7 @@ export default function BoltCalc() {
         fontFamily: "var(--sans)",
       }}
     >
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div className="calc-page" style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* Header */}
         <div
           className="flexure-header bolt-header"
@@ -1503,6 +1569,7 @@ export default function BoltCalc() {
                 torque={torqueNm}
                 interactive={interactive}
                 onLiveTorque={setLiveTorque}
+                snapRef={snapRef}
               />
             </div>
           </div>
@@ -1510,6 +1577,19 @@ export default function BoltCalc() {
 
         {/* ── THEORY & REPORT ── */}
         <div className={`tabpane${tab === "theory" ? " on" : ""}`} data-t="theory">
+          <div className="btnrow">
+            <button style={exportBtn} onClick={() => exportPDF(true)}>
+              ⇩ One-page summary
+            </button>
+            <button style={exportBtn} onClick={() => exportPDF(false)}>
+              ⇩ Full report
+            </button>
+            <span
+              style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", lineHeight: 1.6, flex: 1 }}
+            >
+              opens your browser&apos;s print dialog — choose “Save as PDF”
+            </span>
+          </div>
           <div className="theory">
             <div className="lab">THE JOINT DIAGRAM — WHO CARRIES THE LOAD</div>
             <div className="theory-fig" dangerouslySetInnerHTML={{ __html: html.diagram ?? "" }} />
@@ -1593,6 +1673,144 @@ export default function BoltCalc() {
           concentric and purely tensile external load. Deflections in the 3D view are exaggerated ×{VIEW_EXAG} so the
           motion is visible. Typical reference values — verify before production use.
         </div>
+
+        {/* The print document. Mounted only while printing, and the only thing
+            @media print lets through on this page. */}
+        {printDoc && (
+          <div className={`calc-print ${printDoc.brief ? "brief" : "full"}`}>
+            <div className="ph">
+              <h1>Bolted Joint — {printDoc.brief ? "bench sheet" : "design calculation"}</h1>
+              <div className="meta">
+                {threadKey} (Ø{thread.d} mm · As {thread.As} mm²) · class {classKey} · {fricKey}
+                {washer ? " · plain washers under head & nut" : " · no washers"}
+                <br />
+                Plate 1 {mat1Key} × {qu(U.length, t1mm)} · plate 2 {mat2Key} × {qu(U.length, t2mm)} · grip{" "}
+                {qu(U.length, t1mm + t2mm)} · preload target {preloadKey}
+                <br />
+                T = {qu(U.torque, torqueNm)} → Fi {qu(U.forceBig, r.F)} · external load P = {qu(U.force, PextN)}
+                {" · "}MechCalc — design check, not a substitute for full analysis
+              </div>
+            </div>
+
+            <div className="headline" style={{ borderColor: r.SF >= 1 ? "#0a6b3d" : "#a01d1d" }}>
+              <span className="n" style={{ color: r.SF >= 1 ? "#0a6b3d" : "#a01d1d" }}>
+                n = {isFinite(r.SF) ? r.SF.toFixed(2) : "∞"}
+              </span>
+              <span className="w">
+                σred {qu(U.stress, r.vm / 1e6)} vs proof {qu(U.stress, cls.sp)} while torquing · clamp left{" "}
+                {qu(U.forceBig, r.Fm)} at P · separation n {isFinite(r.nSep) ? r.nSep.toFixed(2) : "∞"}
+                {warnings.length > 0 && <> · ⚠ {warnings.map((w) => w.msg).join(" · ")}</>}
+              </span>
+            </div>
+
+            {printDoc.img && (
+              <figure className="fig">
+                <img src={printDoc.img} alt="3D view of the bolted joint with its pressure cones" />
+                <figcaption>
+                  The joint as modelled at T = {qu(U.torque, torqueNm)}: the cone is the clamp load spreading
+                  through the plates, shaded by local pressure; bolt and plates are coloured by how close each is
+                  to its own limit. Deflections exaggerated ×{VIEW_EXAG} so the motion is visible.
+                </figcaption>
+              </figure>
+            )}
+
+            <h2>Joint at a glance</h2>
+            <table className="rep">
+              <tbody>
+                <tr>
+                  <td>Preload Fi from T</td>
+                  <td className="v">{qu(U.forceBig, r.F)}</td>
+                </tr>
+                <tr className="hi">
+                  <td>Reduced σred (vM) while torquing</td>
+                  <td className="v">
+                    {qu(U.stress, r.vm / 1e6)} · n {isFinite(r.SF) ? r.SF.toFixed(2) : "∞"} vs proof
+                  </td>
+                </tr>
+                <tr>
+                  <td>Working σ after torsion relaxes</td>
+                  <td className="v">
+                    {qu(U.stress, r.sigmaWork / 1e6)} · n {isFinite(r.nYieldWork) ? r.nYieldWork.toFixed(2) : "∞"} vs
+                    yield
+                  </td>
+                </tr>
+                <tr>
+                  <td>Stiffness kb / km · load share C</td>
+                  <td className="v">
+                    {(r.kb / 1e6).toFixed(0)} / {(r.km / 1e6).toFixed(0)} kN/mm · C {r.C.toFixed(3)}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Bolt force / clamp left at P</td>
+                  <td className="v">
+                    {qu(U.forceBig, r.Fb)} / {qu(U.forceBig, r.Fm)}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Separation load Psep</td>
+                  <td className="v">
+                    {qu(U.forceBig, r.Psep)} · n {isFinite(r.nSep) ? r.nSep.toFixed(2) : "∞"}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Bearing p under head/nut</td>
+                  <td className="v">
+                    {qu(U.stress, r.pHead / 1e6)} · n {r.nBear1.toFixed(2)} / {r.nBear2.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td>Interface pressure · cone Ø</td>
+                  <td className="v">
+                    {qu(U.stress, r.pInt / 1e6)} · Ø{r.DiMm.toFixed(1)} mm
+                  </td>
+                </tr>
+                <tr>
+                  <td>Bolt stretch / plates squash</td>
+                  <td className="v">
+                    {(r.dL * 1e6).toFixed(1)} / {(r.dLm * 1e6).toFixed(1)} µm
+                  </td>
+                </tr>
+                <tr className="hi">
+                  <td>Recommended torque</td>
+                  <td className="v">
+                    {qu(U.torque, r.TrecJoint)} · limited by the {r.TrecGovernedBy}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h2>Equations used</h2>
+            <div className="eqs">
+              {EQUATIONS.map((e) => (
+                <div key={e.expr}>
+                  {e.expr} <span style={{ color: "#666" }}>— {e.note}</span>
+                </div>
+              ))}
+            </div>
+
+            {!printDoc.brief && (
+              <>
+                <div className="sec brk">The joint diagram — who carries the load</div>
+                <div className="theory">
+                  <div className="theory-fig" dangerouslySetInnerHTML={{ __html: jointDiagramSVG(state, true) }} />
+                  <div dangerouslySetInnerHTML={{ __html: howItWorksHTML(state) }} />
+                </div>
+                <div className="sec brk">Worked calculation</div>
+                <div className="theory" dangerouslySetInnerHTML={{ __html: reportHTML(state) }} />
+                <div className="sec brk">Preload &amp; recommended torque</div>
+                <div className="theory" dangerouslySetInnerHTML={{ __html: preloadHTML(state) }} />
+                <div className="sec brk">Design tips</div>
+                <div className="theory" dangerouslySetInnerHTML={{ __html: tipsHTML(state) }} />
+              </>
+            )}
+
+            <div className="foot">
+              Closed-form design check, not FEA. Nut-factor torque model (K scatters ±25% between real joints —
+              lubricate for consistency), fully-threaded fastener for kb, Shigley 30° cone frusta for km, concentric
+              and purely tensile external load. Typical reference values — verify before production use.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

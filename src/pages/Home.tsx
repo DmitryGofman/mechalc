@@ -42,7 +42,7 @@ const REFINED: CalcCard[] = [
     route: "/bolt-calculator",
     tag: "Fasteners",
     title: "Bolted Joint — Screw Strength",
-    desc: "Torque → preload, VDI-style reduced stress, and the clamped sandwich: two plate materials, load sharing, separation & crushing checks — tighten the 3D nut and watch the pressure cones.",
+    desc: "Torque → preload, VDI-style reduced stress, and the clamped sandwich: two plate materials, load sharing, separation & crushing checks — tighten the 3D nut and watch the pressure cones. One-page or full PDF report.",
     eq: "Fb = Fi + C·P",
     ready: true,
   },
