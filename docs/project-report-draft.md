@@ -120,11 +120,11 @@ those suppliers issue.
 While using the app, a calculation can be exported as a typeset report — a long
 form and a one-page bench sheet — built from the very numbers entered in the
 calculator: the 3D figure snapshotted onto paper white, the worked equations
-step by step, design tips, scope notes and references. The two attached sample
-PDFs (`shaft-report-full.pdf`, `shaft-report-onepage.pdf`) were generated from
-the app for this report. The report mechanism shipped with the newer calculators
-and is being rolled back across the older ones; every calculator already carries
-its theory section and design tips on the page.
+step by step, the joint diagram, design tips, scope notes and references. The
+attached sample PDFs (`bolt-report-onepage.pdf`, `bolt-report-full.pdf`, plus a
+shaft-calculator pair) were generated from the app for this report. Every
+calculator carries its theory section and design tips on the page, and the PDF
+mechanism is being rolled across the catalog.
 
 ## 3. Use of AI in the Project
 

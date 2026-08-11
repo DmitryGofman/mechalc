@@ -486,8 +486,8 @@ export function howItWorksHTML(s: BoltState): string {
     kinematics are true even so: the head only sinks as the plates compress, and the elongation appears below the nut
     where it really does.</p>
 
-    <p class="pn" style="margin-top:16px;padding-top:12px;border-top:1px dashed #1f2a33;color:#b9c3cc">
-    <b style="color:#e8edf1;text-decoration:underline;text-underline-offset:3px">In short:</b> tighten until the bolt
+    <p class="pn insum">
+    <b>In short:</b> tighten until the bolt
     carries a healthy fraction of proof — checked with torsion included, von Mises — and make the plates as stiff as
     you can. Then external loads mostly relax the plates instead of working the bolt. Watch the two clamped
     materials: they set how the load is shared, when the joint separates, and whether anything crushes under the
