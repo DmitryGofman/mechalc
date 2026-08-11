@@ -99,13 +99,13 @@ material than the datasheet admits.
 </p>
 
 <div class="figrow">
-  <figure style="flex: 1.15">
+  <figure style="flex: 1.25">
     <div class="crop" style="height:150px"><img src="report-assets/flexure-default.png" alt="Flexure calculator"></div>
     <figcaption><strong>Fig. 1.</strong> The cantilever flexure calculator. A PA12 (MJF) blade,
     40 × 10 × 2 mm, asked for 4 mm of deflection: safety factor 3.76, SAFE. The same blade asked for
     12 mm drops to 1.25 and turns MARGINAL.</figcaption>
   </figure>
-  <figure style="flex: 1.15">
+  <figure style="flex: 0.85">
     <div class="crop" style="height:150px"><img src="report-assets/snapfit-fig.png" alt="Snap-fit calculator"></div>
     <figcaption><strong>Fig. 2.</strong> The snap-fit calculator. A PA66 arm: strain utilization 0.40,
     PASS, insertion force 14.6 N, removal 25.6 N. The tooth's wedge action and the strain budget are
@@ -226,8 +226,8 @@ Every tool in the catalog went through the same loop:
 
 <h3>3.2 Prompts and what came back</h3>
 <p>
-Four exchanges that shaped the app: three reconstructed from the commit record (their outcomes are
-the cited commits) and one quoted verbatim.
+Four exchanges that shaped the app: two reconstructed from the commit record (their outcomes are the
+cited commits) and two quoted verbatim from working sessions.
 </p>
 <div class="prompt">
   <span class="q">“Turn this single calculator into a toolkit: a home page with a card per calculator,
@@ -238,14 +238,6 @@ the cited commits) and one quoted verbatim.
   <span class="src">Reconstructed; the outcome is the cited commit.</span>
 </div>
 <div class="prompt">
-  <span class="q">“Build the snap-fit as several competing designs on one shared, tested engine, so I
-  can feel which interaction works before committing to one.”</span>
-  <span class="a"><strong>Outcome:</strong> commit a535a1b, four candidates on one engine. Design E won,
-  gained the Classical-vs-Snap-Fit comparison tab, and became the calculator of Fig. 2 after about ten
-  further refinement rounds.</span>
-  <span class="src">Reconstructed; outcomes documented in commits a535a1b through 4ce7a98.</span>
-</div>
-<div class="prompt">
   <span class="q">“The beam's cross-sections look wrong when it bends. Check the physics of the 3D
   model.”</span>
   <span class="a"><strong>Outcome:</strong> a model error found by looking at the simulation and
@@ -253,6 +245,18 @@ the cited commits) and one quoted verbatim.
   is commit a1fa8dd, “Fix beam bending physics: cross-sections must be perpendicular to the tangent.”
   The number was right, the picture was not, and the picture is part of the product.</span>
   <span class="src">Reconstructed; the outcome is the cited commit.</span>
+</div>
+<div class="prompt">
+  <span class="q">“Okay. So while giving the report, I want you to focus on the idea that when doing
+  mechanical design work, there are equations that, from my experience, I always get back to. …
+  because I'm working in the military, all the calculations are done on the standalone network. The
+  calculations were done using Excel or some kind of MatCAD files, which I can get back to. But there
+  are always adjustments, and these equations, I use some time just to calculate something on paper or
+  such.”</span>
+  <span class="a"><strong>Outcome:</strong> §1 of this report, and the framing of the whole document.
+  The brief was dictated by voice, hesitations and all, and that was enough: what the AI needed was the
+  context and the intent, not polished wording.</span>
+  <span class="src">Verbatim (lightly trimmed), dictated in the session that produced this report.</span>
 </div>
 <div class="prompt">
   <span class="q">“report for the bolt calculator. also create the report itself with all the needed
