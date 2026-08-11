@@ -59,6 +59,30 @@ describe("pin bending — the clevis beam", () => {
     expect(at({ clr: 2 }).sigmaBend).toBeGreaterThan(at({ clr: 0 }).sigmaBend);
   });
 
+  it("bends on the threaded core too, not just shears on it", () => {
+    // A section that loses area as k on d² loses section modulus as k^1.5 on
+    // d³ — so the shear-plane selector has to move the bending check as well.
+    const shank = at({ shank: "Bolt — shank in shear plane" });
+    const threads = at({ shank: "Bolt — threads in shear plane" });
+    expect(threads.Zeff / shank.Zeff).toBeCloseTo(0.75 ** 1.5, 9);
+    expect(threads.sigmaBend).toBeCloseTo(shank.sigmaBend / 0.75 ** 1.5, 6);
+    expect(threads.sigmaBend).toBeGreaterThan(shank.sigmaBend);
+  });
+
+  it("leaves the full section modulus alone for a plain pin", () => {
+    const r = at({ shank: "Plain pin / dowel (full shank)" });
+    expect(r.Zeff).toBeCloseTo(r.Zpin, 9);
+  });
+
+  it("moves the joint's capacity when the shear plane changes — the selector is not cosmetic", () => {
+    const shank = at({ shank: "Bolt — shank in shear plane" });
+    const threads = at({ shank: "Bolt — threads in shear plane" });
+    // The default joint is governed by bending, so a change that only touched
+    // shear would leave capacity untouched. It must not.
+    expect(shank.governing.key).toBe("bend");
+    expect(threads.Fcap).toBeLessThan(shank.Fcap);
+  });
+
   it("governs the default joint, which is why the mode sweep matters", () => {
     const r = at();
     expect(r.governing.key).toBe("bend");
@@ -283,6 +307,53 @@ describe("linearity — the property the whole ladder rests on", () => {
   });
 });
 
+// The slider's range rule lives in the page, but it is arithmetic and it had a
+// bug that ran the load to 3×10¹⁶ kN on a phone: the range was asked to sit a
+// few percent above the applied load, and with the thumb at the end the load
+// IS the range, so every pointer event grew it. Pinned here as a pure function
+// so the fixed point is a property, not a screenshot.
+const rangeFor = (cap: number, F: number, CEIL = 1e7) => {
+  const raw = Math.min(Math.max(2.2 * cap, F), CEIL);
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((s) => s * mag >= raw) ?? 10;
+  return Math.min(Math.max(100, step * mag), CEIL);
+};
+
+describe("the load slider's range rule", () => {
+  it("is a fixed point when the thumb sits at the end", () => {
+    // The exact scenario that ran away: hold at max, feed it back, repeatedly.
+    let range = rangeFor(12700, 6000);
+    for (let i = 0; i < 200; i++) range = rangeFor(12700, range);
+    expect(range).toBe(rangeFor(12700, rangeFor(12700, 6000)));
+    expect(range).toBeLessThan(1e6);
+  });
+
+  it("never runs away for any capacity, however weak or strong the joint", () => {
+    for (const cap of [50, 900, 12700, 250_000]) {
+      let range = rangeFor(cap, 0);
+      const first = range;
+      for (let i = 0; i < 100; i++) range = rangeFor(cap, range);
+      expect(range).toBe(first); // holding at max changes nothing at all
+    }
+  });
+
+  it("puts failure near the middle of the travel, weak pin or strong", () => {
+    for (const cap of [966, 12700, 80_000]) {
+      const at = cap / rangeFor(cap, 0);
+      expect(at).toBeGreaterThan(0.3);
+      expect(at).toBeLessThan(0.55);
+    }
+  });
+
+  it("still grows to admit a load typed in above the range", () => {
+    expect(rangeFor(1000, 50_000)).toBeGreaterThanOrEqual(50_000);
+  });
+
+  it("refuses to exceed the ceiling whatever it is given", () => {
+    expect(rangeFor(1e12, 1e30)).toBe(1e7);
+  });
+});
+
 describe("the verdict", () => {
   it("holds right up to capacity and fails past it", () => {
     const cap = at().Fcap;
@@ -377,6 +448,31 @@ describe("colour ramp", () => {
     expect(g0).toBeGreaterThan(r0); // green dominant when idle
     const [r1, g1] = utilRGB(1);
     expect(r1).toBeGreaterThan(g1); // red dominant at the limit
+  });
+
+  it("is unmistakably red AT the allowable, not only well past it", () => {
+    const [r, g, b] = utilRGB(1);
+    expect(r).toBeGreaterThan(0.85);       // saturated
+    expect(Math.max(g, b)).toBeLessThan(0.2); // and not muddied toward orange
+    // Reaching the limit must look categorically different from working hard.
+    const [, g07] = utilRGB(0.7);
+    expect(g07 - g).toBeGreaterThan(0.2);
+  });
+
+  it("rises monotonically in red and falls in green across the whole range", () => {
+    let lastR = -1, lastG = 2;
+    for (let u = 0; u <= 1; u += 0.05) {
+      const [r, g] = utilRGB(u);
+      expect(r).toBeGreaterThanOrEqual(lastR - 1e-9);
+      expect(g).toBeLessThanOrEqual(lastG + 1e-9);
+      lastR = r; lastG = g;
+    }
+  });
+
+  it("only brightens past the limit — more overload cannot mean more failed", () => {
+    const [r1] = utilRGB(1), [r2, g2] = utilRGB(1.4);
+    expect(r2).toBeGreaterThanOrEqual(r1);
+    expect(g2).toBeGreaterThan(utilRGB(1)[1]); // lighter, not a different hue
   });
 
   it("clamps a negative utilization to the neutral end", () => {
