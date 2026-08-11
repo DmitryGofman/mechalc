@@ -1,6 +1,6 @@
 ---
 name: new-calculator
-description: Build a new MechCalc calculator, or bring an existing one up to the standard the refined ones set. Use whenever a calculator is being added (from the Home roadmap or from scratch), extended, or reviewed for completeness — it carries the full anatomy every calculator is expected to have: pure tested math, the tabbed page, a grabbable 3D view, the worked theory report with PDF export, design tips, and the wiring into routes, the catalog card and the README. Read it BEFORE writing the first file; a calculator that ships without the theory tab or the report is not finished.
+description: Build a new MechCalc calculator, or bring an existing one up to the standard the refined ones set. Use whenever a calculator is being added (from the Home roadmap or from scratch), extended, or reviewed for completeness — it carries the full anatomy every calculator is expected to have: pure tested math, the tabbed page, a grabbable 3D view, the worked theory report with PDF export, design tips, and the wiring into routes, the catalog card and the README. Read it BEFORE writing the first file; a new build STARTS with the architecture quiz to the user (scope, the grab, inputs) before any code, and a calculator that ships without the theory tab or the report is not finished.
 ---
 
 # What a MechCalc calculator is
@@ -18,6 +18,60 @@ and **honest scope notes** about what it does not cover.
 
 Ship all four. The most common failure is shipping the first two, calling it
 done, and leaving the page without its theory tab and report.
+
+## Before any code: the architecture quiz
+
+A build is big — math, page, 3D scene, theory, report — and the expensive
+mistakes are decisions, not code: checking the wrong failure modes, a 3D model
+with nothing meaningful to grab, a handbook constant that should have been an
+input. Settle those **with the user, before the first file**.
+
+When the user asks for a new calculator, put the critical questions to them as
+a short quiz (the AskUserQuestion tool — concrete options, your recommended
+answer first and marked as such). Ask only what genuinely steers the build,
+usually three or four questions from this list:
+
+- **Scope of the physics.** Which checks are in, and which are honestly out
+  (static vs fatigue, which failure modes, solid/hollow, which end conditions)?
+  Offer the textbook-standard set as the recommendation, citing the source.
+- **The grab.** What is the 3D geometry and which part is the load — the thing
+  you push, tighten, or pull? If you cannot name the grab, the concept is not
+  ready to build.
+- **Inputs vs constants.** Which parameters are *the design* — inputs that
+  move both the number and the model — and which stay handbook values? Units
+  and realistic ranges.
+- **Anything that forks the page:** a fourth tab, materials beyond
+  `materials.ts`, one configuration or several.
+
+Skip any question the request already answers. If the user says "you decide",
+decide, and record the choice and its reasoning in the scope notes. The
+settled answers become the written plan — and the brief for the build agent
+below. Refinements of an existing calculator usually need no quiz; ask only
+if the refinement itself forks.
+
+## Model routing: think on Fable, build on Opus
+
+Two jobs, two models:
+
+- **Fable (the session model) does the thinking:** the quiz, the architecture,
+  deriving the math and its textbook validation cases, reviewing the built
+  code, the browser drive-test, and the lessons write-back at the end.
+- **Opus 5 does the building:** once the architecture is settled, delegate the
+  big implementation chunk — the math module, its tests, the page, the theory
+  module, the scene — to a subagent via the Agent tool with `model: "opus"`.
+
+The subagent starts cold, so the brief must be self-contained: the quiz
+answers and plan, the exact file list, every formula with its anchor values,
+which shared pieces to use (`ui.tsx`, `materials.ts`, `stressColor.ts`,
+`scene3d.ts`, the content classes), the print-document pattern from this
+skill, and the order — math + tests first, proven against the validation
+cases, before any UI. Tell it to read this skill file and a refined reference
+(`boltTheory.ts`, `ShaftCalc.tsx`) before writing.
+
+The delegation is not a hand-off of responsibility: review the diff yourself,
+run the verification list yourself, and fix or send back what falls short.
+If the Agent tool is unavailable in the session, or the work is a small
+refinement rather than a build, skip the routing and do the work directly.
 
 ## Files
 
