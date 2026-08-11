@@ -23,11 +23,12 @@ a grabbable 3D view, a printable worked report, and honest scope notes.
 A calculator that ships without its theory tab and its report is not finished.
 
 Wire it into `ROUTES` in `src/App.tsx`, add a card in `src/pages/Home.tsx`
-(Refined / In progress / Planned), and add a row plus a model note to the
-README. Shared pieces: `ui.tsx` (Field/Select/Readout), `materials.ts`,
-`stressColor.ts`, `units.ts`, the `.theory`/`.eqn`/`.tip`/`table.rep` content
-classes, and the `flexure-*` and `tab*` CSS classes, which carry the responsive
-layout and the print stylesheet for free.
+(Refined / In progress / Planned — plus Exploration maps at the bottom, for
+things you wander rather than run, like the Materials Map), and add a row plus
+a model note to the README. Shared pieces: `ui.tsx` (Field/Select/Readout),
+`materials.ts`, `stressColor.ts`, `units.ts`, the `.theory`/`.eqn`/`.tip`/
+`table.rep` content classes, and the `flexure-*` and `tab*` CSS classes, which
+carry the responsive layout and the print stylesheet for free.
 
 ## Branding
 

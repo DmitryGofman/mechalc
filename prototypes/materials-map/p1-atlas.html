@@ -1,0 +1,461 @@
+<title>Material Atlas — any property vs any property</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    color-scheme: light;
+    --page: #f9f9f7;
+    --surface: #fcfcfb;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --grid-minor: #f0efe9;
+    --axis: #c3c2b7;
+    --ring: rgba(11, 11, 11, 0.1);
+    --accent: #2a78d6;
+    --tip-bg: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --page: #0d0d0d;
+      --surface: #1a1a19;
+      --ink: #ffffff;
+      --ink-2: #c3c2b7;
+      --muted: #898781;
+      --grid: #2c2c2a;
+      --grid-minor: #232322;
+      --axis: #383835;
+      --ring: rgba(255, 255, 255, 0.1);
+      --accent: #3987e5;
+      --tip-bg: #242423;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --grid-minor: #232322;
+    --axis: #383835;
+    --ring: rgba(255, 255, 255, 0.1);
+    --accent: #3987e5;
+    --tip-bg: #242423;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--page);
+    color: var(--ink);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 18px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--ring);
+  }
+  header h1 { font-size: 15px; font-weight: 650; margin: 0; letter-spacing: 0.01em; }
+  header h1 small { color: var(--muted); font-weight: 450; margin-left: 8px; }
+  .axes { display: flex; align-items: center; gap: 8px; }
+  .axes label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+  }
+  select {
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    background: var(--surface);
+    border: 1px solid var(--axis);
+    border-radius: 7px;
+    padding: 4px 8px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--ink-2);
+    background: var(--surface);
+    border: 1px solid var(--ring);
+    border-radius: 999px;
+    padding: 3px 10px 3px 7px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .chip .dot { width: 10px; height: 10px; border-radius: 50%; }
+  .chip.off { opacity: 0.38; }
+  .stage { position: relative; flex: 1; min-height: 0; }
+  svg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; background: var(--surface); cursor: grab; touch-action: none; }
+  svg.panning { cursor: grabbing; }
+  .hint {
+    position: absolute;
+    right: 12px;
+    bottom: 10px;
+    font-size: 11.5px;
+    color: var(--muted);
+    background: var(--page);
+    border: 1px solid var(--ring);
+    border-radius: 7px;
+    padding: 3px 9px;
+    pointer-events: none;
+  }
+  #tip {
+    position: absolute;
+    max-width: 260px;
+    background: var(--tip-bg);
+    border: 1px solid var(--ring);
+    border-radius: 9px;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18);
+    padding: 9px 11px;
+    pointer-events: none;
+    display: none;
+    z-index: 3;
+  }
+  #tip .t-name { font-weight: 650; font-size: 13.5px; }
+  #tip .t-fam { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  #tip table { border-collapse: collapse; width: 100%; }
+  #tip td { padding: 1px 0; font-size: 12px; color: var(--ink-2); }
+  #tip td:last-child { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; padding-left: 14px; white-space: nowrap; }
+</style>
+
+<header>
+  <h1>Material Atlas <small>pick any two properties — scroll to zoom, drag to pan, double-click to reset</small></h1>
+  <div class="axes">
+    <label for="ysel">Y</label>
+    <select id="ysel"></select>
+    <label for="xsel">X</label>
+    <select id="xsel"></select>
+  </div>
+  <div class="chips" id="chips"></div>
+</header>
+<div class="stage">
+  <svg id="chart"></svg>
+  <div id="tip"></div>
+  <div class="hint" id="count"></div>
+</div>
+
+<script src="materials-data.js"></script>
+<script>
+  "use strict";
+  const svg = document.getElementById("chart");
+  const tip = document.getElementById("tip");
+  const NS = "http://www.w3.org/2000/svg";
+  const el = (t, a = {}) => {
+    const n = document.createElementNS(NS, t);
+    for (const k in a) n.setAttribute(k, a[k]);
+    return n;
+  };
+  const dark = () =>
+    document.documentElement.dataset.theme === "dark" ||
+    (document.documentElement.dataset.theme !== "light" &&
+      matchMedia("(prefers-color-scheme: dark)").matches);
+  const famColor = (fid) => (dark() ? FAM_BY_ID[fid].dark : FAM_BY_ID[fid].light);
+
+  // ---- axis pickers -------------------------------------------------------
+  const xsel = document.getElementById("xsel");
+  const ysel = document.getElementById("ysel");
+  for (const key in PROPS) {
+    for (const sel of [xsel, ysel]) {
+      const o = document.createElement("option");
+      o.value = key;
+      o.textContent = `${PROPS[key].name} (${PROPS[key].unit})`;
+      sel.appendChild(o.cloneNode(true));
+    }
+  }
+  xsel.value = "rho";
+  ysel.value = "sig";
+
+  // ---- family visibility chips -------------------------------------------
+  const visible = Object.fromEntries(FAMILIES.map((f) => [f.id, true]));
+  const chips = document.getElementById("chips");
+  for (const f of FAMILIES) {
+    const c = document.createElement("button");
+    c.className = "chip";
+    c.innerHTML = `<span class="dot"></span>${f.name}`;
+    c.onclick = () => {
+      visible[f.id] = !visible[f.id];
+      c.classList.toggle("off", !visible[f.id]);
+      rebuild();
+    };
+    c.querySelector(".dot").style.background = famColor(f.id);
+    chips.appendChild(c);
+  }
+
+  // ---- log-space layout ---------------------------------------------------
+  // Everything is laid out in log10 units, then mapped through one affine
+  // view transform (k, tx, ty). Ellipses in log space stay ellipses on screen.
+  const lg = Math.log10;
+  let items = []; // {m, cx, cy, rx, ry} in log units
+  let domain = { x: [0, 1], y: [0, 1] };
+  let view = { k: 1, tx: 0, ty: 0 }; // screen = base(log) * k + t
+  let base = { sx: 1, sy: 1, ox: 0, oy: 0 };
+  const PAD = { l: 58, r: 18, t: 14, b: 40 };
+
+  function computeItems() {
+    const xp = xsel.value, yp = ysel.value;
+    items = [];
+    let xmin = Infinity, xmax = -Infinity, ymin = Infinity, ymax = -Infinity;
+    for (const m of MATERIALS) {
+      const xr = m[xp], yr = m[yp];
+      if (!xr || !yr) continue;
+      const cx = (lg(xr[0]) + lg(xr[1])) / 2;
+      const cy = (lg(yr[0]) + lg(yr[1])) / 2;
+      const rx = Math.max((lg(xr[1]) - lg(xr[0])) / 2, 0.02);
+      const ry = Math.max((lg(yr[1]) - lg(yr[0])) / 2, 0.02);
+      items.push({ m, cx, cy, rx, ry });
+      xmin = Math.min(xmin, cx - rx); xmax = Math.max(xmax, cx + rx);
+      ymin = Math.min(ymin, cy - ry); ymax = Math.max(ymax, cy + ry);
+    }
+    domain = { x: [xmin - 0.15, xmax + 0.15], y: [ymin - 0.15, ymax + 0.15] };
+  }
+
+  function fitBase() {
+    const w = svg.clientWidth, h = svg.clientHeight;
+    base.sx = (w - PAD.l - PAD.r) / (domain.x[1] - domain.x[0]);
+    base.sy = -(h - PAD.t - PAD.b) / (domain.y[1] - domain.y[0]);
+    base.ox = PAD.l - domain.x[0] * base.sx;
+    base.oy = h - PAD.b - domain.y[0] * base.sy;
+  }
+  const SX = (v) => (v * base.sx + base.ox) * view.k + view.tx;
+  const SY = (v) => (v * base.sy + base.oy) * view.k + view.ty;
+  const invX = (px) => ((px - view.tx) / view.k - base.ox) / base.sx;
+  const invY = (py) => ((py - view.ty) / view.k - base.oy) / base.sy;
+
+  // ---- convex hull for family blobs --------------------------------------
+  function hull(pts) {
+    pts = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const half = (list) => {
+      const out = [];
+      for (const p of list) {
+        while (out.length >= 2 && cross(out[out.length - 2], out[out.length - 1], p) <= 0) out.pop();
+        out.push(p);
+      }
+      out.pop();
+      return out;
+    };
+    return half(pts).concat(half(pts.slice().reverse()));
+  }
+  function smoothClosed(pts) {
+    const n = pts.length;
+    if (n < 3) return "";
+    let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+    for (let i = 0; i < n; i++) {
+      const p0 = pts[(i - 1 + n) % n], p1 = pts[i], p2 = pts[(i + 1) % n], p3 = pts[(i + 2) % n];
+      const c1 = [p1[0] + (p2[0] - p0[0]) / 6, p1[1] + (p2[1] - p0[1]) / 6];
+      const c2 = [p2[0] - (p3[0] - p1[0]) / 6, p2[1] - (p3[1] - p1[1]) / 6];
+      d += ` C ${c1[0].toFixed(1)} ${c1[1].toFixed(1)}, ${c2[0].toFixed(1)} ${c2[1].toFixed(1)}, ${p2[0].toFixed(1)} ${p2[1].toFixed(1)}`;
+    }
+    return d + " Z";
+  }
+
+  // ---- render -------------------------------------------------------------
+  const fmt = (v) =>
+    v >= 100 ? Math.round(v).toLocaleString() : v >= 1 ? +v.toPrecision(3) : +v.toPrecision(2);
+  const fmtRange = (r, unit) => (r ? `${fmt(r[0])} – ${fmt(r[1])} ${unit}` : "—");
+  let hovered = null;
+
+  function render() {
+    const w = svg.clientWidth, h = svg.clientHeight;
+    svg.textContent = "";
+
+    // grid: decade lines with 2/5 minors when zoomed in
+    const g = el("g");
+    const x0 = invX(PAD.l), x1 = invX(w - PAD.r), y0 = invY(h - PAD.b), y1 = invY(PAD.t);
+    const decadePx = Math.abs(base.sx) * view.k;
+    for (let d = Math.floor(x0); d <= Math.ceil(x1); d++) {
+      for (const mMul of decadePx > 90 ? [1, 2, 5] : [1]) {
+        const v = d + lg(mMul);
+        if (v < x0 || v > x1) continue;
+        const px = SX(v);
+        g.appendChild(el("line", { x1: px, y1: PAD.t, x2: px, y2: h - PAD.b, stroke: mMul === 1 ? "var(--grid)" : "var(--grid-minor)" }));
+        const t = el("text", { x: px, y: h - PAD.b + 16, "text-anchor": "middle", fill: "var(--muted)", "font-size": 11 });
+        t.textContent = fmt(10 ** v);
+        if (mMul === 1 || decadePx > 160) g.appendChild(t);
+      }
+    }
+    const decadePy = Math.abs(base.sy) * view.k;
+    for (let d = Math.floor(y0); d <= Math.ceil(y1); d++) {
+      for (const mMul of decadePy > 90 ? [1, 2, 5] : [1]) {
+        const v = d + lg(mMul);
+        if (v < y0 || v > y1) continue;
+        const py = SY(v);
+        g.appendChild(el("line", { x1: PAD.l, y1: py, x2: w - PAD.r, y2: py, stroke: mMul === 1 ? "var(--grid)" : "var(--grid-minor)" }));
+        const t = el("text", { x: PAD.l - 6, y: py + 3.5, "text-anchor": "end", fill: "var(--muted)", "font-size": 11 });
+        t.textContent = fmt(10 ** v);
+        if (mMul === 1 || decadePy > 160) g.appendChild(t);
+      }
+    }
+    svg.appendChild(g);
+
+    // clip the data layer to the plot area
+    const defs = el("defs");
+    const clip = el("clipPath", { id: "plot" });
+    clip.appendChild(el("rect", { x: PAD.l, y: PAD.t, width: w - PAD.l - PAD.r, height: h - PAD.t - PAD.b }));
+    defs.appendChild(clip);
+    svg.appendChild(defs);
+    const data = el("g", { "clip-path": "url(#plot)" });
+    svg.appendChild(data);
+
+    // family blobs
+    for (const f of FAMILIES) {
+      if (!visible[f.id]) continue;
+      const pts = [];
+      for (const it of items) {
+        if (it.m.fam !== f.id) continue;
+        for (let a = 0; a < 12; a++) {
+          const th = (a / 12) * 2 * Math.PI;
+          pts.push([SX(it.cx + Math.cos(th) * (it.rx + 0.06)), SY(it.cy + Math.sin(th) * (it.ry + 0.06))]);
+        }
+      }
+      if (pts.length < 3) continue;
+      const p = el("path", { d: smoothClosed(hull(pts)), fill: famColor(f.id), "fill-opacity": 0.09, stroke: famColor(f.id), "stroke-opacity": 0.35, "stroke-width": 1.2 });
+      data.appendChild(p);
+    }
+
+    // material ellipses + labels
+    const labels = [];
+    for (const it of items) {
+      if (!visible[it.m.fam]) continue;
+      const cx = SX(it.cx), cy = SY(it.cy);
+      const rx = it.rx * Math.abs(base.sx) * view.k, ry = it.ry * Math.abs(base.sy) * view.k;
+      if (cx + rx < PAD.l || cx - rx > w - PAD.r || cy + ry < PAD.t || cy - ry > h - PAD.b) continue;
+      const hot = hovered === it;
+      data.appendChild(
+        el("ellipse", { cx, cy, rx: Math.max(rx, 4), ry: Math.max(ry, 4), fill: famColor(it.m.fam), "fill-opacity": hot ? 0.75 : 0.42, stroke: hot ? "var(--ink)" : famColor(it.m.fam), "stroke-width": hot ? 1.6 : 1 })
+      );
+      if (view.k > 1.7 || rx > 34 || hot) labels.push({ cx, cy, name: it.m.name, hot });
+    }
+    for (const L of labels) {
+      const t = el("text", { x: L.cx, y: L.cy - 4, "text-anchor": "middle", fill: "var(--ink)", "font-size": L.hot ? 12.5 : 11, "font-weight": L.hot ? 650 : 500, "paint-order": "stroke", stroke: "var(--surface)", "stroke-width": 3 });
+      t.textContent = L.name;
+      data.appendChild(t);
+    }
+
+    // axis titles
+    const xt = el("text", { x: (PAD.l + w - PAD.r) / 2, y: h - 8, "text-anchor": "middle", fill: "var(--ink-2)", "font-size": 12.5, "font-weight": 600 });
+    xt.textContent = `${PROPS[xsel.value].name}, ${PROPS[xsel.value].unit}  (log)`;
+    svg.appendChild(xt);
+    const yt = el("text", { x: 14, y: (PAD.t + h - PAD.b) / 2, fill: "var(--ink-2)", "font-size": 12.5, "font-weight": 600, transform: `rotate(-90 14 ${(PAD.t + h - PAD.b) / 2})`, "text-anchor": "middle" });
+    yt.textContent = `${PROPS[ysel.value].name}, ${PROPS[ysel.value].unit}  (log)`;
+    svg.appendChild(yt);
+
+    document.getElementById("count").textContent =
+      `${items.filter((i) => visible[i.m.fam]).length} materials · zoom ×${view.k.toFixed(1)}`;
+  }
+
+  // ---- interaction --------------------------------------------------------
+  function pick(px, py) {
+    let best = null, bestD = Infinity;
+    for (const it of items) {
+      if (!visible[it.m.fam]) continue;
+      const cx = SX(it.cx), cy = SY(it.cy);
+      const rx = Math.max(it.rx * Math.abs(base.sx) * view.k, 6);
+      const ry = Math.max(it.ry * Math.abs(base.sy) * view.k, 6);
+      const d = ((px - cx) / rx) ** 2 + ((py - cy) / ry) ** 2;
+      if (d < 1.15 && d < bestD) { bestD = d; best = it; }
+    }
+    return best;
+  }
+  function showTip(it, px, py) {
+    const m = it.m, f = FAM_BY_ID[m.fam];
+    tip.querySelector; // noop
+    tip.innerHTML =
+      `<div class="t-name">${m.name}</div>` +
+      `<div class="t-fam" style="color:${famColor(m.fam)}">${f.name}</div>` +
+      `<table>` +
+      Object.keys(PROPS)
+        .map((k) => `<tr><td>${PROPS[k].name}</td><td>${fmtRange(m[k], PROPS[k].unit)}</td></tr>`)
+        .join("") +
+      `</table>`;
+    tip.style.display = "block";
+    const r = svg.getBoundingClientRect();
+    tip.style.left = Math.min(px + 16, r.width - 275) + "px";
+    tip.style.top = Math.min(py + 12, r.height - tip.offsetHeight - 10) + "px";
+  }
+
+  const pointers = new Map();
+  let panStart = null, pinchStart = null;
+  svg.addEventListener("pointerdown", (e) => {
+    svg.setPointerCapture(e.pointerId);
+    pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+    if (pointers.size === 1) {
+      panStart = { x: e.offsetX, y: e.offsetY, tx: view.tx, ty: view.ty };
+      svg.classList.add("panning");
+    } else if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinchStart = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2, cy: (a[1] + b[1]) / 2, k: view.k, tx: view.tx, ty: view.ty };
+      panStart = null;
+    }
+  });
+  svg.addEventListener("pointermove", (e) => {
+    if (pointers.has(e.pointerId)) pointers.set(e.pointerId, [e.offsetX, e.offsetY]);
+    if (pinchStart && pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      const d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+      const s = Math.max(0.5, Math.min(40, (pinchStart.k * d) / pinchStart.d)) / pinchStart.k;
+      view.k = pinchStart.k * s;
+      view.tx = pinchStart.cx - (pinchStart.cx - pinchStart.tx) * s;
+      view.ty = pinchStart.cy - (pinchStart.cy - pinchStart.ty) * s;
+      render();
+      return;
+    }
+    if (panStart) {
+      view.tx = panStart.tx + (e.offsetX - panStart.x);
+      view.ty = panStart.ty + (e.offsetY - panStart.y);
+      render();
+      return;
+    }
+    const it = pick(e.offsetX, e.offsetY);
+    if (it !== hovered) { hovered = it; render(); }
+    if (it) showTip(it, e.offsetX, e.offsetY);
+    else tip.style.display = "none";
+  });
+  const endPtr = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinchStart = null;
+    if (pointers.size === 0) { panStart = null; svg.classList.remove("panning"); }
+  };
+  svg.addEventListener("pointerup", endPtr);
+  svg.addEventListener("pointercancel", endPtr);
+  svg.addEventListener("pointerleave", () => { if (hovered) { hovered = null; tip.style.display = "none"; render(); } });
+  svg.addEventListener("wheel", (e) => {
+    e.preventDefault();
+    const s = Math.exp(-e.deltaY * 0.0016);
+    const k = Math.max(0.5, Math.min(40, view.k * s));
+    const real = k / view.k;
+    view.tx = e.offsetX - (e.offsetX - view.tx) * real;
+    view.ty = e.offsetY - (e.offsetY - view.ty) * real;
+    view.k = k;
+    render();
+  }, { passive: false });
+  svg.addEventListener("dblclick", () => { view = { k: 1, tx: 0, ty: 0 }; render(); });
+
+  function rebuild() {
+    computeItems();
+    fitBase();
+    view = { k: 1, tx: 0, ty: 0 };
+    render();
+  }
+  xsel.onchange = rebuild;
+  ysel.onchange = rebuild;
+  new ResizeObserver(() => { fitBase(); render(); }).observe(svg);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+    document.querySelectorAll(".chip .dot").forEach((d, i) => (d.style.background = famColor(FAMILIES[i].id)));
+    render();
+  });
+  rebuild();
+</script>

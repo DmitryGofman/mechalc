@@ -72,13 +72,15 @@ const bAxis = (color: string, compact: boolean) => (
 );
 
 // Scaffolding shared by every beam mark: undeflected line + tip load before
-// the beam, wall slab over its root after.
+// the beam, wall slab over its root after. The load arrow stands off the
+// deflected tip by ~10% of the tile so the arrowhead reads as a separate
+// object rather than merging into the beam's top surface.
 const beamScaffold = (
   <>
     <path d="M108 196H436" stroke="#46515c" strokeWidth="12" strokeDasharray="4 30" strokeLinecap="round" />
     <g stroke="#5a95d8" fill="#5a95d8">
-      <path d="M436 122V254" strokeWidth="22" strokeLinecap="round" />
-      <path d="M436 316 401 254h70z" stroke="none" />
+      <path d="M436 71V203" strokeWidth="22" strokeLinecap="round" />
+      <path d="M436 265 401 203h70z" stroke="none" />
     </g>
   </>
 );

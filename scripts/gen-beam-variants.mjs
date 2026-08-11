@@ -95,8 +95,8 @@ function beamPaint(h, variant, gradPrefix) {
 const SCAFFOLD_PRE = `<path d="M108 196H436" stroke="#3d4954" stroke-width="7" stroke-dasharray="4 22"
         stroke-linecap="round"/>
   <g stroke="#5a95d8" fill="#5a95d8">
-    <path d="M436 128V268" stroke-width="13" stroke-linecap="round"/>
-    <path d="M436 316 409 268h54z" stroke="none"/>
+    <path d="M436 77V217" stroke-width="13" stroke-linecap="round"/>
+    <path d="M436 265 409 217h54z" stroke="none"/>
   </g>`;
 const WALL = `<rect x="0" y="96" width="92" height="260" fill="#131b23"/>
   <g stroke="#46515c" stroke-width="6" stroke-linecap="round">
