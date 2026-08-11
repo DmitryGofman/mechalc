@@ -6,11 +6,16 @@ import { MATERIALS, GROUP_ORDER, FAVORITES, poissonRatio } from "./materials";
 import {
   STRESS_RAISERS,
   DEFAULT_RAISER,
+  RD_VALID,
   shaftResults,
   torqueFromPower,
   powerFromTorque,
   twistMagnification,
+  ktsFor,
+  defaultRadius,
+  rdInRange,
 } from "./shaftMath";
+import { reportHTML, tipsHTML, type ShaftState } from "./shaftTheory";
 
 // ── The modelled surface ────────────────────────────────────────────
 // Every vertex of the shaft is defined by (radius, angle, axial station), so
@@ -63,27 +68,37 @@ const angDiff = (a: number, b: number) => {
 // should be the one you can see into.
 const KEY_ANGLE = 0.62;
 
-function buildFeature(raiserKey: string, Ro: number, Lv: number): Feature {
+/**
+ * Geometry for the chosen feature, cut at the radius the user specified.
+ * `rV` is that machined radius in view units, and `K` the Kts it produces —
+ * both come from the page, so the model you see and the number you read are
+ * the same feature.
+ */
+function buildFeature(raiserKey: string, Ro: number, Lv: number, rV: number, K: number): Feature {
   const sr = STRESS_RAISERS[raiserKey];
-  const K = sr?.Kts ?? 1;
   const plain: Feature = { rAt: () => Ro, nomR: () => Ro, conc: () => 1 };
   if (!sr || sr.kind === "none") return plain;
+  const rf = Math.max(rV, 1e-4);
 
   if (sr.kind === "keyseat") {
-    // Standard square key: width d/4, depth d/8. A sled-runner cutter walks in
-    // and out of the cut; an end mill leaves a square-ended pocket.
+    // Standard square key: width d/4, depth d/8 (ANSI B17.1). The adjustable
+    // radius is the one at the bottom corners — the corner the crack starts in.
     const depth = 0.25 * Ro;
     const hw = Math.asin(0.25); // half-angle the key width subtends
     const s0 = 0.42;
     const s1 = 0.97;
     const fade = sr.runout ? 0.1 : 0.012;
     const along = (s: number) => smooth((s - s0) / fade) * smooth((s1 - s) / fade);
+    // How much of the slot's half-width the corner radius eats into.
+    const corner = Math.min(0.85 * hw, rf / Math.max(Ro, 1e-6));
     return {
       nomR: () => Ro, // the section loss is already inside Kts
       rAt: (s, ang) => {
         const da = angDiff(ang, KEY_ANGLE);
         if (Math.abs(da) > hw) return Ro;
-        const dep = depth * along(s);
+        // Ease the floor back up into the wall over the corner radius.
+        const round = corner > 1e-6 ? smooth((hw - Math.abs(da)) / corner) : 1;
+        const dep = depth * along(s) * round;
         if (dep <= 1e-6) return Ro;
         return Math.min(Ro, (Ro - dep) / Math.cos(da)); // flat-bottomed slot
       },
@@ -98,8 +113,8 @@ function buildFeature(raiserKey: string, Ro: number, Lv: number): Feature {
   }
 
   if (sr.kind === "step") {
-    // Shoulder down to a bearing seat: the fillet radius is the whole story.
-    const rf = Math.max((sr.rd ?? 0.02) * 2 * Ro, 1e-4);
+    // Shoulder down to a bearing seat: the fillet radius is the whole story,
+    // and here it is drawn at the size you asked for.
     const Rbig = Ro + rf + 0.22 * Ro;
     const xs = 0.38 * Lv; // axial position of the shoulder, view units
     const rAt = (s: number) => {
@@ -115,12 +130,18 @@ function buildFeature(raiserKey: string, Ro: number, Lv: number): Feature {
     };
   }
 
-  // Retaining-ring groove: narrow, square-cornered, and far nastier than it looks.
-  const wg = 0.1 * Ro;
+  // Retaining-ring groove: standard depth ≈ 0.05d, and corners as sharp as the
+  // tool leaves them — which is the whole problem with it.
   const dep = 0.1 * Ro;
+  const wg = Math.max(0.1 * Ro, 2.2 * rf);
   const xg = 0.62 * Lv;
   return {
-    rAt: (s) => (Math.abs(s * Lv - xg) <= wg / 2 ? Ro - dep : Ro),
+    rAt: (s) => {
+      const dx = Math.abs(s * Lv - xg);
+      if (dx >= wg / 2) return Ro;
+      // Corner radius rounds the groove's shoulders.
+      return Ro - dep * smooth((wg / 2 - dx) / Math.max(rf, 1e-6));
+    },
     nomR: () => Ro, // Kts is quoted on the full-diameter nominal stress
     conc: (s) => 1 + (K - 1) * Math.exp(-Math.pow((s * Lv - xg) / (0.8 * wg), 2)),
   };
@@ -290,22 +311,29 @@ function Shaft3D({
   dIn,
   T,
   raiserKey,
+  featR,
+  Kts,
   interactive,
   E,
   sigmaY,
   nu,
   onLiveT,
+  snapRef,
 }: {
   L: number;
   dOut: number;
   dIn: number;
   T: number;
   raiserKey: string;
+  featR: number; // mm — the machined radius on the feature
+  Kts: number;
   interactive: boolean;
   E: number;
   sigmaY: number;
   nu: number;
   onLiveT: (n: number | null) => void;
+  /** Filled with a function that renders the scene onto paper white for print. */
+  snapRef?: { current: (() => string) | null };
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   // Yaw swings the free end toward the camera so the shaded end face reads;
@@ -340,11 +368,11 @@ function Shaft3D({
   const lastVibeRef = useRef(0);
   const audioRef = useRef<{ ctx: AudioContext; gain: GainNode; osc: OscillatorNode } | null>(null);
 
-  const propsRef = useRef({ interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, onLiveT });
+  const propsRef = useRef({ interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, featR, Kts, onLiveT });
   useEffect(() => {
-    propsRef.current = { interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, onLiveT };
+    propsRef.current = { interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, featR, Kts, onLiveT };
     forceRef.current = true;
-  }, [interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, onLiveT]);
+  }, [interactive, E, sigmaY, nu, L, dOut, dIn, raiserKey, featR, Kts, onLiveT]);
 
   useEffect(() => {
     designTRef.current = T;
@@ -414,7 +442,10 @@ function Shaft3D({
     fitRef.current = fitCamera;
     fitCamera();
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    // preserveDrawingBuffer keeps the canvas readable after the frame is
+    // presented, which is what lets the report grab a figure of the exact
+    // model on screen.
+    const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
     mount.appendChild(renderer.domElement);
@@ -437,7 +468,6 @@ function Shaft3D({
 
     const resultsFor = (t: number) => {
       const pr = propsRef.current;
-      const sr = STRESS_RAISERS[pr.raiserKey];
       return shaftResults(
         pr.E * 1e9,
         pr.sigmaY * 1e6,
@@ -446,7 +476,7 @@ function Shaft3D({
         pr.dIn / 1000,
         pr.L / 1000,
         t,
-        sr?.Kts ?? 1,
+        pr.Kts,
       );
     };
 
@@ -498,7 +528,11 @@ function Shaft3D({
       nrmAttr.needsUpdate = true;
       colAttr.needsUpdate = true;
 
-      // Scribe line: straight when unloaded, a helix once it winds up.
+      // Scribe line: straight when unloaded, a helix once it winds up. It has
+      // to lean the same way the lever is being pushed — the surface angle is
+      // measured as (sin, cos) of the section angle, which runs opposite to a
+      // rotation about +x, so the twist enters here negated. Getting this sign
+      // wrong makes the shaft wind up and the line spiral the other way.
       const scribe = scribeRef.current;
       const feat = featRef.current;
       const { Lv } = dimsRef.current;
@@ -507,7 +541,7 @@ function Shaft3D({
         const cnt = sp.length / 3;
         for (let i = 0; i < cnt; i++) {
           const s = i / (cnt - 1);
-          const a = thetaView * s;
+          const a = -thetaView * s;
           const rr = feat.rAt(s, 0) * 1.008;
           sp[i * 3] = -Lv / 2 + s * Lv;
           sp[i * 3 + 1] = rr * Math.sin(a);
@@ -523,7 +557,7 @@ function Shaft3D({
 
       // The grip warms with the shaft it is driving, so the thing under your
       // finger tells you how hard you are pushing without looking away.
-      const li = rampIndex(ratio * (STRESS_RAISERS[pr.raiserKey]?.Kts ?? 1));
+      const li = rampIndex(ratio * pr.Kts);
       const gripMat = gripRef.current?.material as THREE.MeshStandardMaterial | undefined;
       if (gripMat) {
         gripMat.color.setRGB(
@@ -610,6 +644,23 @@ function Shaft3D({
       if (a) a.gain.gain.setTargetAtTime(0, a.ctx.currentTime, 0.08);
       yieldRef.current = false;
     };
+
+    // The report needs a figure of this exact model. Re-rendering it on paper
+    // white beats screenshotting the dark canvas: a black rectangle is the
+    // thing that ruins a printed calculation sheet.
+    if (snapRef) {
+      snapRef.current = () => {
+        const dpr = renderer.getPixelRatio();
+        scene.background = new THREE.Color("#ffffff");
+        renderer.setPixelRatio(2);
+        renderer.render(scene, camera);
+        const url = renderer.domElement.toDataURL("image/png");
+        scene.background = new THREE.Color("#0b1015");
+        renderer.setPixelRatio(dpr);
+        renderer.render(scene, camera);
+        return url;
+      };
+    }
 
     let raf = 0;
     let lastApplied = NaN;
@@ -783,6 +834,7 @@ function Shaft3D({
         /* ignore */
       }
       audioRef.current = null;
+      if (snapRef) snapRef.current = null;
       renderer.dispose();
       if (el.parentNode) el.parentNode.removeChild(el);
     };
@@ -818,7 +870,7 @@ function Shaft3D({
     const Ro = (dOutV / 2) * scale;
     const Ri = (dInV / 2) * scale;
 
-    const feat = buildFeature(raiserKey, Ro, Lv);
+    const feat = buildFeature(raiserKey, Ro, Lv, featR * scale, Kts);
     featRef.current = feat;
     const sg = buildShaftGeometry(Ro, Ri, Lv, feat);
     shaftRef.current = sg;
@@ -910,7 +962,7 @@ function Shaft3D({
     fitRef.current?.();
     forceRef.current = true;
     applyRef.current?.(liveTRef.current);
-  }, [L, dOut, dIn, raiserKey]);
+  }, [L, dOut, dIn, raiserKey, featR, Kts]);
 
   return (
     <div>
@@ -932,11 +984,12 @@ function Shaft3D({
   );
 }
 
-// Equations behind the calculator, shown in the theory section.
+// Equations behind the calculator, shown in the theory tab.
 const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "τ = T·c / J = 16T / πd³", note: "Surface shear stress (solid shaft)" },
   { expr: "J = π(d⁴ − dᵢ⁴) / 32", note: "Polar second moment — hollow or solid" },
   { expr: "τmax = Kts · T·c / J", note: "Keyseat, fillet or groove multiplies it" },
+  { expr: "Kts = Kref·(r/d ÷ ref)^−0.238", note: "…and the radius you cut sets Kts" },
   { expr: "τallow = 0.577 · σy", note: "Distortion-energy shear yield" },
   { expr: "θ = T·L / G·J,  G = E / 2(1+ν)", note: "Angle of twist and the modulus it works on" },
   { expr: "kt = G·J / L", note: "Torsional stiffness, N·m per radian" },
@@ -944,25 +997,50 @@ const EQUATIONS: Array<{ expr: string; note: string }> = [
   { expr: "n = τallow / τmax", note: "Safety factor against shear yield" },
 ];
 
+type Tab = "model" | "theory" | "tips";
+const TABS: [Tab, string][] = [
+  ["model", "Model"],
+  ["theory", "Theory & report"],
+  ["tips", "Design tips"],
+];
+
+const MONO = "var(--mono)";
+
 export default function ShaftCalc() {
   const [matKey, setMatKey] = useState("Steel 1045 (cold drawn)");
   const [raiserKey, setRaiserKey] = useState(DEFAULT_RAISER);
   const [hollow, setHollow] = useState("Solid");
   const [dOut, setDOut] = useState("25"); // mm
   const [dIn, setDIn] = useState("15"); // mm
-  const [L, setL] = useState("500"); // mm
+  const [L, setL] = useState("100"); // mm
   const [drive, setDrive] = useState("Torque");
   const [Tin, setTin] = useState("120"); // N·m
   const [kW, setKW] = useState("5.5"); // kW
   const [rpm, setRpm] = useState("1450");
+  // The machined radius on the feature, in mm. Null means "follow the
+  // handbook" — the standard radius its Kts is quoted at, which tracks the
+  // diameter until you take the wheel.
+  const [featRIn, setFeatRIn] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("model");
   const [interactive, setInteractive] = useState(true);
   const [liveT, setLiveT] = useState<number | null>(null);
+  const [printDoc, setPrintDoc] = useState<{ brief: boolean; img: string } | null>(null);
+  const snapRef = useRef<(() => string) | null>(null);
 
   const mat = MATERIALS[matKey];
   const nu = poissonRatio(mat);
   const raiser = STRESS_RAISERS[raiserKey];
   const isHollow = hollow !== "Solid";
   const bore = isHollow ? num(dIn) : 0;
+  const dMM = num(dOut);
+
+  // Radius, r/d and the Kts it implies — one chain, so the model you drag and
+  // the number you read can never disagree.
+  const featR = featRIn != null ? num(featRIn) : defaultRadius(raiser, dMM);
+  const rd = dMM > 0 ? featR / dMM : 0;
+  const Kts = ktsFor(raiser, rd);
+  const hasRadius = !!raiser.rdRef;
+  const radiusOdd = hasRadius && !rdInRange(rd);
 
   // Either the torque is given, or it comes from the power the shaft carries.
   const designT = drive === "Torque" ? num(Tin) : torqueFromPower(num(kW) * 1000, num(rpm));
@@ -971,17 +1049,8 @@ export default function ShaftCalc() {
 
   const r = useMemo(
     () =>
-      shaftResults(
-        mat.E * 1e9,
-        mat.sigmaY * 1e6,
-        nu,
-        num(dOut) / 1000,
-        bore / 1000,
-        num(L) / 1000,
-        effT,
-        raiser.Kts,
-      ),
-    [mat, nu, dOut, bore, L, effT, raiser],
+      shaftResults(mat.E * 1e9, mat.sigmaY * 1e6, nu, dMM / 1000, bore / 1000, num(L) / 1000, effT, Kts),
+    [mat, nu, dMM, bore, L, effT, Kts],
   );
   const power = powerFromTorque(effT, num(rpm));
   const mag = twistMagnification(r.thetaYield);
@@ -992,8 +1061,74 @@ export default function ShaftCalc() {
       : r.SF >= 1
         ? { c: "#d9a441", t: "MARGINAL" }
         : { c: "#d65c5c", t: "YIELDING" };
-
   const twistTight = r.twistUtil > 1;
+
+  // Everything the long-form pages need, in one bundle.
+  const state: ShaftState = {
+    matKey,
+    E: mat.E,
+    sigmaY: mat.sigmaY,
+    nu,
+    dOut: dMM,
+    dIn: bore,
+    L: num(L),
+    hollow: isHollow,
+    T: designT,
+    rpm: num(rpm),
+    raiserKey,
+    raiser,
+    featR,
+    Kts,
+    r,
+  };
+
+  // Printing renders a document of its own rather than re-skinning the live
+  // page: inline dark backgrounds beat any @media print rule, and re-skinning
+  // is what turns an exported calculation sheet into black slabs.
+  const exportPDF = (brief: boolean) => setPrintDoc({ brief, img: snapRef.current?.() ?? "" });
+  useEffect(() => {
+    if (!printDoc) return;
+    let done = false;
+    const finish = () => {
+      if (!done) {
+        done = true;
+        setPrintDoc(null);
+      }
+    };
+    window.addEventListener("afterprint", finish);
+    // Two frames: one to mount the print document, one to lay it out.
+    const raf = requestAnimationFrame(() =>
+      requestAnimationFrame(() => {
+        window.print();
+        setTimeout(finish, 700);
+      }),
+    );
+    return () => {
+      window.removeEventListener("afterprint", finish);
+      cancelAnimationFrame(raf);
+    };
+  }, [printDoc]);
+
+  const lab = {
+    fontSize: 10,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase" as const,
+    color: "#6b7884",
+    fontFamily: MONO,
+  };
+  const hint = { fontFamily: MONO, fontSize: 10, color: "#46515c", lineHeight: 1.6 };
+  const btn = {
+    fontFamily: MONO,
+    fontSize: 10,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase" as const,
+    cursor: "pointer",
+    borderRadius: 2,
+    padding: "7px 11px",
+    background: "#0e1419",
+    border: "1px solid #1f2a33",
+    color: "#8b97a3",
+  };
 
   return (
     <div
@@ -1001,27 +1136,19 @@ export default function ShaftCalc() {
       style={{
         ["--mono" as string]: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
         ["--sans" as string]: "'Inter', system-ui, sans-serif",
-        background: "#080c10",
         minHeight: "100vh",
         color: "#e8edf1",
         fontFamily: "var(--sans)",
       }}
     >
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div className="calc-page" style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* Header */}
         <div
           className="flexure-header"
-          style={{ borderBottom: "1px solid #1f2a33", paddingBottom: 14, marginBottom: 22 }}
+          style={{ borderBottom: "1px solid #1f2a33", paddingBottom: 14, marginBottom: 4 }}
         >
           <div>
-            <div
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: 10,
-                letterSpacing: "0.25em",
-                color: "#3a78c2",
-              }}
-            >
+            <div style={{ fontFamily: MONO, fontSize: 10, letterSpacing: "0.25em", color: "#3a78c2" }}>
               MECHCALC · DRIVETRAIN
             </div>
             <h1
@@ -1031,304 +1158,334 @@ export default function ShaftCalc() {
               Shaft in Torsion
             </h1>
           </div>
-          <div
-            style={{
-              textAlign: "right",
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              color: "#46515c",
-              lineHeight: 1.6,
-            }}
-          >
+          <div style={{ textAlign: "right", fontFamily: MONO, fontSize: 10, color: "#46515c", lineHeight: 1.6 }}>
             <div>τ = 16T / πd³</div>
             <div>θ = TL / GJ</div>
           </div>
         </div>
 
-        <div className="flexure-grid">
-          {/* INPUTS */}
-          <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label
-                style={{
-                  fontSize: 10,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "#6b7884",
-                  fontFamily: "var(--mono)",
-                }}
-              >
-                Material
-              </label>
-              <select
-                value={matKey}
-                onChange={(e) => setMatKey(e.target.value)}
-                style={{
-                  background: "#0e1419",
-                  border: "1px solid #1f2a33",
-                  borderRadius: 2,
-                  color: "#e8edf1",
-                  padding: "9px 11px",
-                  fontFamily: "var(--mono)",
-                  fontSize: 14,
-                  outline: "none",
-                }}
-              >
-                <optgroup label="★ Favorites">
-                  {FAVORITES.map((k) => (
-                    <option key={`fav-${k}`} value={k}>
-                      {k}
-                    </option>
-                  ))}
-                </optgroup>
-                {GROUP_ORDER.map((g) => (
-                  <optgroup key={g} label={g}>
-                    {Object.keys(MATERIALS)
-                      .filter((k) => MATERIALS[k].grp === g)
-                      .map((k) => (
-                        <option key={k} value={k}>
-                          {k}
-                        </option>
-                      ))}
-                  </optgroup>
-                ))}
-              </select>
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c", marginTop: 2 }}>
-                G = {(r.G / 1e9).toFixed(1)} GPa (E {mat.E} · ν {nu.toFixed(2)}) · τ_allow{" "}
-                {(r.tauAllow / 1e6).toFixed(0)} MPa
-              </div>
-            </div>
-
-            <Select label="Section" value={hollow} onChange={setHollow} options={["Solid", "Hollow (tube)"]} />
-            <Field label="Outer diameter d" unit="mm" value={dOut} onChange={setDOut} min="0" step="1" />
-            {isHollow && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <Field label="Bore dᵢ" unit="mm" value={dIn} onChange={setDIn} min="0" step="1" />
-                <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c" }}>
-                  wall {((num(dOut) - bore) / 2).toFixed(1)} mm · {(100 * r.AFrac).toFixed(0)}% of the
-                  metal for {(100 * r.JFrac).toFixed(0)}% of J
-                </div>
-              </div>
-            )}
-            <Field label="Length L" unit="mm" value={L} onChange={setL} min="0" step="10" />
-
-            <Select label="Drive input" value={drive} onChange={setDrive} options={["Torque", "Power & speed"]} />
-            {drive === "Torque" ? (
-              <Field label="Torque T" unit="N·m" value={Tin} onChange={setTin} min="0" step="5" />
-            ) : (
-              <Field label="Power P" unit="kW" value={kW} onChange={setKW} min="0" step="0.5" />
-            )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <Field label="Shaft speed n" unit="rpm" value={rpm} onChange={setRpm} min="0" step="50" />
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c" }}>
-                {drive === "Torque"
-                  ? `carries ${(power / 1000).toFixed(2)} kW at this speed`
-                  : `→ T = ${designT.toFixed(1)} N·m`}
-              </div>
-            </div>
-
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <Select
-                label="Stress raiser"
-                value={raiserKey}
-                onChange={setRaiserKey}
-                options={Object.keys(STRESS_RAISERS)}
-              />
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#46515c" }}>
-                Kts = {raiser.Kts.toFixed(1)} · {raiser.note}
-              </div>
-            </div>
-          </div>
-
-          {/* OUTPUTS */}
-          <div>
-            <div
-              style={{
-                background: "#0b1015",
-                border: `1px solid ${status.c}33`,
-                borderRadius: 3,
-                padding: "14px 16px",
-                marginBottom: 16,
-              }}
+        <div className="tabbar" role="tablist">
+          {TABS.map(([k, t]) => (
+            <button
+              key={k}
+              role="tab"
+              aria-selected={tab === k}
+              className={`tabbtn${tab === k ? " on" : ""}`}
+              onClick={() => setTab(k)}
             >
-              <div
-                className="flexure-sf-head"
-                style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
-              >
-                <span style={{ fontFamily: "var(--mono)", fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
-                  TORSION SF
-                </span>
-                <span
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: 10,
-                    fontWeight: 700,
-                    letterSpacing: "0.15em",
-                    color: status.c,
-                    border: `1px solid ${status.c}`,
-                    borderRadius: 2,
-                    padding: "2px 7px",
-                  }}
-                >
-                  {status.t}
-                </span>
-              </div>
-              <div
-                className="flexure-sf"
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 38,
-                  fontWeight: 600,
-                  color: status.c,
-                  marginTop: 6,
-                  fontVariantNumeric: "tabular-nums",
-                }}
-              >
-                {isFinite(r.SF) ? r.SF.toFixed(2) : "∞"}
-              </div>
-              <div style={{ fontFamily: "var(--mono)", fontSize: 10, color: "#6b7884" }}>
-                peak shear vs 0.577·σy
-              </div>
-            </div>
-
-            <Readout
-              label="Peak shear τmax"
-              value={(r.tauPeak / 1e6).toFixed(1)}
-              unit="MPa"
-              accent={status.c}
-              hint={`nominal ${(r.tauNom / 1e6).toFixed(1)} × Kts ${raiser.Kts.toFixed(1)}`}
-            />
-            <Readout
-              label="Torque capacity"
-              value={r.Tyield >= 1000 ? (r.Tyield / 1000).toFixed(2) : r.Tyield.toFixed(1)}
-              unit={r.Tyield >= 1000 ? "kN·m" : "N·m"}
-              hint={`at SF 1 · ${(powerFromTorque(r.Tyield, num(rpm)) / 1000).toFixed(1)} kW here`}
-            />
-            <Readout
-              label="Angle of twist θ"
-              value={Math.abs(r.thetaDeg).toFixed(2)}
-              unit="°"
-              accent={twistTight ? "#d9a441" : undefined}
-              hint={`${Math.abs(r.degPerM).toFixed(2)} °/m · ${twistTight ? "over" : "under"} the 1°/20d limit, ${r.twistLimitDeg.toFixed(2)}°`}
-            />
-            <Readout
-              label="Torsional stiffness"
-              value={r.ktDeg >= 1000 ? (r.ktDeg / 1000).toFixed(2) : r.ktDeg.toFixed(1)}
-              unit={r.ktDeg >= 1000 ? "kN·m/°" : "N·m/°"}
-              hint={`GJ = ${(r.G * r.J).toFixed(0)} N·m²`}
-            />
-            <Readout
-              label="Polar moment J"
-              value={(r.J * 1e12).toFixed(0)}
-              unit="mm⁴"
-              hint={
-                isHollow
-                  ? `${(100 * r.JFrac).toFixed(0)}% of solid, ${(100 * r.AFrac).toFixed(0)}% of the metal`
-                  : `Zp ${(r.Zp * 1e9).toFixed(0)} mm³`
-              }
-            />
-          </div>
+              {t}
+            </button>
+          ))}
         </div>
 
-        {/* SHAFT VISUALIZATION — 3D */}
-        <div
-          className="flexure-viz"
-          style={{
-            marginTop: 24,
-            background: "#0b1015",
-            border: "1px solid #141c22",
-            borderRadius: 3,
-            padding: 16,
-          }}
-        >
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 8,
-              flexWrap: "wrap",
-            }}
-          >
+        {/* ── MODEL ─────────────────────────────────────────────────── */}
+        <div className={`tabpane${tab === "model" ? " on" : ""}`}>
+          <div className="flexure-grid" style={{ marginTop: 14 }}>
+            {/* INPUTS */}
+            <div className="flexure-inputs" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <label style={lab}>Material</label>
+                <select
+                  value={matKey}
+                  onChange={(e) => setMatKey(e.target.value)}
+                  style={{
+                    background: "#0e1419",
+                    border: "1px solid #1f2a33",
+                    borderRadius: 2,
+                    color: "#e8edf1",
+                    padding: "9px 11px",
+                    fontFamily: MONO,
+                    fontSize: 14,
+                    outline: "none",
+                  }}
+                >
+                  <optgroup label="★ Favorites">
+                    {FAVORITES.map((k) => (
+                      <option key={`fav-${k}`} value={k}>
+                        {k}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {GROUP_ORDER.map((g) => (
+                    <optgroup key={g} label={g}>
+                      {Object.keys(MATERIALS)
+                        .filter((k) => MATERIALS[k].grp === g)
+                        .map((k) => (
+                          <option key={k} value={k}>
+                            {k}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <div style={{ ...hint, marginTop: 2 }}>
+                  G = {(r.G / 1e9).toFixed(1)} GPa (E {mat.E} · ν {nu.toFixed(2)}) · τ_allow{" "}
+                  {(r.tauAllow / 1e6).toFixed(0)} MPa
+                </div>
+              </div>
+
+              <Select label="Section" value={hollow} onChange={setHollow} options={["Solid", "Hollow (tube)"]} />
+              <Field label="Outer diameter d" unit="mm" value={dOut} onChange={setDOut} min="0" step="1" />
+              {isHollow && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <Field label="Bore dᵢ" unit="mm" value={dIn} onChange={setDIn} min="0" step="1" />
+                  <div style={hint}>
+                    wall {((dMM - bore) / 2).toFixed(1)} mm · {(100 * r.AFrac).toFixed(0)}% of the metal for{" "}
+                    {(100 * r.JFrac).toFixed(0)}% of J
+                  </div>
+                </div>
+              )}
+              <Field label="Length L" unit="mm" value={L} onChange={setL} min="0" step="10" />
+
+              <Select label="Drive input" value={drive} onChange={setDrive} options={["Torque", "Power & speed"]} />
+              {drive === "Torque" ? (
+                <Field label="Torque T" unit="N·m" value={Tin} onChange={setTin} min="0" step="5" />
+              ) : (
+                <Field label="Power P" unit="kW" value={kW} onChange={setKW} min="0" step="0.5" />
+              )}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Field label="Shaft speed n" unit="rpm" value={rpm} onChange={setRpm} min="0" step="50" />
+                <div style={hint}>
+                  {drive === "Torque"
+                    ? `carries ${(power / 1000).toFixed(2)} kW at this speed`
+                    : `→ T = ${designT.toFixed(1)} N·m`}
+                </div>
+              </div>
+
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <Select
+                  label="Stress raiser"
+                  value={raiserKey}
+                  onChange={(k) => {
+                    setRaiserKey(k);
+                    setFeatRIn(null); // back to that feature's standard radius
+                  }}
+                  options={Object.keys(STRESS_RAISERS)}
+                />
+                <div style={hint}>{raiser.note}</div>
+              </div>
+
+              {/* The radius is the design. Slider + box, because you want to
+                  sweep it and you also want to type the one on the drawing. */}
+              {hasRadius && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <Field
+                    label={raiser.rLabel ?? "Feature radius r"}
+                    unit="mm"
+                    value={featRIn ?? featR.toFixed(2)}
+                    onChange={setFeatRIn}
+                    min="0"
+                    step="0.05"
+                  />
+                  <input
+                    type="range"
+                    min={Math.max(0.01, 0.004 * dMM)}
+                    max={Math.max(0.05, 0.32 * dMM)}
+                    step={Math.max(0.01, dMM / 500)}
+                    value={featR}
+                    aria-label={raiser.rLabel ?? "Feature radius"}
+                    onChange={(e) => setFeatRIn(e.target.value)}
+                    style={{ width: "100%", accentColor: status.c, minWidth: 0 }}
+                  />
+                  <div style={hint}>
+                    r/d = {rd.toFixed(3)} → <span style={{ color: status.c }}>Kts = {Kts.toFixed(2)}</span>
+                    {featRIn != null && (
+                      <>
+                        {" · "}
+                        <button
+                          className="linkish"
+                          onClick={() => setFeatRIn(null)}
+                          style={{ font: "inherit", color: "#3a78c2" }}
+                        >
+                          standard ({defaultRadius(raiser, dMM).toFixed(2)} mm)
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  {radiusOdd && (
+                    <div style={{ ...hint, color: "#d9a441" }}>
+                      outside r/d {RD_VALID[0]}–{RD_VALID[1]} — extrapolated, treat as a trend
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* OUTPUTS */}
             <div>
               <div
                 style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 10,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: "#6b7884",
+                  background: "#0b1015",
+                  border: `1px solid ${status.c}33`,
+                  borderRadius: 3,
+                  padding: "14px 16px",
+                  marginBottom: 16,
                 }}
               >
-                Wind-up · 3D
+                <div
+                  className="flexure-sf-head"
+                  style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                >
+                  <span style={{ fontFamily: MONO, fontSize: 11, letterSpacing: "0.15em", color: "#6b7884" }}>
+                    TORSION SF
+                  </span>
+                  <span
+                    style={{
+                      fontFamily: MONO,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.15em",
+                      color: status.c,
+                      border: `1px solid ${status.c}`,
+                      borderRadius: 2,
+                      padding: "2px 7px",
+                    }}
+                  >
+                    {status.t}
+                  </span>
+                </div>
+                <div
+                  className="flexure-sf"
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 38,
+                    fontWeight: 600,
+                    color: status.c,
+                    marginTop: 6,
+                    fontVariantNumeric: "tabular-nums",
+                  }}
+                >
+                  {isFinite(r.SF) ? r.SF.toFixed(2) : "∞"}
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: "#6b7884" }}>peak shear vs 0.577·σy</div>
               </div>
-              <div
-                style={{
-                  fontFamily: "var(--mono)",
-                  fontSize: 10,
-                  color: isLive ? status.c : "#46515c",
-                  marginTop: 2,
-                }}
-              >
-                {isLive
-                  ? `● winding · T ${effT.toFixed(0)} N·m · ${(100 * r.tauPeak / r.tauAllow).toFixed(0)}% of shear yield · θ ${Math.abs(r.thetaDeg).toFixed(2)}°`
-                  : `${isHollow ? `Ø${num(dOut)}×Ø${bore}` : `Ø${num(dOut)}`} × ${num(L)} mm · twist shown ×${mag < 2 ? mag.toFixed(1) : mag.toFixed(0)}`}
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                const nv = !interactive;
-                setInteractive(nv);
-                if (!nv) setLiveT(null);
-              }}
-              style={{
-                fontFamily: "var(--mono)",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                borderRadius: 2,
-                padding: "6px 10px",
-                background: interactive ? `${status.c}1f` : "#0e1419",
-                border: `1px solid ${interactive ? status.c : "#1f2a33"}`,
-                color: interactive ? status.c : "#8b97a3",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {interactive ? "● Interactive" : "Interactive"}
-            </button>
-          </div>
-          <Shaft3D
-            L={num(L)}
-            dOut={num(dOut)}
-            dIn={bore}
-            T={designT}
-            raiserKey={raiserKey}
-            interactive={interactive}
-            E={mat.E}
-            sigmaY={mat.sigmaY}
-            nu={nu}
-            onLiveT={setLiveT}
-          />
-        </div>
 
-        {/* THEORY & EQUATIONS */}
-        <div style={{ marginTop: 24, borderTop: "1px solid #1f2a33", paddingTop: 18 }}>
+              <Readout
+                label="Peak shear τmax"
+                value={(r.tauPeak / 1e6).toFixed(1)}
+                unit="MPa"
+                accent={status.c}
+                hint={`nominal ${(r.tauNom / 1e6).toFixed(1)} × Kts ${Kts.toFixed(2)}`}
+              />
+              <Readout
+                label="Torque capacity"
+                value={r.Tyield >= 1000 ? (r.Tyield / 1000).toFixed(2) : r.Tyield.toFixed(1)}
+                unit={r.Tyield >= 1000 ? "kN·m" : "N·m"}
+                hint={`at SF 1 · ${(powerFromTorque(r.Tyield, num(rpm)) / 1000).toFixed(1)} kW here`}
+              />
+              <Readout
+                label="Angle of twist θ"
+                value={Math.abs(r.thetaDeg).toFixed(2)}
+                unit="°"
+                accent={twistTight ? "#d9a441" : undefined}
+                hint={`${Math.abs(r.degPerM).toFixed(2)} °/m · ${twistTight ? "over" : "under"} the 1°/20d limit, ${r.twistLimitDeg.toFixed(2)}°`}
+              />
+              <Readout
+                label="Torsional stiffness"
+                value={r.ktDeg >= 1000 ? (r.ktDeg / 1000).toFixed(2) : r.ktDeg.toFixed(1)}
+                unit={r.ktDeg >= 1000 ? "kN·m/°" : "N·m/°"}
+                hint={`GJ = ${(r.G * r.J).toFixed(0)} N·m²`}
+              />
+              <Readout
+                label="Polar moment J"
+                value={(r.J * 1e12).toFixed(0)}
+                unit="mm⁴"
+                hint={
+                  isHollow
+                    ? `${(100 * r.JFrac).toFixed(0)}% of solid, ${(100 * r.AFrac).toFixed(0)}% of the metal`
+                    : `Zp ${(r.Zp * 1e9).toFixed(0)} mm³`
+                }
+              />
+            </div>
+          </div>
+
+          {/* 3D */}
           <div
+            className="flexure-viz"
             style={{
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#3a78c2",
-              marginBottom: 12,
+              marginTop: 24,
+              background: "#0b1015",
+              border: "1px solid #141c22",
+              borderRadius: 3,
+              padding: 16,
             }}
           >
-            Theory &amp; Equations
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 8,
+                flexWrap: "wrap",
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontFamily: MONO,
+                    fontSize: 10,
+                    letterSpacing: "0.12em",
+                    textTransform: "uppercase",
+                    color: "#6b7884",
+                  }}
+                >
+                  Wind-up · 3D
+                </div>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: isLive ? status.c : "#46515c", marginTop: 2 }}>
+                  {isLive
+                    ? `● winding · T ${effT.toFixed(0)} N·m · ${((100 * r.tauPeak) / r.tauAllow).toFixed(0)}% of shear yield · θ ${Math.abs(r.thetaDeg).toFixed(2)}°`
+                    : `${isHollow ? `Ø${dMM}×Ø${bore}` : `Ø${dMM}`} × ${num(L)} mm · twist shown ×${mag < 2 ? mag.toFixed(1) : mag.toFixed(0)}`}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  const nv = !interactive;
+                  setInteractive(nv);
+                  if (!nv) setLiveT(null);
+                }}
+                style={{
+                  ...btn,
+                  background: interactive ? `${status.c}1f` : "#0e1419",
+                  border: `1px solid ${interactive ? status.c : "#1f2a33"}`,
+                  color: interactive ? status.c : "#8b97a3",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {interactive ? "● Interactive" : "Interactive"}
+              </button>
+            </div>
+            <Shaft3D
+              L={num(L)}
+              dOut={dMM}
+              dIn={bore}
+              T={designT}
+              raiserKey={raiserKey}
+              featR={featR}
+              Kts={Kts}
+              interactive={interactive}
+              E={mat.E}
+              sigmaY={mat.sigmaY}
+              nu={nu}
+              onLiveT={setLiveT}
+              snapRef={snapRef}
+            />
+          </div>
+        </div>
+
+        {/* ── THEORY & REPORT ───────────────────────────────────────── */}
+        <div className={`tabpane${tab === "theory" ? " on" : ""}`}>
+          <div className="btnrow">
+            <button style={btn} onClick={() => exportPDF(true)}>
+              ⇩ One-page summary
+            </button>
+            <button style={btn} onClick={() => exportPDF(false)}>
+              ⇩ Full report
+            </button>
+            <span style={{ ...hint, flex: 1 }}>opens your browser&apos;s print dialog — choose “Save as PDF”</span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 16 }}>
             {EQUATIONS.map((eq) => (
               <div
                 key={eq.expr}
@@ -1342,107 +1499,127 @@ export default function ShaftCalc() {
                   flexWrap: "wrap",
                 }}
               >
-                <span
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: 13,
-                    color: "#e8edf1",
-                    whiteSpace: "nowrap",
-                  }}
-                >
+                <span style={{ fontFamily: MONO, fontSize: 13, color: "#e8edf1", whiteSpace: "nowrap" }}>
                   {eq.expr}
                 </span>
-                <span
-                  style={{
-                    fontFamily: "var(--mono)",
-                    fontSize: 10,
-                    color: "#6b7884",
-                    textAlign: "right",
-                  }}
-                >
+                <span style={{ fontFamily: MONO, fontSize: 10, color: "#6b7884", textAlign: "right" }}>
                   {eq.note}
                 </span>
               </div>
             ))}
           </div>
-
-          <div
-            style={{
-              fontFamily: "var(--mono)",
-              fontSize: 10,
-              color: "#46515c",
-              marginTop: 10,
-              lineHeight: 1.6,
-            }}
-          >
-            T torque · J polar second moment · c outer radius · Zp J/c · G shear modulus · ν Poisson&apos;s
-            ratio · θ angle of twist · Kts torsional stress-concentration factor · n safety factor
+          <div style={{ ...hint, marginTop: 10 }}>
+            T torque · J polar second moment · c outer radius · Zp J/c · G shear modulus · ν Poisson&apos;s ratio ·
+            θ angle of twist · Kts torsional stress-concentration factor · n safety factor
           </div>
 
-          <p style={{ fontFamily: "var(--sans)", fontSize: 12.5, color: "#8b97a3", marginTop: 16, lineHeight: 1.7 }}>
-            <strong style={{ color: "#c2ccd4" }}>What torsion does.</strong> Twist a round shaft and every
-            cross-section stays flat and round — it simply rotates, by an amount proportional to how far it
-            is from the fixed end. That single assumption gives the whole theory: the shear strain at radius
-            r is γ = rθ/L, so the stress rises linearly from nothing on the axis to τ = Tc/J at the surface.
-            The scribe line in the 3D view is the strain made visible — a straight line on the surface shears
-            into a helix, and its lean at the free end is γ at the outer fibre.
-          </p>
-          <p style={{ fontFamily: "var(--sans)", fontSize: 12.5, color: "#8b97a3", marginTop: 10, lineHeight: 1.7 }}>
-            <strong style={{ color: "#c2ccd4" }}>Why hollow shafts win.</strong> Because stress grows with
-            radius, the metal near the axis carries almost nothing while weighing just as much as the metal
-            at the surface. J goes as d⁴ and area only as d², so boring the middle out of a shaft is nearly
-            free: a Ø25 shaft with a Ø15 bore throws away 36% of the metal and keeps 87% of both the strength
-            and the stiffness. The end faces in the 3D view are shaded with that radial gradient — the cool
-            core is the material you can delete. It is also why a torque tube beats a solid bar of the same
-            mass every time, and why the winner in bending (an I-beam) loses in torsion: an open section has
-            no closed shear path.
-          </p>
-          <p style={{ fontFamily: "var(--sans)", fontSize: 12.5, color: "#8b97a3", marginTop: 10, lineHeight: 1.7 }}>
-            <strong style={{ color: "#c2ccd4" }}>Shafts break at their features.</strong> The nominal stress
-            almost never governs — the keyseat does. A profiled (end-milled) keyway triples the surface shear
-            at its bottom corners, so a shaft with a comfortable SF of 3 on plain section is at yield the
-            moment you cut the keyway for the pulley. Sled-runner keyseats and generous shoulder fillets are
-            the cheap fixes: switching from a sharp shoulder (Kts 2.2) to a well-rounded one (1.5) buys back
-            a third of the capacity for the price of a different tool radius. Watch the hot band in the 3D
-            view stay pinned to the feature no matter how the rest of the shaft is loaded.
-          </p>
-          <p style={{ fontFamily: "var(--sans)", fontSize: 12.5, color: "#8b97a3", marginTop: 10, lineHeight: 1.7 }}>
-            <strong style={{ color: "#c2ccd4" }}>Stiffness usually governs first.</strong> Strength is not
-            the only limit: too much wind-up puts a driveshaft&apos;s timing out, upsets a leadscrew&apos;s
-            position, and stores energy that comes back as torsional vibration. The workshop rule of thumb —
-            no more than 1° of twist per 20 diameters of length — is what the twist readout checks against,
-            and long slender shafts fail it long before they get anywhere near shear yield.
-          </p>
-          <p style={{ fontFamily: "var(--sans)", fontSize: 12.5, color: "#8b97a3", marginTop: 10, lineHeight: 1.7 }}>
-            <strong style={{ color: "#c2ccd4" }}>Scope.</strong> Static torque only, on a prismatic circular
-            section of isotropic material — no bending, no axial load, no combined-stress envelope, and no
-            fatigue. A real drive shaft sees all of them: a rotating shaft with a steady bending load is in
-            fully reversed bending, where the fatigue limit and the fatigue notch factor Kf (not Kts) govern,
-            so treat this as the first sizing pass and apply a service factor for shock loads. The Kts values
-            are first-iteration estimates; a keyway also removes section, which is folded into Kts rather
-            than into J. Non-circular sections warp out of plane and do not obey any of this.
-          </p>
+          <div dangerouslySetInnerHTML={{ __html: reportHTML(state) }} />
 
-          <p
-            style={{
-              fontFamily: "var(--sans)",
-              fontSize: 12.5,
-              color: "#b9c3cc",
-              marginTop: 16,
-              paddingTop: 12,
-              borderTop: "1px dashed #1f2a33",
-              lineHeight: 1.7,
-            }}
-          >
-            <span style={{ textDecoration: "underline", textUnderlineOffset: 3, color: "#e8edf1" }}>
-              In short:
-            </span>{" "}
-            torsional capacity scales with the cube of the diameter, so a 26% bigger shaft is twice as
-            strong — but only if you don&apos;t cut a keyway into it. Size it on the feature, not the
-            section, check the wind-up before you sign off, and if weight matters, bore the middle out: it
-            was never doing any work.
+          <p className="calc-note">
+            <strong>In short:</strong> torsional capacity scales with the cube of the diameter, so a 26% bigger
+            shaft is twice as strong — but only if you don&apos;t cut a keyway into it. Size it on the feature,
+            not the section, check the wind-up before you sign off, and if weight matters, bore the middle out:
+            it was never doing any work.
           </p>
         </div>
+
+        {/* ── DESIGN TIPS ───────────────────────────────────────────── */}
+        <div className={`tabpane${tab === "tips" ? " on" : ""}`}>
+          <div className="theory" dangerouslySetInnerHTML={{ __html: tipsHTML(state) }} />
+        </div>
+
+        {/* The print document. Mounted only while printing, and the only thing
+            @media print lets through on this page. */}
+        {printDoc && (
+          <div className={`calc-print ${printDoc.brief ? "brief" : "full"}`}>
+            <div className="ph">
+              <h1>Shaft in Torsion — {printDoc.brief ? "bench sheet" : "design calculation"}</h1>
+              <div className="meta">
+                {isHollow ? `Ø${dMM} × Ø${bore} bore` : `Ø${dMM} solid`} × {num(L)} mm · {matKey} · {raiserKey}
+                {hasRadius ? ` r ${featR.toFixed(2)} mm (r/d ${rd.toFixed(3)})` : ""}
+                <br />
+                T = {designT.toFixed(1)} N·m at {num(rpm)} rpm = {(powerFromTorque(designT, num(rpm)) / 1000).toFixed(2)} kW
+                {" · "}MechCalc — design check, not a substitute for full analysis
+              </div>
+            </div>
+
+            <div className="headline" style={{ borderColor: r.SF >= 1 ? "#0a6b3d" : "#a01d1d" }}>
+              <span className="n" style={{ color: r.SF >= 1 ? "#0a6b3d" : "#a01d1d" }}>
+                n = {isFinite(r.SF) ? r.SF.toFixed(2) : "∞"}
+              </span>
+              <span className="w">
+                τmax {(r.tauPeak / 1e6).toFixed(1)} MPa vs {(r.tauAllow / 1e6).toFixed(0)} MPa allowable ·
+                capacity {r.Tyield.toFixed(1)} N·m · twist {Math.abs(r.thetaDeg).toFixed(2)}° (limit{" "}
+                {r.twistLimitDeg.toFixed(2)}°)
+              </span>
+            </div>
+
+            {printDoc.img && (
+              <figure className="fig">
+                <img src={printDoc.img} alt="3D view of the shaft, coloured by shear stress" />
+                <figcaption>
+                  The shaft as modelled, shaded by shear stress against 0.577·σy. The hot band sits at the{" "}
+                  {raiser.kind === "none" ? "surface" : raiserKey.toLowerCase()}; the end face carries the radial
+                  τ ∝ r gradient. Twist shown ×{mag < 2 ? mag.toFixed(1) : mag.toFixed(0)}.
+                </figcaption>
+              </figure>
+            )}
+
+            <h2>Section &amp; loading</h2>
+            <table className="rep">
+              <tbody>
+                <tr>
+                  <td>Polar second moment J</td>
+                  <td className="v">{(r.J * 1e12).toFixed(0)} mm⁴</td>
+                </tr>
+                <tr>
+                  <td>Section modulus Zp</td>
+                  <td className="v">{(r.Zp * 1e9).toFixed(0)} mm³</td>
+                </tr>
+                <tr>
+                  <td>Shear modulus G</td>
+                  <td className="v">{(r.G / 1e9).toFixed(1)} GPa</td>
+                </tr>
+                <tr>
+                  <td>Nominal surface shear</td>
+                  <td className="v">{(r.tauNom / 1e6).toFixed(1)} MPa</td>
+                </tr>
+                <tr className="hi">
+                  <td>Peak shear, Kts {Kts.toFixed(2)}</td>
+                  <td className="v">{(r.tauPeak / 1e6).toFixed(1)} MPa</td>
+                </tr>
+                <tr>
+                  <td>Torsional stiffness</td>
+                  <td className="v">{r.ktDeg.toFixed(1)} N·m/°</td>
+                </tr>
+              </tbody>
+            </table>
+
+            <h2>Equations used</h2>
+            <div className="eqs">
+              {EQUATIONS.map((e) => (
+                <div key={e.expr}>
+                  {e.expr} <span style={{ color: "#666" }}>— {e.note}</span>
+                </div>
+              ))}
+            </div>
+
+            {!printDoc.brief && (
+              <>
+                <div className="sec brk">Worked calculation</div>
+                <div dangerouslySetInnerHTML={{ __html: reportHTML(state) }} />
+                <div className="sec brk">Design tips</div>
+                <div className="theory" dangerouslySetInnerHTML={{ __html: tipsHTML(state) }} />
+              </>
+            )}
+
+            <div className="foot">
+              Static torque only — no bending, no combined stress, no fatigue. Kts is a first-iteration estimate
+              interpolated from Shigley Table 7-1 anchors, not a Peterson chart lookup. Material values are typical
+              reference figures; verify before production use.
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

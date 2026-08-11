@@ -15,7 +15,7 @@ yielding.
 | `/buckling-calculator` | **Column Buckling** — Euler critical load for all four classical end conditions (K = 0.5 / 0.7 / 1.0 / 2.0) with the Johnson parabola for short columns; push the 3D column's load platen and watch the initial imperfection amplify by 1/(1−P/Pcr) into the mode shape | ready |
 | `/pin-calculator` | **Pin & Bolt Shear Joint — Clevis & Lap** — a pin or bolt in single or double shear through two or three flanges, each plate its own material. Every Shigley Fig 8-23 failure mode: pin shear and clevis pin bending, bearing on pin and members, net-section tension, edge tear-out — solid or hollow pin, metal or printed. Orbit the 3D clevis and pull the loaded flange until something gives; every zone is painted by the check that owns it, with a capacity ladder for what lets go first | ready |
 | `designs/pinjoint/` | Design study behind the pin calculator — the three interaction prototypes (control panel with section views, pull-to-failure ladder, 3D joint) on one shared engine | design study |
-| `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts, with the keyseat / shoulder-fillet / groove concentrations that decide where a shaft really breaks; push the 3D lever and watch the scribe line shear into a helix | ready |
+| `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts. The keyseat, shoulder fillet or circlip groove that decides where a shaft really breaks is an input, and so is its radius: drag it and Kts moves while the 3D view re-cuts the feature. Push the lever to wind the shaft up and watch the scribe line shear into a helix. Theory, design tips and a one-page or full PDF report | ready |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
 | — | Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
@@ -71,7 +71,8 @@ src/
     pinScene.ts             pin-joint geometry for the 3D viewer
     scene3d.ts              shared canvas painter for every 3D view
     ShaftCalc.tsx           shaft-torsion calculator + 3D shaft, lever and scribe line
-    shaftMath.ts            pure torsion math: J, τ, twist, Kts, power (tested)
+    shaftMath.ts            pure torsion math: J, τ, twist, Kts(r/d), power (tested)
+    shaftTheory.ts          worked report + design tips for the shaft page
     materials.ts            shared beam/flexure material library
     MaterialsMapCalc.tsx    Ashby property map: zoomable chart + index guidelines
     materialsMapMath.ts     pure map math: log geometry, indices, hull (tested)
@@ -155,10 +156,17 @@ brittle plates) and no preload friction, i.e. the slipped bearing state.
 **Shaft in torsion** — classical circular-shaft theory: `τ = Tc/J`, `θ = TL/GJ`
 with `G = E/2(1+ν)`, checked against the distortion-energy shear yield
 `τallow = 0.577·σy`. The number that actually governs is the local one: the
-machined feature multiplies the surface stress by Kts (Shigley Table 7-1
-first-iteration estimates — 3.0 for an end-milled keyseat, 2.2 / 1.5 for a sharp
-/ well-rounded shoulder fillet), and the 3D view cuts that feature into the
-surface and pins the hot band to it. Wind-up is checked against the workshop
+machined feature multiplies the surface stress by Kts, and **Kts follows the
+radius you actually specify**, not a fixed table entry. A concentration factor
+is a property of how sharp a feature is, so a handbook value means nothing
+without an r/d — Shigley Table 7-1 gives a shoulder fillet in torsion at two of
+them (2.2 at r/d 0.02, 1.5 at r/d 0.1), and two points fix a power law,
+`Kts = Kref·(r/d ÷ ref)^−0.238`. It reproduces both anchors exactly; applied to
+the keyseat and groove it is an interpolation anchored on their handbook figure
+at the standard radius, borrowing the fillet's curve shape on the grounds that
+all of them are a notch in torsion. Honest between r/d 0.01 and 0.3, and the
+page says so outside that. Drag the radius and the 3D view re-cuts the feature
+while the safety factor moves with it. Wind-up is checked against the workshop
 rule of thumb of 1° per 20 diameters, which long slender shafts fail long before
 they approach shear yield. Static torque only — no bending, no combined stress,
 no fatigue; a rotating shaft carrying a steady bending load needs the fatigue

@@ -14,21 +14,21 @@ npm run build:standalone   # one self-contained index.html
 
 ## Shape of a calculator
 
-Three files, every time:
+**Building or extending one? Read the `new-calculator` skill first** — it carries
+the full anatomy. The short version: pure tested math in `<name>Math.ts`, the
+tabbed page in `<Name>Calc.tsx` (Model / Theory & report / Design tips), the
+long-form prose in `<name>Theory.ts` as HTML built around the user's own numbers,
+a grabbable 3D view, a printable worked report, and honest scope notes.
 
-- `src/calculators/<name>Math.ts` — pure functions, SI in and out, no React,
-  no three.js. All the physics lives here.
-- `src/calculators/<name>Math.test.ts` — tests the closed forms against their
-  textbook identities, not against last run's output.
-- `src/calculators/<Name>Calc.tsx` — the page: inputs, readouts, the 3D
-  viewer, and a theory section that ends with a plain-language "In short".
+A calculator that ships without its theory tab and its report is not finished.
 
-Then wire it into `ROUTES` in `src/App.tsx`, add a card in `src/pages/Home.tsx`
+Wire it into `ROUTES` in `src/App.tsx`, add a card in `src/pages/Home.tsx`
 (Refined / In progress / Planned — plus Exploration maps at the bottom, for
 things you wander rather than run, like the Materials Map), and add a row plus
-a model note to the README. Shared pieces: `ui.tsx` (Field/Select/Readout), `materials.ts`,
-`stressColor.ts`, and the `flexure-*` CSS classes, which carry the responsive
-layout for free.
+a model note to the README. Shared pieces: `ui.tsx` (Field/Select/Readout),
+`materials.ts`, `stressColor.ts`, `units.ts`, the `.theory`/`.eqn`/`.tip`/
+`table.rep` content classes, and the `flexure-*` and `tab*` CSS classes, which
+carry the responsive layout and the print stylesheet for free.
 
 ## Branding
 

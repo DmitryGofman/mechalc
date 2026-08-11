@@ -9,6 +9,10 @@ import {
   shearAtRadius,
   STRESS_RAISERS,
   VIEW_TWIST_AT_YIELD,
+  ktsFor,
+  defaultRadius,
+  rdInRange,
+  FILLET_ANCHORS,
 } from "./shaftMath";
 
 // Steel shaft: Ø25 mm × 500 mm, 200 GPa, ν = 0.29, σy = 350 MPa.
@@ -130,13 +134,79 @@ describe("stress raisers", () => {
     expect(STRESS_RAISERS["End-milled keyseat (profiled)"].Kts).toBeGreaterThan(
       STRESS_RAISERS["Sled-runner keyseat"].Kts,
     );
-    expect(STRESS_RAISERS["Shoulder fillet — sharp (r/d 0.02)"].Kts).toBeGreaterThan(
-      STRESS_RAISERS["Shoulder fillet — well rounded (r/d 0.1)"].Kts,
-    );
     for (const [name, sr] of Object.entries(STRESS_RAISERS)) {
       expect(sr.Kts, name).toBeGreaterThanOrEqual(1);
       expect(sr.Kts, name).toBeLessThanOrEqual(4);
+      // Every real feature quotes the radius its figure belongs to.
+      if (sr.kind !== "none") expect(sr.rdRef, name).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("Kts from the radius actually specified", () => {
+  const fillet = STRESS_RAISERS["Shoulder fillet"];
+
+  it("reproduces both Shigley shoulder-fillet anchors exactly", () => {
+    expect(ktsFor(fillet, FILLET_ANCHORS.sharp.rd)).toBeCloseTo(2.2, 9);
+    expect(ktsFor(fillet, FILLET_ANCHORS.rounded.rd)).toBeCloseTo(1.5, 9);
+  });
+
+  it("falls monotonically as the radius opens up", () => {
+    let prev = Infinity;
+    for (const rd of [0.01, 0.02, 0.04, 0.08, 0.16, 0.3]) {
+      const k = ktsFor(fillet, rd);
+      expect(k).toBeLessThan(prev);
+      prev = k;
+    }
+    // A generous radius is nearly no notch at all; a sharp one is punishing.
+    expect(ktsFor(fillet, 0.3)).toBeLessThan(1.3);
+    expect(ktsFor(fillet, 0.005)).toBeGreaterThan(2.5);
+  });
+
+  it("never drops below 1 or runs away", () => {
+    expect(ktsFor(fillet, 100)).toBe(1);
+    expect(ktsFor(fillet, 0)).toBeLessThanOrEqual(6);
+    expect(ktsFor(fillet, -5)).toBeLessThanOrEqual(6);
+    expect(ktsFor(STRESS_RAISERS["None — plain shaft"], 0.02)).toBe(1);
+    expect(ktsFor(undefined, 0.02)).toBe(1);
+  });
+
+  it("anchors every other feature on its own handbook figure", () => {
+    for (const [name, sr] of Object.entries(STRESS_RAISERS)) {
+      if (sr.kind === "none") continue;
+      expect(ktsFor(sr, sr.rdRef!), name).toBeCloseTo(sr.Kts, 9);
+    }
+  });
+
+  it("hands back the radius that reproduces the handbook figure", () => {
+    const d = 0.025;
+    const r = defaultRadius(fillet, d);
+    expect(r).toBeCloseTo(0.02 * d, 12);
+    expect(ktsFor(fillet, r / d)).toBeCloseTo(fillet.Kts, 9);
+    expect(defaultRadius(STRESS_RAISERS["None — plain shaft"], d)).toBe(0);
+  });
+
+  it("knows where the interpolation stops being honest", () => {
+    expect(rdInRange(0.02)).toBe(true);
+    expect(rdInRange(0.3)).toBe(true);
+    expect(rdInRange(0.004)).toBe(false);
+    expect(rdInRange(0.5)).toBe(false);
+  });
+
+  it("makes the same fillet sharper on a bigger shaft", () => {
+    const r = 0.5e-3; // 0.5 mm radius, fixed by the tool
+    const small = ktsFor(fillet, r / 0.012);
+    const big = ktsFor(fillet, r / 0.05);
+    expect(big).toBeGreaterThan(small);
+  });
+
+  it("feeds through to the shaft results", () => {
+    const d = 0.025;
+    const sharp = shaftResults(E, SY, NU, d, 0, L, 200, ktsFor(fillet, 0.5e-3 / d));
+    const round = shaftResults(E, SY, NU, d, 0, L, 200, ktsFor(fillet, 2.5e-3 / d));
+    expect(round.SF).toBeGreaterThan(sharp.SF);
+    expect(round.Tyield).toBeGreaterThan(sharp.Tyield);
+    expect(round.theta).toBeCloseTo(sharp.theta, 12); // a radius is not stiffness
   });
 });
 

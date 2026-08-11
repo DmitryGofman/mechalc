@@ -397,8 +397,17 @@ table.rep tr.hi td { color: #e8edf1; background: #0d1521; }
   .app-crumb { display: none !important; }
   .clamp-page > * { display: none !important; }
   .clamp-page > .calc-print { display: block !important; }
-  .flexure-shell { max-width: none !important; padding: 0 !important; }
-  .clamp-page { max-width: none !important; color: #111; }
+  /* .clamp-page is the hook a page with a print document wears; .calc-page is
+     the same thing under a name that isn't about clamps. */
+  .calc-page > * { display: none !important; }
+  .calc-page > .calc-print { display: block !important; }
+  /* A shell with an inline dark background paints straight over the white
+     page — the bug that once turned exports into black slabs. Every
+     calculator's shell goes to paper white, whether or not it has a report. */
+  .flexure-shell { max-width: none !important; padding: 0 !important;
+    background: #fff !important; color: #111 !important; }
+  .calc-print { color: #111; }
+  .clamp-page, .calc-page { max-width: none !important; color: #111; }
 
   /* ── document furniture ── */
   .calc-print .ph { border-bottom: 2px solid #111; padding-bottom: 8px; margin-bottom: 12px; }
