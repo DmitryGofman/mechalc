@@ -5,9 +5,11 @@ description: Build a new MechCalc calculator, or bring an existing one up to the
 
 # What a MechCalc calculator is
 
-> This skill is living memory: the `evolve` loop folds verified lessons from
-> each build into the section where they apply. If you learn something here
-> the hard way, write it back in place so the next builder doesn't.
+> **This skill learns.** It is the distilled experience of every calculator
+> built so far, and updating it is part of finishing a build — see the last
+> section. If you learn something the hard way, the build is not done until
+> that lesson is written back here, in place, so the next builder never hits
+> it again.
 
 Not a form with numbers. Every finished one is four things at once: a **closed-form
 check** you can trust, a **3D model you can grab** that makes the physics visible,
@@ -209,3 +211,35 @@ plainly, without hedging, and where the person reading the number will see it.
 
 Finish with the `preview` skill and hand over the link, deep-linked to the
 calculator you built. That is the delivery; screenshots are only evidence.
+
+## Leave this skill smarter than you found it
+
+The final step of every build or refinement, before the last commit: re-read
+this file and fold in what the session actually taught you. This is how the
+skill evolves — each calculator built makes the next one easier, because the
+experience accumulates here instead of evaporating when the session ends.
+
+What counts as a lesson:
+
+- A bug you hit that a sentence here would have prevented — a rendering
+  gotcha, a sign convention, a print-stylesheet trap. (The `preserveDrawingBuffer`
+  snapshot, the "never re-skin the UI for print" rule, and the leaning scribe
+  line above all entered this file exactly this way.)
+- A detour: something this file told you to do that turned out wrong, stale,
+  or already handled by shared code. Fix it or delete it — a skill that says
+  things the codebase now does automatically is training people to skim.
+- A pattern you extracted into shared code (`scene3d.ts`, `stressColor.ts`,
+  a CSS class): update this file to point at the shared piece instead of
+  describing the hand-rolled version.
+
+Rules, so the file gets sharper rather than longer:
+
+- **Verified this session only.** An actual bug hit, an actual detour taken.
+  No speculative advice, nothing imported from general knowledge.
+- **Edit in place**, in the section where the next builder needs the warning —
+  never a "misc lessons" appendix at the bottom.
+- One or two sentences per lesson, in this file's voice: what breaks, and the
+  concrete rule that avoids it.
+- A clean build that taught nothing writes nothing. Don't invent an edit.
+- Say what was learned in the commit message — git history is this skill's
+  changelog.
