@@ -3,6 +3,7 @@ import * as PM from "./pinMath";
 import { buildScene, drawScene } from "./pinScene";
 import type { View } from "./scene3d";
 import { reportHTML, summaryHTML } from "./pinReport";
+import { figuresHTML } from "./pinDiagrams";
 import { Field, Select } from "../ui";
 
 // Pin & Bolt Shear Joint — a pin or bolt carrying a transverse load through
@@ -15,6 +16,11 @@ const n2 = (v: number) => (isFinite(v) ? v.toFixed(2) : "∞");
 const kN = (v: number) => (isFinite(v) ? `${f(v / 1000, 2)} kN` : "∞");
 
 type Tab = "model" | "modes" | "report" | "theory";
+
+// A hard ceiling on the load, in newtons. 10 MN is far past anything a pin
+// joint of these dimensions can be, and it is a backstop against a typo or a
+// runaway feedback loop putting an absurd number on screen.
+const F_CEILING = 1e7;
 
 export default function PinCalc() {
   const [inp, setInp] = useState<PM.PinInput>(PM.defaults);
@@ -44,12 +50,19 @@ export default function PinCalc() {
     // Never below the load actually applied: switching to a weaker material
     // shrinks capacity but does not change what you asked the joint to carry,
     // and a thumb pinned at max while the readout says something else is a lie.
-    const raw = Math.max(2.2 * cap, inp.F * 1.05);
+    //
+    // Take F STRAIGHT — no headroom multiplier. With the thumb at max, F is
+    // exactly fmax, so any factor above 1 makes the range demand a bigger
+    // range: every pointer event ratchets it up a ladder step and holding the
+    // thumb at the end runs the load to absurdity within a second. Taking F
+    // as-is is a fixed point — the round-up returns the same step it was
+    // given — so the range can grow to admit a load but never grow itself.
+    const raw = Math.min(Math.max(2.2 * cap, inp.F), F_CEILING);
     // Round up to a human number, on a fine enough ladder that the round-up
     // never pushes failure far off the middle of the travel.
     const mag = 10 ** Math.floor(Math.log10(raw));
     const step = [1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10].find((s) => s * mag >= raw) ?? 10;
-    return Math.max(100, step * mag);
+    return Math.min(Math.max(100, step * mag), F_CEILING);
   }, [res.Fcap, inp.F]);
   const fstep = useMemo(() => Math.max(1, Math.round(fmax / 500)), [fmax]);
 
@@ -233,10 +246,10 @@ export default function PinCalc() {
         {/* Jump straight to the load the design target allows, then explore
             around it — the range is scaled so that point is always reachable. */}
         <div style={{ ...panel, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <button style={btn(false)} onClick={() => set("F", Ftarget)} disabled={!isFinite(Ftarget)}>
+          <button style={btn(false)} onClick={() => set("F", Math.min(Ftarget, F_CEILING))} disabled={!isFinite(Ftarget)}>
             go to SF {f(inp.SFt, 1)}
           </button>
-          <button style={btn(false)} onClick={() => set("F", res.Fcap)} disabled={!isFinite(res.Fcap)}>
+          <button style={btn(false)} onClick={() => set("F", Math.min(res.Fcap, F_CEILING))} disabled={!isFinite(res.Fcap)}>
             go to failure
           </button>
           <span style={{ fontFamily: M, fontSize: 9.5, color: "#6b7884", lineHeight: 1.6, flex: 1, minWidth: 140 }}>
@@ -302,7 +315,8 @@ export default function PinCalc() {
             ))}
           </div>
 
-          <Field label="Load F" unit="N" value={String(inp.F)} step="100" min="0" onChange={(v) => set("F", Math.max(0, +v || 0))} />
+          <Field label="Load F" unit="N" value={String(inp.F)} step="100" min="0"
+            onChange={(v) => set("F", Math.min(Math.max(0, +v || 0), F_CEILING))} />
           <Field label="Target SF" unit="—" value={String(inp.SFt)} step="0.5" min="0" onChange={(v) => set("SFt", +v || 1)} />
 
           <div style={sectionLab}>Pin / bolt</div>
@@ -474,7 +488,7 @@ export default function PinCalc() {
           {!printDoc.brief && (
             <>
               <h2 className="sec brk">Calculation report</h2>
-              <div className="theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res) }} />
+              <div className="theory" dangerouslySetInnerHTML={{ __html: reportHTML(inp, res, true) }} />
               <h2 className="sec brk">Notes and warnings</h2>
               <table className="rep">
                 <tbody>{res.warns.map((w, i) => <tr key={i}><td>{w.text}</td></tr>)}</tbody>
@@ -579,6 +593,7 @@ function Theory({ inp, res }: { inp: PM.PinInput; res: PM.PinResult }) {
         its allowable. That is why the ladder is exact rather than a search, and why capacity is still meaningful at
         zero load.
       </p>
+      <div dangerouslySetInnerHTML={{ __html: figuresHTML(inp, res) }} />
       <div style={eq}>{`pin      τ = F / (n·A)              n = ${res.nPlanes}   vs Ssy = 0.577·Sy
          σ = M / Z                  M = F/2·(t₂/4 + gap + t₁/2)
          p = Fᵢ / (d·t)             bearing on the pin itself

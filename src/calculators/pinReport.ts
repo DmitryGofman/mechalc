@@ -7,6 +7,7 @@
 // so the page and the paper can never disagree with each other.
 
 import * as PM from "./pinMath";
+import { figuresHTML } from "./pinDiagrams";
 import { FR, V, eqn } from "./typeset";
 
 const f = PM.fmt;
@@ -185,8 +186,10 @@ function verdictHTML(inp: PM.PinInput, res: PM.PinResult): string {
 }
 
 /** The full worked calculation — the Report tab, and the body of the PDF. */
-export function reportHTML(inp: PM.PinInput, res: PM.PinResult): string {
+export function reportHTML(inp: PM.PinInput, res: PM.PinResult, forPrint = false): string {
   return givenHTML(inp, res) +
+    `<div class="lab" style="margin-top:18px">THE FIVE WAYS THIS JOINT CAN LET GO</div>` +
+    figuresHTML(inp, res, forPrint) +
     `<div class="lab" style="margin-top:18px">1 · THE PIN'S SECTION</div>` + sectionHTML(inp, res) +
     `<div class="lab" style="margin-top:18px">2 · HOW THE LOAD SPLITS</div>` + shareHTML(res) +
     `<div class="lab" style="margin-top:18px">3 · THE PIN</div>` + pinHTML(inp, res) +

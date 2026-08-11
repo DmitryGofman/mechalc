@@ -156,7 +156,11 @@ export function drawScene(
       if (nx * fc[0] + ny * fc[1] + nz * (fc[2] - view.dist) > 0) continue;
     } else if (nz < 0) { nx = -nx; ny = -ny; nz = -nz; }
     const nl = Math.hypot(nx, ny, nz) || 1;
-    const sh = 0.3 + 0.7 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
+    // Ambient floor: a face turned from the light still has to show its own
+    // colour. At 0.3 a saturated yield-red came out dark maroon, so a part at
+    // its limit read no hotter than one merely working — the colour was
+    // carrying information the shading then threw away.
+    const sh = 0.45 + 0.55 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
     items.push({ pp, c: q.c, sh, z: pp.reduce((t, p) => t + p[2], 0) / pp.length });
   }
   items.sort((a, b) => b.z - a.z);

@@ -21,7 +21,7 @@
 // production use.
 
 import { CLASSES } from "./fasteners";
-import { rampColor, TENSION_STOPS } from "./stressColor";
+import { rampColor, NEUTRAL_RGB, type Stops } from "./stressColor";
 
 // Distortion-energy shear yield: Ssy = 0.577·Sy.
 export const SHEAR_YIELD = 0.577;
@@ -116,9 +116,12 @@ export const PLATE_MATS: Record<string, PlateMaterial> = {
 export const bearingAllow = (m: { Sy: number; pb?: number }) => m.pb ?? BEARING_FACTOR * m.Sy;
 
 // What actually crosses the shear plane. A plain pin (or a bolt with its shank
-// in the plane) shears on the full circle; a bolt sheared through its THREADS
-// carries only the minor-diameter core — about 75% of the nominal area for
-// ISO coarse threads across the common sizes.
+// in the plane) works on the full circle; a bolt loaded through its THREADS
+// has only the minor-diameter core — about 75% of the nominal area for ISO
+// coarse threads across the common sizes. The same core also bends: with
+// A ∝ d² and Z ∝ d³, an area factor k means a section-modulus factor k^1.5
+// (0.75 → 0.65), so the selector moves the bending check too — which is the
+// one that usually governs a clevis.
 export const SHANKS: Record<string, { areaFactor: number }> = {
   "Plain pin / dowel (full shank)": { areaFactor: 1.0 },
   "Bolt — shank in shear plane": { areaFactor: 1.0 },
@@ -214,7 +217,8 @@ export type PinResult = {
   wall: number;  // effective wall, mm
   Apin: number;
   Ipin: number;
-  Zpin: number;
+  Zpin: number;  // the full section
+  Zeff: number;  // what actually bends — the threaded core, if that is in the joint
   Ashear: number;
   tau: number;
   Ssy: number;
@@ -276,6 +280,10 @@ export function solve(inp: PinInput): PinResult {
   const tauPerN = Ashear > 0 ? 1 / (nPlanes * Ashear) : Infinity;
   const Ssy = SHEAR_YIELD * pm.Sy;
 
+  // Threaded core bends as well as shears: an areaFactor k on d² is k^1.5 on
+  // d³, so the working section modulus shrinks faster than the shear area.
+  const Zeff = Zpin * sh.areaFactor ** 1.5;
+
   // 2) PIN BENDING (Fig 8-23b). Only meaningful in double shear, where the pin
   //    is a tiny simply-supported beam: the middle plate delivers F over t2,
   //    the outer reactions F/2 over t1, separated by the clevis clearance.
@@ -284,7 +292,7 @@ export function solve(inp: PinInput): PinResult {
   //    the moment there depends on restraint this model does not know.
   //    σ = M/Z, which reduces to the familiar 32M/πd³ for a solid pin.
   const armPerN = 0.5 * (t2 / 4 + Math.max(inp.clr, 0) + t1 / 2);
-  const bendPerN = double && Zpin > 0 ? armPerN / Zpin : 0;
+  const bendPerN = double && Zeff > 0 ? armPerN / Zeff : 0;
 
   const modes: PinMode[] = [];
   const push = (key: string, part: PinPart, label: string, kind: PinMode["kind"], perN: number, allow: number) => {
@@ -398,7 +406,7 @@ export function solve(inp: PinInput): PinResult {
   return {
     double, nPlanes, members,
     di: inp.hollow ? di : 0, wall: inp.hollow ? wall : d / 2,
-    Apin, Ipin, Zpin, Ashear,
+    Apin, Ipin, Zpin, Zeff, Ashear,
     tau: tauPerN * F, Ssy,
     SFshear: byKey("shear")!.SF,
     Mpin: double ? F * armPerN : 0,
@@ -411,10 +419,26 @@ export function solve(inp: PinInput): PinResult {
   };
 }
 
-// Utilization → colour, on the toolkit's shared tension ramp: 0 is the calm
-// neutral green, 1 is the allowable. Utilization (not SF) is what the 3D view
-// paints, because it stays finite and linear as the load goes to zero.
+// Utilization → colour. Utilization (not SF) is what the 3D view paints,
+// because it stays finite and linear as the load goes to zero.
+//
+// The toolkit's identity — calm green, through amber, to yield red — but on
+// its own stop positions rather than the shared tension ramp's. The shared one
+// is built for a signed stress field where ±1 is the interesting edge and the
+// scale runs on past it; here 1.0 is THE event, the allowable, and it has to
+// be unmistakable at a glance on a phone. So the amber arrives earlier, full
+// red lands exactly at 1.0, and past that it only brightens — going further
+// over cannot make a joint "more failed", it just makes the picture louder.
+const UTIL_STOPS: Stops = [
+  [0.0, NEUTRAL_RGB],
+  [0.35, [0.62, 0.66, 0.30]], // still fine, but no longer idle
+  [0.60, [0.85, 0.55, 0.22]], // amber — working hard
+  [0.85, [0.90, 0.34, 0.18]], // orange-red — close
+  [1.0, [0.92, 0.14, 0.14]],  // at the allowable
+  [1.4, [1.0, 0.42, 0.38]],   // past it: brighter, so overload still reads
+];
+
 export function utilRGB(u: number): [number, number, number] {
-  const c = rampColor(TENSION_STOPS, Math.max(0, u));
+  const c = rampColor(UTIL_STOPS, Math.max(0, u));
   return [c.r, c.g, c.b];
 }
