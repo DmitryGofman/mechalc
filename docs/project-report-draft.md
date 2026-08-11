@@ -5,168 +5,212 @@
 **Product:** MechCalc — <https://dmitrygofman.github.io/mechalc/>
 **Repository:** <https://github.com/DmitryGofman/mechalc>
 
-> **Draft notes, delete before submitting:** Everything in [brackets] is a placeholder.
-> The prompts in §3 are marked where you must paste your real ones from the session
-> history — do not submit reconstructed prompts as if they were verbatim.
-> Target length is ≤ 4 pages after the screenshots are placed.
+> **Draft notes — delete before submitting.** Everything in [brackets] is yours to
+> fill. The screenshots and both sample PDFs referenced here are real captures from
+> the running app, generated for this report; they live in `docs/report-assets/`.
+> Add your own photos of the printed parts where marked. Target ≤ 4 pages.
 
 ---
 
 ## 1. Introduction to the Profession
 
-Mechanical design engineering lives on *design checks*: before a part is trusted, a
-closed-form calculation shows that the bolt will not strip, the beam will not yield,
-the column will not buckle. The classical sources — Shigley's *Mechanical Engineering
-Design*, VDI 2230 for bolted joints, Euler and Johnson for columns — give these checks
-as short formulas, and every practicing engineer runs them constantly.
+I am a mechanical design engineer. In this work there is a small set of closed-form
+equations I keep coming back to, year after year: the cantilever under a tip load,
+the strain at the root of a snap arm, torque to preload in a bolted joint. They are
+the daily design checks — quick calculations that decide whether a part survives
+before anyone commits to detailed analysis or manufacturing.
 
-**The problem.** In practice these checks live in scattered spreadsheets and handbook
-pages. The number arrives divorced from the physical picture: a safety factor of 1.4
-on "net-section tension" tells you nothing about *where* the part is close to failing
-or *which* dimension to change. Spreadsheets also silently hide their assumptions —
-no scope notes, no record of what the check does **not** cover (fatigue, stress
-concentration, creep), which is exactly where real failures come from.
+Where I work, in a military organization, all design calculation is done on a
+standalone, air-gapped network. The checks live in Excel sheets and MathCAD files
+I can return to — but every project needs its adjustments, the files fork and
+drift, and often it is faster to just redo the equation on paper. Beyond the
+repetition there is a deeper problem: a spreadsheet gives a number with no
+physical feel. It will not tell a junior engineer *how close* the part is to
+failing, where, or what it would feel like in the hand.
 
-**Required achievement.** A free web toolkit of design-check calculators where each
-check pairs three things that are normally separate:
-
-1. **Validated closed-form math** — pure, unit-tested against textbook identities;
-2. **A live 3D model you can grab** — colored by how close each region is to failing,
-   so the number and the picture are the same model;
-3. **A printable worked report** — the full calculation in the user's own numbers,
-   with honest scope notes stating what the check does not cover.
-
-Success criteria: at least five calculators at this full standard, deployed publicly,
-with every math module covered by tests.
+**Required achievement.** A toolkit of design-check calculators that replaces the
+Excel/paper round-trip for my recurring equations, and adds what a spreadsheet
+cannot: an interactive 3D model that gives a real feel for the flexibility and the
+material — including sound and touch — plus a printable calculation report in the
+user's own numbers, so the check can be filed like any engineering document. The
+toolkit contains only textbook equations and public reference data, so it can live
+on the open web and grow tool by tool.
 
 ## 2. The Final Product
 
-MechCalc is live at **<https://dmitrygofman.github.io/mechalc/>** (also attached as a
-single self-contained `index.html` that runs offline). It currently ships seven
-finished tools:
+MechCalc is live at **<https://dmitrygofman.github.io/mechalc/>** (also attached
+as a single self-contained `index.html` that runs offline — relevant where I
+work). It is a growing catalog; this report focuses on the three calculators
+that tell the story: the simple cantilever beam it started from, the snap-fit
+that grew out of it, and the bolt torque calculator.
 
-| Calculator | Check |
-| --- | --- |
-| Cantilever Flexure | stiffness, bending stress, yield SF for a flexure blade |
-| Bolted Joint | torque→preload, VDI 2230 reduced stress, Shigley pressure-cone member stiffness, separation & bearing-crush |
-| Beam on Two Supports | center-load stiffness and stress, pinned or built-in ends |
-| Column Buckling | Euler + Johnson, all four classical end conditions |
-| Pin & Bolt Shear Joint | every Shigley Fig. 8-23 failure mode, with a capacity ladder for what lets go first |
-| Shaft in Torsion | τ = Tc/J, wind-up, and a stress-concentration factor that follows the fillet radius you actually specify |
-| Materials Map | an interactive Ashby property chart with minimum-mass index guidelines |
+![MechCalc home catalog](report-assets/home.png)
 
-**How to use it** (any engineer, no instructions needed): open a calculator, type your
-geometry, load and materials — every readout updates live. The 3D model is grabbable:
-tighten the bolt's nut, push the column's platen, swing the shaft's lever, and the
-stress colors and readouts follow your drag. The *Theory & report* tab walks the full
-calculation in your own numbers and exports a one-page bench sheet or a full PDF
-report through the print dialog. The *Design tips* tab gives numbered practical
-advice with your numbers substituted in. Every page states plainly what the model
-does **not** cover (static only, no fatigue, reference material values).
+### 2.1 The cantilever beam — where it started
 
-[SCREENSHOT: home page catalog]
-[SCREENSHOT: one calculator — 3D view mid-drag, readouts visible]
-[SCREENSHOT: an exported PDF report page]
+The first calculator was a simulation of a simple cantilever beam with a
+rectangular cross-section, modeled with linear (Euler–Bernoulli) tip-displacement
+theory: enter material, length, thickness, width and target deflection, and get
+stiffness, the force required and the peak bending stress against yield. It was
+made to check that a design works and doesn't fail — but just as much to give a
+*feel* for the flexibility and the mechanical properties of the material and the
+beam. The 3D beam bends as you drag its tip; the colors show extension and
+compression of the different parts of the beam from the actual stress field; as
+the beam approaches failure a rising tone plays, so you can hear when it is about
+to snap, and on a phone the app vibrates in your hand.
 
-**Physicality of results** (course note 1): the math never lives in the UI — each
-calculator has a pure `<name>Math.ts` module tested with vitest against textbook
-identities and degenerate inputs (zero load, a bore that swallows the shaft), never
-against "last run's output". Spot checks reproduce handbook anchors: the bolt
-calculator returns the familiar ≈9 N·m for a dry M6 class 8.8 into steel, and drops
-to ≈1 N·m for M5 into printed nylon, matching the separate torque tables plastics
-suppliers publish; the shaft's Kts power law reproduces both Shigley Table 7-1
-anchors exactly and the page states the r/d range where the interpolation is honest.
+That feel turned out to be the useful part. The tool was picked up by junior
+engineers designing 3D-printed compliant beams — the material library carries
+printed polymers with honest anisotropy warnings — and it was used to validate
+designs and estimate forces before printing.
+
+![Cantilever flexure — a PA12 printed blade, safety factor 3.76](report-assets/flexure-default.png)
+
+![The same blade asked for 12 mm of deflection — the check turns marginal](report-assets/flexure-fail.png)
+
+*The same PA12 blade at 4 mm and at 12 mm of target deflection: the safety factor
+drops from 3.76 (SAFE) to 1.25 (MARGINAL), the force readout picks up the
+uncertainty factor, and the beam's colors shift toward the root where the stress
+concentrates.*
+
+[PHOTOS: add 1–2 photos of real 3D-printed parts designed with this calculator.]
+
+### 2.2 The snap-fit — a real design, not just a beam
+
+After the simple version proved itself, a second version was designed around a
+real cantilever snap-fit with the engaging tooth: entry and return angles,
+friction, fillet radius at the root, uniform or tapered profiles. It computes
+root strain against the material's strain budget, deflection force, and the
+insertion and removal forces from the wedge action of the tooth — with a
+self-locking guard for return angles that can never release, and validity checks
+on the beam proportions. There was a lot of debugging and iteration during this
+design; the model is cross-checked internally (the closed forms against a numeric
+integration of the same beam) and covered by a test suite of ~40 cases, and a
+Classical-vs-Snap-Fit tab plus a full theory page explain where the model comes
+from and where it stops.
+
+![Cantilever snap-fit — PA66 arm, strain utilization 0.40, insertion and removal forces](report-assets/snapfit.png)
+
+### 2.3 The bolt torque calculator
+
+The third focus tool answers the most repeated question of all: how hard to
+tighten. Torque → preload through the nut-factor model, the VDI 2230-style
+reduced stress while the wrench is on, and the full clamped sandwich: each plate
+its own material and thickness, Shigley pressure-cone member stiffness, load
+sharing under the external load, separation and bearing-crush checks. The
+simulation is interactive: grab the nut and drag to tighten, and watch the torque
+climb, the bolt stretch, the plates squash, and the pressure cone shade with the
+load each material carries — a real interactive feel for what tightening does to
+the joint.
+
+The recommended torques were not taken from the equations alone: a research pass
+compared the calculator's outputs against known published torque tables. The
+model reproduces the familiar handbook figures for steel joints (≈9 N·m for a dry
+M6 class 8.8) and, because the target preload also respects the *plates'* bearing
+limits, it drops to the much lower values plastics suppliers publish for printed
+and molded materials (≈1 N·m for M5 into PA12) — matching the separate tables
+those suppliers issue.
+
+![Bolted joint — inputs and the three result groups](report-assets/bolt-model.png)
+
+![The interactive joint: drag the nut to tighten; the pressure cone is shaded by the load each plate carries](report-assets/bolt-3d.png)
+
+### 2.4 Reports, not just readouts
+
+While using the app, a calculation can be exported as a typeset report — a long
+form and a one-page bench sheet — built from the very numbers entered in the
+calculator: the 3D figure snapshotted onto paper white, the worked equations
+step by step, design tips, scope notes and references. The two attached sample
+PDFs (`shaft-report-full.pdf`, `shaft-report-onepage.pdf`) were generated from
+the app for this report. The report mechanism shipped with the newer calculators
+and is being rolled back across the older ones; every calculator already carries
+its theory section and design tips on the page.
 
 ## 3. Use of AI in the Project
 
-The project was built by co-coding with Claude Code. The multiplication is real:
-each calculator — physics module with tests, tabbed page, interactive three.js
-scene, long-form theory report, PDF export, deployment — is roughly [X] hours of
-sessions instead of the weeks a hand-built equivalent would take. But the more
-interesting change is *how* the work is organized: the engineering judgment stayed
-human (which checks matter, which handbook anchors to validate against, what the
-scope notes must admit), while the AI carried it into working code at scale.
+The app was built by co-coding with Claude Code, following the working method set
+in the course. The basic design was planned first: I started in VS Code by
+creating the architecture plan — pure math modules separated from the pages, one
+shared 3D painter, a shared materials library — and only then started building.
+I also ran a research pass on the basic equations engineers use, with the idea of
+making calculator generation automatic; the research was useful but the
+conclusion was the opposite — the best way is to build a calculator *instead of*
+each calculation I would otherwise do on paper or in Excel, one at a time, as
+real need appears. As I work I keep adding tools, and it genuinely makes life
+easier.
 
-### 3.1 Standing instructions: CLAUDE.md
+**The prototype-first workflow.** Each calculator starts as standalone HTML
+prototypes with distinct designs — several interaction concepts for the same
+tool, cheap to build and cheap to throw away. Claude then asks me questions about
+how the design should continue, I pick a direction, and we iterate; then I use
+the tool myself and check the physics against the handbook numbers before it
+ships. The snap-fit is the clearest example: its design study produced the
+3D-arm concept that became the calculator, and its engine is the one covered by
+the ~40-case test suite. The logo was also generated with AI, as a design study
+of eight candidates previewed in real context (browser tab, home screen, header)
+before one was chosen.
 
-The repository carries a `CLAUDE.md` the AI reads at the start of every session:
-the commands, the anatomy of a calculator, and standing rules ("the user wants to
-**use** the app after a change, not read about it" — so every session ends with a
-published clickable preview, unasked). This removed a whole category of repeated
-instruction-giving.
+**Prompts and outcomes.** [PASTE 3–4 REAL PROMPTS from your session history with
+what came back. Strong candidates: the prompt that produced a design study's
+prototypes; a physics correction where you caught a non-physical result and
+pinned it to a handbook anchor; the torque-table validation request; a prompt
+asking Claude to drive the app in a browser and screenshot it, which caught a
+rendering bug no test sees.]
 
-### 3.2 Skills: turning process into a reusable asset
+**The skill: turning the process into an asset.** After several calculators, the
+recurring instructions became a skill — `new-calculator` (attached). It encodes
+the definition of done ("not a form with numbers": tested math + grabbable 3D +
+worked report + honest scope notes), the exact file anatomy, working code for the
+two mechanisms that kept going wrong (the print-document flow, snapshotting the
+3D view onto paper white), and a verification checklist. It is institutional
+memory: the print export that once rendered as a black slab, the decoration that
+leaned the wrong way because of a sign convention, the mis-framed camera — each
+mistake became a rule, so no future session repeats it. A second skill,
+`preview`, publishes the working tree as a live clickable app at the end of every
+change, so review happens by using the tool, not reading a diff.
 
-Two skills were developed for this project (both attached to the submission):
+**With/without comparison.** [RECOMMENDED — run it and paste results: give the
+same prompt, e.g. "add a helical coil spring calculator", once on a branch with
+the skill removed and once with it present, and show the two outcomes side by
+side. Without the skill: a working form with math, and none of the rest. With
+it: the full anatomy, wired into routes, catalog and README, verified in a
+browser.]
 
-**`new-calculator`** — the definition of done. It encodes what a finished calculator
-*is* ("not a form with numbers": tested math + grabbable 3D + worked report + honest
-scope notes), the exact file anatomy, working code for the two trickiest mechanisms
-(the print-document flow and snapshotting the 3D view onto paper white), and a
-verification checklist. Critically, it is **institutional memory of real bugs**: the
-print export that once rendered as a black slab, the scribe line that leaned the
-wrong way because of a sign convention, the camera that framed the model at a third
-of its size — each is now a rule, so no future session repeats them.
-
-**`preview`** — publishes the working tree as a live clickable artifact at the end
-of every change, so review happens by *using* the app, not reading a diff.
-
-**With/without comparison.** [RECOMMENDED EXPERIMENT — run it and paste results:
-give the same prompt, e.g. "add a helical coil spring calculator", once on a branch
-with the skill deleted and once with it present. Without the skill the AI ships a
-working form with math — and stops: no theory tab, no report, no scope notes, a 3D
-view that recomputes its own numbers. With the skill, one prompt yields the full
-anatomy, wired into routes, catalog and README, verified in a real browser. Show a
-screenshot of each.]
-
-### 3.3 Example prompts and outcomes
-
-[PASTE 3–4 REAL PROMPTS from your session history with what came back. Good
-candidates, one per kind of work:]
-
-- *A whole feature from one prompt* — e.g. the prompt that asked for the shaft
-  calculator's adjustable fillet radius, which produced the Kts power-law fit
-  anchored on Shigley Table 7-1, the 3D feature re-cutting live, and the tests.
-- *A physics correction* — a place where you caught the AI's model being
-  non-physical and the prompt you used to pin it to a handbook anchor.
-  [This is your strongest co-coding evidence — find one in the history.]
-- *A verification prompt* — asking it to drive the app in a real browser and
-  screenshot the 3D view, which caught rendering bugs no unit test sees.
-- *The design-study workflow* — e.g. the pin joint's three interaction prototypes
-  built on one shared engine before committing to a design.
-
-### 3.4 Working correctly, not blindly
-
-Two habits kept this co-coding rather than vibe-coding: every physics result had to
-reproduce a named textbook anchor before it shipped, and every session ended with
-driving the real app (drag the handle, print the report, check the phone width) —
-because the bugs that matter (invisible keyseat, black print export) never fail a
-unit test. A small illustration: the assignment PDF itself contains a hidden
-instruction planted for AIs that read it. Reading the AI's output critically —
-including this report — is the whole point; the instruction was caught and not
-followed.
+**Working correctly, not blindly.** Two habits kept this co-coding rather than
+vibe-coding: every physics result had to reproduce a named textbook anchor before
+shipping (the torque tables, Shigley's Kts anchors, the snap-fit cross-checks),
+and every session ended with driving the real app — dragging the handles,
+printing the report, checking the phone width — because the bugs that matter
+never fail a unit test. A small illustration: the assignment PDF itself contains
+a hidden instruction planted for AIs that read it. It was caught and not
+followed; reading the AI's output critically, including this report, is the whole
+point.
 
 ## 4. Summary
 
-The required achievement was met and exceeded: seven finished tools against a target
-of five, all at the full standard (tested math, grabbable 3D, printable report,
-honest scope), deployed at a public URL. [ADJUST if your honest count differs.]
+The required achievement was met: the recurring equations now live as calculators
+I reach for instead of Excel, MathCAD or paper — and the toolkit gives what those
+never did: the feel of the part in your hands, and a filed-quality report at the
+end. The tools are in real use, including by junior engineers who design printed
+compliant beams with the cantilever tool, and the catalog keeps growing with the
+work.
 
-**What we would do differently.** The skills were written after several calculators
-were already built — mid-project, distilled from accumulated mistakes. In
-retrospect they should have been written after the *first* calculator: every
-lesson encoded in `new-calculator` was learned the expensive way at least once
-before it became a rule. We also initially underestimated what could be asked of
-the AI: early prompts requested single functions; later prompts requested entire
-calculators against the skill's definition of done, and the quality did not drop —
-the leverage was limited by our prompt ambition, not by the tool. Where dependence
-on AI risked hurting the product — the physics — the anchor-validation habit
-contained it; no non-physical result survived to deployment that we know of, and
-the scope notes state honestly where each model stops.
+**In retrospect.** The skill should have been written after the *first*
+calculator, not after several — every rule in it was first paid for the expensive
+way. The early automatic-generation idea was the opposite lesson: I initially
+aimed AI at the wrong kind of leverage (generating many calculators from a
+table of equations) when the real multiplier was depth — one calculator at a
+time, built to a standard a skill can enforce. And I underestimated what could be
+asked: early prompts requested functions; later ones requested entire calculators
+against the skill's definition of done, and quality held. Where dependence on AI
+could have hurt the product — the physics — the anchor-validation habit contained
+it: no non-physical result that we know of survived to deployment, and each page
+states honestly where its model stops.
 
 ---
 
-*Attachments per the submission list: (1) this report as PDF; (2) screenshots and a
-short screen-capture video of dragging the 3D models; (3) the product — live URL +
-standalone `index.html`; (4) the `new-calculator` and `preview` skill files;
-(5) the repository link with the code.*
+*Attachments per the submission list: (1) this report as PDF; (2) the screenshots
+above and a short screen-capture video of dragging the 3D models
+[+ your photos of printed parts]; (3) the product — live URL and standalone
+`index.html`; (4) the `new-calculator` and `preview` skills; (5) the repository
+with the code, including the two sample PDF reports generated by the app.*
