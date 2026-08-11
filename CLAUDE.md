@@ -30,6 +30,16 @@ a model note to the README. Shared pieces: `ui.tsx` (Field/Select/Readout),
 `table.rep` content classes, and the `flexure-*` and `tab*` CSS classes, which
 carry the responsive layout and the print stylesheet for free.
 
+## The catalog evolves itself
+
+`ROADMAP.md` is the goal memory: the selection policy, the queue, the idea
+backlog and a journal of what each cycle shipped. The `evolve` skill runs one
+cycle — pick the highest-value step, build it via `new-calculator`, then write
+lessons back into the skills and the roadmap. When the user says "evolve",
+"keep going" or "next calculator" (or a scheduled session fires with no more
+specific ask), run that skill; each cycle is self-contained, so a cold session
+recovers the full state from those two files.
+
 ## Branding
 
 The logo lives in `src/brand.tsx` — `LogoMark` draws it inline (with a reduced

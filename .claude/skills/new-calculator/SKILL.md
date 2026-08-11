@@ -5,6 +5,10 @@ description: Build a new MechCalc calculator, or bring an existing one up to the
 
 # What a MechCalc calculator is
 
+> This skill is living memory: the `evolve` loop folds verified lessons from
+> each build into the section where they apply. If you learn something here
+> the hard way, write it back in place so the next builder doesn't.
+
 Not a form with numbers. Every finished one is four things at once: a **closed-form
 check** you can trust, a **3D model you can grab** that makes the physics visible,
 a **worked calculation** in the user's own numbers that can be printed and filed,
