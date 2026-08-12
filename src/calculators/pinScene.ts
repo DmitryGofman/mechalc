@@ -32,6 +32,7 @@ export type PinSceneOpts = {
   explode: number;   // 0..1 — pulls the stack apart along the pin
   stressMode: boolean;
   forces: boolean;
+  flangeAlpha: number; // 1 = solid flanges; below that they are seen through
 };
 
 const ARROW_LEN = 0.7; // constant, so the camera never re-fits with load
@@ -114,11 +115,6 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const nP = lay.plates.length;
   const plX = lay.plates.map((_, i) => (i - (nP - 1) / 2) * exp);
   const plY = lay.plates.map((p) => (p.dir * slip) / 2);
-  // Withdrawing the pin upward would leave the assembly hanging in the top of
-  // the frame with dead space beneath, so the whole scene slides down by half
-  // the withdrawal and the composition stays centred as it opens.
-  const pinLift = o.explode * (lay.L + 0.8 * d);
-  const yShift = -pinLift / 2;
 
   // ── the flanges ──
   // Depth is per polygon, so a big face sorts by one centroid and can win
@@ -129,12 +125,15 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   const NA = 44;
   const RINGS = [0, 0.22, 0.48, 0.74, 1]; // fractions from hole edge to plate edge
   for (let pi = 0; pi < nP; pi++) {
-    const p = lay.plates[pi], ox = plX[pi], oy = plY[pi] + yShift;
+    const p = lay.plates[pi], ox = plX[pi], oy = plY[pi];
     // The material tones are picked for flat SVG fills; under the painter's
     // 0.3 ambient a face angled away from the light lands near black and the
     // whole flange reads as a silhouette. Lift them into the range the shading
     // can actually work over.
     const tone = hex2rgb(p.m.mat.tone).map((t) => Math.min(1, t * 1.2 + 0.05)) as [number, number, number];
+    // Only the FLANGES fade. The pin keeps its full colour, because seeing it
+    // through them is the entire reason for turning them down.
+    const fa = o.flangeAlpha;
     const uB = util(p.m.SFbearPlate), uT = util(p.m.SFtear), uN = util(p.m.SFnet);
     const thPress = (-p.dir * Math.PI) / 2; // where the pin presses = the tear-out side
     const P = (x: number, vz: number, vy: number) => [(x + ox) * s, (vy + oy) * s, vz * s];
@@ -203,7 +202,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
           const cz = (q0[0] + q1[0] + q2[0] + q3[0]) / 4, cy = (q0[1] + q1[1] + q2[1] + q3[1]) / 4;
           // The first ring is the collar the pin bears into; the rest is the
           // body of the flange, where tear-out and net section live.
-          S.push({ p: front ? face : face.slice().reverse(), c: zoneColor(tone, zoneU(cz, cy, r === 0 ? 0 : 1)), o: O });
+          S.push({ p: front ? face : face.slice().reverse(), c: zoneColor(tone, zoneU(cz, cy, r === 0 ? 0 : 1)), o: O, a: fa });
         }
       }
     }
@@ -222,7 +221,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
       S.push({
         p: [P(p.x0, za, ya), P(p.x0, zb, yb), P(p.x1, zb, yb), P(p.x1, za, ya)],
         c: zoneColor(tone, isTear ? uT : 0.25 * util(p.m.worst)),
-        o: O,
+        o: O, a: fa,
       });
     }
 
@@ -235,6 +234,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
       S.push({
         p: [P(p.x0, c0[0], c0[1]), P(p.x0, c1[0], c1[1]), P(p.x1, c1[0], c1[1]), P(p.x1, c0[0], c0[1])],
         c: zoneColor(dim(tone, 0.55), u),
+        a: fa,
       });
     }
   }
@@ -277,15 +277,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // Each slice follows whichever flange it is inside, so the pin visibly STEPS
   // at every shear plane instead of staying a straight cylinder.
   //
-  // Exploding also WITHDRAWS the pin, fully clear of the stack. Spreading the
-  // flanges along the pin can never expose its middle — the peak bending
-  // moment is at mid-span, directly under the flange that causes it — so the
-  // one place the pin is actually failing stayed hidden. Lifting it right out
-  // shows the whole length with its whole distribution, and, since nothing
-  // then interpenetrates anything, removes the sorting hazard that let a
-  // buried pin punch through a flange. It stays aligned along x, so you can
-  // still read which stretch of pin sat in which flange.
-  const yPin = (x: number) => lerpBy(x, plY) + pinLift + yShift;
+  const yPin = (x: number) => lerpBy(x, plY);
   // True position → where it is drawn once the stack is exploded.
   const xDraw = (x: number) => x + lerpBy(x, plX);
 
@@ -354,7 +346,12 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
     }
     return false;
   };
-  const hideBuried = o.explode < 0.06;
+  // A pin slice inside a flange is hidden by it, and a painter's algorithm can
+  // never sort it right — at some angles it punches through. So while the
+  // flanges are SOLID it is not drawn at all. Turn them see-through and the
+  // rule inverts: seeing the pin inside is the whole point, everything is
+  // drawn, and the depth sort blends it correctly because nothing is culled.
+  const hideBuried = o.flangeAlpha >= 0.995;
 
   // Walk the pin in TRUE coordinates, draw each slice where the explode
   // transform puts it. Sampling in drawn space instead would stretch the load
@@ -430,7 +427,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // pull the joint. It is published in scene space and comes back projected.
   for (let pi = 0; pi < nP; pi++) {
     const p = lay.plates[pi];
-    const yEnd = (p.dir > 0 ? p.ymax : p.ymin) + plY[pi] + yShift;
+    const yEnd = (p.dir > 0 ? p.ymax : p.ymin) + plY[pi];
     const xm = ((p.x0 + p.x1) / 2 + plX[pi]) * s;
     const tail = (yEnd + p.dir * 0.35 * d) * s;
     const tip = tail + p.dir * ARROW_LEN;
@@ -450,7 +447,7 @@ export function buildScene(inp: PM.PinInput, res: PM.PinResult, o: PinSceneOpts)
   // rather than the empty corners.
   const fitR = 0.8 * Math.hypot(
     (Math.max(Math.abs(lay.X0), Math.abs(lay.X1)) + explodeMax) * s,
-    ((lay.L + (lay.L + 0.8 * d) / 2 + d) * s) + ARROW_LEN, // incl. the withdrawn pin
+    lay.L * s + ARROW_LEN,
     (inp.w / 2) * s,
   );
   return { S, fitR, handles };

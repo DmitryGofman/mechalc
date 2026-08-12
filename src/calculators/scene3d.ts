@@ -12,7 +12,10 @@
 //     genuinely nearer. Keep every face small, and don't emit geometry buried
 //     inside an opaque body at all.
 
-export type Poly = { p: number[][]; c: [number, number, number]; o?: number[] };
+// `a` overrides the view's global alpha for this face alone, so a scene can
+// ghost one part while another stays solid — seeing a pin through its flanges
+// is only useful if the pin itself does not fade with them.
+export type Poly = { p: number[][]; c: [number, number, number]; o?: number[]; a?: number };
 export type View = { yaw: number; pitch: number; dist: number };
 
 // `handles` are scene-space points a calculator wants back in screen space, so
@@ -135,7 +138,7 @@ export function drawScene(
   };
 
   const solid = alpha >= 0.995;
-  const items: { pp: number[][]; c: [number, number, number]; sh: number; z: number }[] = [];
+  const items: { pp: number[][]; c: [number, number, number]; sh: number; a: number; z: number }[] = [];
   for (const q of scene.S) {
     const pp = q.p.map(project);
     if (pp.some((p) => p[2] <= 0.25)) continue;
@@ -161,22 +164,28 @@ export function drawScene(
     // its limit read no hotter than one merely working — the colour was
     // carrying information the shading then threw away.
     const sh = 0.45 + 0.55 * Math.max(0, (nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
-    items.push({ pp, c: q.c, sh, z: pp.reduce((t, p) => t + p[2], 0) / pp.length });
+    items.push({ pp, c: q.c, sh, a: q.a ?? alpha, z: pp.reduce((t, p) => t + p[2], 0) / pp.length });
   }
   items.sort((a, b) => b.z - a.z);
 
-  ctx.globalAlpha = alpha;
   for (const it of items) {
     const col = `rgb(${it.c.map((v) => Math.round(Math.min(1, v * it.sh) * 255)).join(",")})`;
+    ctx.globalAlpha = it.a;
     ctx.fillStyle = col;
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 0.4;
     ctx.beginPath();
     ctx.moveTo(it.pp[0][0], it.pp[0][1]);
     for (let i = 1; i < it.pp.length; i++) ctx.lineTo(it.pp[i][0], it.pp[i][1]);
     ctx.closePath();
     ctx.fill();
-    ctx.stroke();
+    // The outline only exists to close the hairline seams between adjacent
+    // faces of one solid. Drawn translucent it is a second layer over the
+    // neighbour it was meant to meet, and the mesh shows through as a grid —
+    // so a face that is being seen through is filled and left alone.
+    if (it.a >= 0.995) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+    }
   }
   ctx.globalAlpha = 1;
 

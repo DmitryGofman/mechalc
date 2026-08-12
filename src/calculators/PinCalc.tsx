@@ -30,6 +30,11 @@ export default function PinCalc() {
   const [stressMode, setStressMode] = useState(true);
   const [forces, setForces] = useState(true);
   const [spin, setSpin] = useState(false);
+  // Flange opacity. At 100% the flanges are solid and the pin inside them is
+  // not drawn at all — buried geometry cannot be depth-sorted by a painter's
+  // algorithm without punching through. Turn them down and the pin, and where
+  // along it the load actually bites, comes into view.
+  const [opacity, setOpacity] = useState(100);
   // Non-null only while an export is in flight: it carries which document to
   // build and the 3D snapshot to embed in it.
   const [printDoc, setPrintDoc] = useState<{ brief: boolean; img: string } | null>(null);
@@ -76,8 +81,8 @@ export default function PinCalc() {
   const dragRef = useRef<{ mode: "orbit" | "pull" | null; x: number; y: number; ly: number; f0: number }>({
     mode: null, x: 0, y: 0, ly: 0, f0: 0,
   });
-  const liveRef = useRef({ inp, res, ex, explode, stressMode, forces, spin });
-  liveRef.current = { inp, res, ex, explode, stressMode, forces, spin };
+  const liveRef = useRef({ inp, res, ex, explode, stressMode, forces, spin, opacity });
+  liveRef.current = { inp, res, ex, explode, stressMode, forces, spin, opacity };
 
   // One animation loop for the whole viewer.
   useEffect(() => {
@@ -89,7 +94,11 @@ export default function PinCalc() {
         if (L.spin) viewRef.current.yaw += 0.006;
         const scene = buildScene(L.inp, L.res, {
           ex: L.ex, explode: L.explode, stressMode: L.stressMode, forces: L.forces,
+          flangeAlpha: L.opacity / 100,
         });
+        // The view itself stays fully opaque: the fade is carried per-face by
+        // the flanges alone, so back-face culling stays on and the pin behind
+        // a ghosted flange is still sorted and blended correctly.
         handlesRef.current = drawScene(cv, scene, viewRef.current, 1);
       }
       raf = requestAnimationFrame(tick);
@@ -148,7 +157,7 @@ export default function PinCalc() {
   // density, on paper white.
   const snapshot = (brief: boolean): string => {
     const cv = document.createElement("canvas");
-    const scene = buildScene(inp, res, { ex, explode, stressMode, forces });
+    const scene = buildScene(inp, res, { ex, explode, stressMode, forces, flangeAlpha: opacity / 100 });
     drawScene(cv, scene, { ...viewRef.current }, 1, {
       width: 1100, height: brief ? 460 : 700, scale: 2, background: "#ffffff", settle: true,
     });
@@ -231,11 +240,12 @@ export default function PinCalc() {
             <span style={{ color: "#46515c", fontWeight: 400 }}>capacity {kN(res.Fcap)}</span>
           </div>
           {/* When the pin is the weak link, the place it gives way is inside
-              the stack — hidden, and correctly so. Say where to look rather
-              than reddening the ends, which carry nothing. */}
+              the stack — hidden while the flanges are solid, and correctly so.
+              Say where to look rather than reddening the ends, which carry
+              nothing. */}
           <div className="clamp-hint">
-            {res.governing.part === "pin" && explode < 0.5 && inp.F > 0
-              ? <span style={{ color: PM.sfColor(res.SFjoint) }}>the pin governs, inside the stack — tap EXPLODED to see where</span>
+            {res.governing.part === "pin" && opacity >= 100 && inp.F > 0
+              ? <span style={{ color: PM.sfColor(res.SFjoint) }}>the pin governs, inside the stack — turn the flanges see-through to watch it</span>
               : "drag the loaded flange to pull · drag elsewhere to orbit"}
           </div>
         </div>
@@ -300,6 +310,18 @@ export default function PinCalc() {
           </button>
           <button style={btn(spin)} onClick={() => setSpin(!spin)}>spin</button>
           <button style={btn(false)} onClick={() => { viewRef.current.yaw = -0.55; viewRef.current.pitch = -0.38; }}>reset view</button>
+        </div>
+
+        <div style={{ ...panel, display: "flex", alignItems: "center", gap: 9 }}>
+          <span style={{ ...lab, whiteSpace: "nowrap" }}>Flange opacity</span>
+          <input type="range" min={15} max={100} step={1} value={opacity} aria-label="Flange opacity"
+            onChange={(e) => setOpacity(+e.target.value)} style={{ flex: 1, accentColor: "#3a78c2", minWidth: 0 }} />
+          <span style={{ fontFamily: M, fontSize: 13, fontWeight: 600, minWidth: 44, textAlign: "right" }}>{opacity}%</span>
+        </div>
+        <div style={{ fontFamily: M, fontSize: 9, color: "#46515c", lineHeight: 1.7, marginTop: 5 }}>
+          {opacity >= 100
+            ? "solid — the pin inside the flanges is hidden, because buried geometry cannot be depth-sorted without punching through"
+            : "see-through — the pin inside the flanges is drawn, so you can watch where along it the load bites"}
         </div>
 
         <div style={{ ...panel, display: "flex", alignItems: "center", gap: 9 }}>
