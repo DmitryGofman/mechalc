@@ -9,6 +9,7 @@ import ColumnCalc from "./calculators/ColumnCalc";
 import ClampCalc from "./calculators/ClampCalc";
 import PinCalc from "./calculators/PinCalc";
 import ShaftCalc from "./calculators/ShaftCalc";
+import ZipTieCalc from "./calculators/ZipTieCalc";
 import MaterialsMapCalc from "./calculators/MaterialsMapCalc";
 
 // Route table: every calculator lives at its own path under the site base,
@@ -21,6 +22,7 @@ const ROUTES: Record<string, { title: string; el: ReactNode }> = {
   "/clamp-calculator": { title: "Cylinder Clamp — MechCalc", el: <ClampCalc /> },
   "/pin-calculator": { title: "Pin & Bolt Shear Joint — MechCalc", el: <PinCalc /> },
   "/shaft-calculator": { title: "Shaft in Torsion — MechCalc", el: <ShaftCalc /> },
+  "/ziptie-calculator": { title: "Zip Tie — Cable Tie — MechCalc", el: <ZipTieCalc /> },
   "/materials-map": { title: "Materials Map — MechCalc", el: <MaterialsMapCalc /> },
 };
 

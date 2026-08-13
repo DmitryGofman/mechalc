@@ -66,6 +66,15 @@ const REFINED: CalcCard[] = [
 
 const IN_PROGRESS: CalcCard[] = [
   {
+    route: "/ziptie-calculator",
+    tag: "Fasteners",
+    title: "Zip Tie — Cable Tie",
+    desc: "Will that tie hold, in that heat, in that sun, for that long — loop-tensile rating derated by material, temperature and environment, with the trade's 2–5× safety factors. Drag the 3D bundle to pull on the tie; a Data & materials tab carries sizes, materials, MIL/UL standards and how the ratchet head locks.",
+    eq: "Fcap = Frated·kmat·kT·kenv",
+    ready: true,
+    wip: true,
+  },
+  {
     route: "/shaft-calculator",
     tag: "Drivetrain",
     title: "Shaft in Torsion",

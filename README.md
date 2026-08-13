@@ -17,6 +17,7 @@ yielding.
 | `designs/pinjoint/` | Design study behind the pin calculator — the three interaction prototypes (control panel with section views, pull-to-failure ladder, 3D joint) on one shared engine | design study |
 | `/shaft-calculator` | **Shaft in Torsion** — shear stress, wind-up angle, torsional stiffness and power rating for solid & hollow circular shafts. The keyseat, shoulder fillet or circlip groove that decides where a shaft really breaks is an input, and so is its radius: drag it and Kts moves while the 3D view re-cuts the feature. Push the lever to wind the shaft up and watch the scribe line shear into a helix. Theory, design tips and a one-page or full PDF report | ready |
 | `designs/cylinderclamp/` | **Cylinder Clamp — Split Collar** — a two-piece clamp on a rod or tube: recommended torque from the bolt, the body material and the geometry at once, with crown & ear bending, head bearing, tube crush/ovalization, flange-gap closure and creep-derated grip. Drag a bolt head to tighten the 3D assembly, painted by signed bending stress. Theory, design tips, and one-page or full PDF export | ready |
+| `/ziptie-calculator` | **Zip Tie — Cable Tie** — will that tie hold, in that heat, in that sun, for that long: the minimum loop-tensile rating (18–250 lb classes) derated by material (PA66 grades, PA12, PP, ETFE, PEEK, stainless ball-lock), temperature and environment, with the trade's 2–5× safety factors, parallel-tie sharing and bundle-length sizing. Drag the 3D bundle hanging in the loop and watch strap and head each approach their own letting-go point. A Data & materials tab carries the size table, material comparison at your conditions, MS3367 / SAE AS23190 / UL 62275 standards, the ratchet-head cutaway and the slow failure modes (creep, UV, hydrolysis, vibration) | in progress |
 | — | Helical Coil Spring · Press/Interference Fit · Thin-Wall Pressure Vessel · Bearing Life (L10) | planned |
 
 ## Exploration maps
@@ -101,6 +102,16 @@ copies the active set to `public/` as `favicon.svg`, `apple-touch-icon.png`
 (the iPhone home-screen icon) and the manifest icons.
 
 ## Model notes
+**Zip tie** — the one number a tie is sold by is its minimum loop tensile
+strength (the UL 62275 / SAE AS23190 loop-apart test, which the head loses, not
+the strap), and the model is four multiplications on it: `Fcap = Frated · kmat ·
+kT · kenv`, with parallel ties counted at 80% each and the recommended working
+load at the trade's 2× static / 4× sustained / 5× vibration factors. Derating
+anchors are typical published vendor curves; the strap's own break `σt·w·t` is
+shown only to teach head efficiency (~40–60%). What it does **not** cover:
+fatigue-life prediction, edge cutting, chafe, damaged or reused heads — and no
+tie is a lifting sling.
+
 **Materials Map** — Ashby property-chart presentation: each material class is an
 ellipse spanning its published range on log-log axes, and minimum-mass merit
 indices `M = Eᵃ/ρ` (or `σᵃ/ρ`) draw as straight guidelines of slope `1/a`
